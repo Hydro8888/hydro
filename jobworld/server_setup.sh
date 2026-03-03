@@ -3,14 +3,6 @@
 # 실행: bash server_setup.sh
 set -e
 
-# sudo 없이 docker 사용 가능한지 확인, 불가하면 sudo 사용
-if docker info &>/dev/null 2>&1; then
-  DOCKER="docker"
-else
-  DOCKER="sudo docker"
-  echo "[권한] sudo로 docker 실행합니다."
-fi
-
 echo "================================================"
 echo "  JobWorld 서버 설치 및 배포"
 echo "================================================"
@@ -20,25 +12,22 @@ if ! command -v docker &> /dev/null; then
   echo "[1/6] Docker 설치 중..."
   curl -fsSL https://get.docker.com | sh
   sudo usermod -aG docker $USER
-  echo "Docker 설치 완료. 그룹 반영을 위해 재로그인 후 다시 실행하세요."
+  echo "Docker 설치 완료. 재로그인 후 다시 실행하세요."
   exit 0
 else
   echo "[1/6] Docker 이미 설치됨: $(docker --version)"
-  # docker 그룹 추가 (이미 설치된 경우에도 권한 부여)
-  sudo usermod -aG docker $USER 2>/dev/null || true
 fi
 
 # 2. Docker Compose 플러그인 확인
-if ! $DOCKER compose version &> /dev/null 2>&1; then
+if ! sudo docker compose version &> /dev/null 2>&1; then
   echo "[2/6] Docker Compose 설치 중..."
   sudo apt-get update -qq
   sudo apt-get install -y docker-compose-plugin
 else
-  echo "[2/6] Docker Compose 이미 설치됨: $($DOCKER compose version)"
+  echo "[2/6] Docker Compose 이미 설치됨: $(sudo docker compose version)"
 fi
 
 # 3. 코드 클론/업데이트
-DEPLOY_DIR="/home/ubuntu/jobworld"
 REPO_URL="https://github.com/Hydro8888/hydro.git"
 BRANCH="claude/ai-job-platform-GXCLo"
 
@@ -59,33 +48,26 @@ cd /home/ubuntu/hydro/jobworld
 # 4. .env 파일 설정
 echo "[4/6] 환경 변수 설정..."
 if [ ! -f .env ]; then
+  POSTGRES_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+  SECRET=$(openssl rand -base64 48 | tr -d '/+=' | head -c 48)
   cat > .env << ENVEOF
-# Database
-POSTGRES_PASSWORD=$(openssl rand -base64 24)
-
-# JWT
-SECRET_KEY=$(openssl rand -base64 48)
+POSTGRES_PASSWORD=${POSTGRES_PASS}
+SECRET_KEY=${SECRET}
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=30
-
-# AI API (선택사항 - 없으면 기본 요약 사용)
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
-
-# CORS
-CORS_ORIGINS=["http://211.198.54.207","https://jobworld.co.kr"]
 ENVEOF
-  echo "  .env 파일 생성 완료 (비밀번호 자동 생성)"
-  echo "  AI 기능을 위해 .env 에 ANTHROPIC_API_KEY 또는 OPENAI_API_KEY를 추가하세요"
+  echo "  .env 파일 생성 완료"
 else
   echo "  .env 파일 이미 존재 - 건너뜀"
 fi
 
-# 5. SSL 디렉토리 생성 (nginx가 시작되도록)
+# 5. nginx HTTP 전용 설정 생성
+echo "[5/6] Docker 컨테이너 빌드 및 실행 중..."
 mkdir -p nginx/ssl
 
-# 6. 임시 nginx 설정 생성 (SSL 없이 HTTP만)
-cat > nginx/nginx-http.conf << 'NGINXEOF'
+cat > nginx/nginx.conf << 'NGINXEOF'
 user nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log warn;
@@ -128,43 +110,28 @@ http {
 }
 NGINXEOF
 
-# docker-compose.yml을 HTTP 전용으로 수정하여 실행
-echo "[5/6] Docker 컨테이너 빌드 및 실행 중..."
-# nginx 설정을 HTTP 전용으로 교체 후 실행
-cp nginx/nginx.conf nginx/nginx.conf.ssl.bak
-cp nginx/nginx-http.conf nginx/nginx.conf
-
-$DOCKER compose down --remove-orphans 2>/dev/null || true
-$DOCKER compose up -d --build
+sudo docker compose down --remove-orphans 2>/dev/null || true
+sudo docker compose up -d --build
 
 echo "[6/6] 배포 완료 확인 중..."
 sleep 15
 
-# 상태 확인
-$DOCKER compose ps
+sudo docker compose ps
 
-# 헬스체크
 for i in 1 2 3 4 5; do
   if curl -sf http://localhost/health > /dev/null 2>&1; then
     echo ""
     echo "================================================"
     echo "  배포 성공!"
     echo "  서비스 주소: http://211.198.54.207"
-    echo "  API 문서: http://211.198.54.207/api/docs"
+    echo "  API 주소:   http://211.198.54.207/api/v1"
     echo "================================================"
-    break
+    exit 0
   fi
   echo "  헬스체크 대기 중... ($i/5)"
   sleep 5
 done
 
 echo ""
-echo "로그 확인: docker compose -f /home/ubuntu/hydro/jobworld/docker-compose.yml logs -f"
-echo ""
-echo "HTTPS 설정 (도메인 연결 후):"
-echo "  sudo apt install -y certbot"
-echo "  sudo certbot certonly --standalone -d jobworld.co.kr"
-echo "  sudo cp /etc/letsencrypt/live/jobworld.co.kr/fullchain.pem nginx/ssl/"
-echo "  sudo cp /etc/letsencrypt/live/jobworld.co.kr/privkey.pem nginx/ssl/"
-echo "  cp nginx/nginx.conf.ssl.bak nginx/nginx.conf"
-echo "  docker compose restart nginx"
+echo "헬스체크 실패 - 로그 확인:"
+sudo docker compose logs --tail=30

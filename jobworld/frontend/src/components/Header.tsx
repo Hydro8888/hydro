@@ -10,6 +10,7 @@ export default function Header() {
     <header className="border-b border-gray-100">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold">
+          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
           <span className="text-blue-600">Job</span>
           <span className="text-gray-800">World</span>
         </Link>

@@ -39,10 +39,17 @@ export default function Home() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <h1 className="text-5xl font-bold tracking-tight">
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
             <span className="text-blue-600">Job</span>
             <span className="text-gray-800">World</span>
           </h1>
-          <p className="mt-2 text-gray-500 text-sm">AI 기반 무료 구인구직 플랫폼</p>
+          <p className="mt-3 text-gray-700 text-lg font-medium">AI가 찾아주는 나만의 맞춤 일자리</p>
+          <p className="mt-2 flex items-center justify-center gap-2 text-sm text-gray-500">
+            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-0.5 rounded-full text-xs font-semibold">
+              ✓ 누구나 완전 무료
+            </span>
+            구인·구직 등록부터 검색까지 무료
+          </p>
         </div>
 
         {/* Search box */}
@@ -103,7 +110,7 @@ export default function Home() {
           <Link href="/terms" className="hover:text-gray-600">이용약관</Link>
           <Link href="/admin" className="hover:text-gray-600">관리자</Link>
         </div>
-        <p>© 2026 JobWorld. 모든 서비스 무료 제공.</p>
+        <p>© 2026 AI JobWorld. 모든 서비스 무료 제공.</p>
       </footer>
     </div>
   )

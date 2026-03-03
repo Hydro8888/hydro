@@ -3,6 +3,14 @@
 # 실행: bash server_setup.sh
 set -e
 
+# sudo 없이 docker 사용 가능한지 확인, 불가하면 sudo 사용
+if docker info &>/dev/null 2>&1; then
+  DOCKER="docker"
+else
+  DOCKER="sudo docker"
+  echo "[권한] sudo로 docker 실행합니다."
+fi
+
 echo "================================================"
 echo "  JobWorld 서버 설치 및 배포"
 echo "================================================"
@@ -16,15 +24,17 @@ if ! command -v docker &> /dev/null; then
   exit 0
 else
   echo "[1/6] Docker 이미 설치됨: $(docker --version)"
+  # docker 그룹 추가 (이미 설치된 경우에도 권한 부여)
+  sudo usermod -aG docker $USER 2>/dev/null || true
 fi
 
 # 2. Docker Compose 플러그인 확인
-if ! docker compose version &> /dev/null; then
+if ! $DOCKER compose version &> /dev/null 2>&1; then
   echo "[2/6] Docker Compose 설치 중..."
   sudo apt-get update -qq
   sudo apt-get install -y docker-compose-plugin
 else
-  echo "[2/6] Docker Compose 이미 설치됨: $(docker compose version)"
+  echo "[2/6] Docker Compose 이미 설치됨: $($DOCKER compose version)"
 fi
 
 # 3. 코드 클론/업데이트
@@ -124,14 +134,14 @@ echo "[5/6] Docker 컨테이너 빌드 및 실행 중..."
 cp nginx/nginx.conf nginx/nginx.conf.ssl.bak
 cp nginx/nginx-http.conf nginx/nginx.conf
 
-docker compose down --remove-orphans 2>/dev/null || true
-docker compose up -d --build
+$DOCKER compose down --remove-orphans 2>/dev/null || true
+$DOCKER compose up -d --build
 
 echo "[6/6] 배포 완료 확인 중..."
 sleep 15
 
 # 상태 확인
-docker compose ps
+$DOCKER compose ps
 
 # 헬스체크
 for i in 1 2 3 4 5; do

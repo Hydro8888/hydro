@@ -152,6 +152,9 @@ def _format_resume(resume: Resume, user_name: Optional[str] = None) -> dict:
 
 # ─── Gemini AI ───────────────────────────────────────────────────────────────
 
+GEMINI_MODEL = "gemini-2.0-flash-lite"
+
+
 async def gemini_augment(
     query: str, search_type: str, db_results: list[dict]
 ) -> tuple[str, list[str]]:
@@ -164,82 +167,76 @@ async def gemini_augment(
             _gemini_call_sync, query, search_type, db_results
         )
         return summary, insights
-    except Exception as e:
+    except Exception:
         return _fallback_summary(query, search_type, len(db_results)), []
 
 
-def _gemini_call_sync(
-    query: str, search_type: str, db_results: list[dict]
-) -> tuple[str, list[str]]:
-    import google.generativeai as genai
-    import json as _json
-
-    genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel("gemini-3.1-flash-lite")
-
+def _build_prompt(query: str, search_type: str, db_results: list[dict]) -> str:
     if search_type == "구인":
         db_preview = "\n".join([
-            f"- [{r['company_name']}] {r['title']} | {r['location']} | {r['salary_range'] or '급여미정'} | {r['job_type']}"
+            f"- [{r['company_name']}] {r['title']} | {r['location']} | "
+            f"{r['salary_range'] or '급여미정'} | {r['job_type']}"
             for r in db_results[:5]
         ]) if db_results else "등록된 공고 없음"
 
-        prompt = f"""당신은 구직 플랫폼의 AI 어시스턴트입니다.
-검색어: "{query}"
-검색 유형: 구인 (채용공고 검색)
-
-현재 플랫폼에 등록된 관련 공고:
-{db_preview}
-
-아래 JSON 형식으로만 응답하세요 (마크다운 없이 순수 JSON):
-{{
-  "summary": "검색어와 시장 상황을 고려한 2-3문장 한국어 요약",
-  "insights": [
-    "구인 관련 인사이트 또는 팁 1 (한 문장)",
-    "구인 관련 인사이트 또는 팁 2 (한 문장)",
-    "구인 관련 인사이트 또는 팁 3 (한 문장)"
-  ]
-}}"""
+        return (
+            f'당신은 구직 플랫폼의 AI 어시스턴트입니다.\n'
+            f'검색어: "{query}"\n검색 유형: 구인 (채용공고 검색)\n\n'
+            f'현재 플랫폼에 등록된 관련 공고:\n{db_preview}\n\n'
+            f'반드시 아래 형식의 순수 JSON으로만 응답하세요:\n'
+            f'{{"summary":"2-3문장 한국어 요약","insights":["인사이트1","인사이트2","인사이트3"]}}'
+        )
     else:
         db_preview = "\n".join([
             f"- {r['title']} | 기술: {r['skills'] or '미기재'} | 학력: {r['education'] or '미기재'}"
             for r in db_results[:5]
         ]) if db_results else "등록된 이력서 없음"
 
-        prompt = f"""당신은 구직 플랫폼의 AI 어시스턴트입니다.
-검색어: "{query}"
-검색 유형: 구직 (구직자/이력서 검색)
+        return (
+            f'당신은 구직 플랫폼의 AI 어시스턴트입니다.\n'
+            f'검색어: "{query}"\n검색 유형: 구직 (구직자/이력서 검색)\n\n'
+            f'현재 플랫폼에 등록된 관련 이력서:\n{db_preview}\n\n'
+            f'반드시 아래 형식의 순수 JSON으로만 응답하세요:\n'
+            f'{{"summary":"2-3문장 한국어 요약","insights":["인사이트1","인사이트2","인사이트3"]}}'
+        )
 
-현재 플랫폼에 등록된 관련 이력서:
-{db_preview}
 
-아래 JSON 형식으로만 응답하세요 (마크다운 없이 순수 JSON):
-{{
-  "summary": "검색어 기반 구직 시장 상황 2-3문장 한국어 요약",
-  "insights": [
-    "해당 직군 채용 시 고려할 점 1 (한 문장)",
-    "해당 직군 채용 시 고려할 점 2 (한 문장)",
-    "해당 직군 채용 시 고려할 점 3 (한 문장)"
-  ]
-}}"""
+def _gemini_call_sync(
+    query: str, search_type: str, db_results: list[dict]
+) -> tuple[str, list[str]]:
+    import json as _json
+    import re
+    from google import genai
+    from google.genai import types
 
-    response = model.generate_content(
-        prompt,
-        generation_config={"max_output_tokens": 400, "temperature": 0.4},
+    client = genai.Client(api_key=settings.gemini_api_key)
+    prompt = _build_prompt(query, search_type, db_results)
+
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            max_output_tokens=512,
+            temperature=0.4,
+        ),
     )
     text = response.text.strip()
-    # JSON 파싱
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
+
+    # ```json ... ``` 또는 ``` ... ``` 블록 제거
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    text = text.strip()
+
     data = _json.loads(text)
-    return data.get("summary", ""), data.get("insights", [])
+    summary = str(data.get("summary", ""))
+    insights = [str(i) for i in data.get("insights", []) if i]
+    return summary, insights
 
 
 def _fallback_summary(query: str, search_type: str, count: int) -> str:
     if search_type == "구직":
         return f"'{query}' 조건에 맞는 구직자 이력서 {count}개를 찾았습니다."
-    return f"'{query}' 관련 채용공고 {count}개를 찾았습니다. Gemini AI 키를 등록하면 더 풍부한 인사이트를 제공합니다."
+    return f"'{query}' 관련 채용공고 {count}개를 찾았습니다."
 
 
 # ─── Search Log ──────────────────────────────────────────────────────────────

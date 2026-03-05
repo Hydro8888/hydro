@@ -53,8 +53,45 @@ export const resumesAPI = {
 
 // Search
 export const searchAPI = {
-  ai: (query: string) => api.post('/search/ai', { query }),
+  ai: (query: string, search_type: SearchType = 'auto') =>
+    api.post('/search/ai', { query, search_type }),
   filter: (params: JobSearchParams) => api.get('/search', { params }),
+}
+
+export type SearchType = '구인' | '구직' | 'auto'
+
+export interface JobDbResult {
+  id: number
+  type: '구인'
+  title: string
+  company_name: string
+  location: string
+  salary_range?: string
+  job_type: string
+  deadline?: string
+  requirements?: string
+  view_count: number
+  created_at: string
+}
+
+export interface ResumeDbResult {
+  id: number
+  type: '구직'
+  title: string
+  skills?: string
+  experience?: string
+  education?: string
+  introduction?: string
+  created_at: string
+}
+
+export interface AISearchResult {
+  search_type: '구인' | '구직'
+  db_results: (JobDbResult | ResumeDbResult)[]
+  db_total: number
+  ai_summary: string
+  ai_insights: string[]
+  query: string
 }
 
 // Types

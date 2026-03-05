@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # AI
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "https://jobworld.co.kr"]
 

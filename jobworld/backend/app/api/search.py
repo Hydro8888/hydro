@@ -12,6 +12,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 class AISearchRequest(BaseModel):
     query: str
+    search_type: str = "auto"  # "구인" | "구직" | "auto"
 
 
 @router.post("/ai")
@@ -20,8 +21,13 @@ async def ai_search_endpoint(
     db: AsyncSession = Depends(get_db),
     user: Optional[User] = Depends(get_current_user),
 ):
-    """AI-powered natural language job search."""
-    results = await ai_search(db, body.query, user_id=user.id if user else None)
+    """Gemini AI + DB 통합 검색. DB 결과 우선, AI 인사이트 보강."""
+    results = await ai_search(
+        db,
+        body.query,
+        search_type=body.search_type,
+        user_id=user.id if user else None,
+    )
     return results
 
 
@@ -35,6 +41,6 @@ async def search(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Standard filtered search."""
+    """표준 필터 검색."""
     from app.api.jobs import list_jobs
     return await list_jobs(q=q, location=location, job_type=job_type, page=page, limit=limit, db=db)

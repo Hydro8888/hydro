@@ -174,7 +174,7 @@ def _gemini_call_sync(
     import json as _json
 
     genai.configure(api_key=settings.gemini_api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-3.1-flash-lite")
 
     if search_type == "구인":
         db_preview = "\n".join([

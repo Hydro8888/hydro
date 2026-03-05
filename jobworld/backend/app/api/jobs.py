@@ -131,10 +131,17 @@ async def update_job(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_employer),
 ):
-    result = await db.execute(select(JobPosting).where(JobPosting.id == job_id))
-    job = result.scalar_one_or_none()
-    if not job:
+    result = await db.execute(
+        select(JobPosting, Company.user_id)
+        .join(Company, JobPosting.company_id == Company.id)
+        .where(JobPosting.id == job_id)
+    )
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="채용공고를 찾을 수 없습니다.")
+    job, company_user_id = row
+    if company_user_id != user.id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(job, field, value)
@@ -149,10 +156,17 @@ async def delete_job(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_employer),
 ):
-    result = await db.execute(select(JobPosting).where(JobPosting.id == job_id))
-    job = result.scalar_one_or_none()
-    if not job:
+    result = await db.execute(
+        select(JobPosting, Company.user_id)
+        .join(Company, JobPosting.company_id == Company.id)
+        .where(JobPosting.id == job_id)
+    )
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="채용공고를 찾을 수 없습니다.")
+    job, company_user_id = row
+    if company_user_id != user.id and user.user_type != "admin":
+        raise HTTPException(status_code=403, detail="삭제 권한이 없습니다.")
     await db.delete(job)
     await db.commit()
     return {"message": "삭제되었습니다."}

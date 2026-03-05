@@ -19,7 +19,13 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "https://jobworld.co.kr"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://jobworld.co.kr",
+        "http://211.198.54.207",
+        "http://211.198.54.207:8080",
+    ]
 
     class Config:
         env_file = ".env"

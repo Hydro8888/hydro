@@ -115,7 +115,7 @@ async def search_resumes_db(db: AsyncSession, query: str) -> list[dict]:
         .limit(20)
     )
     rows = (await db.execute(stmt)).all()
-    return [_format_resume(resume) for resume, _ in rows]
+    return [_format_resume(resume, user_name) for resume, user_name in rows]
 
 
 # ─── Formatters ──────────────────────────────────────────────────────────────
@@ -136,11 +136,12 @@ def _format_job(job: JobPosting, company_name: Optional[str]) -> dict:
     }
 
 
-def _format_resume(resume: Resume) -> dict:
+def _format_resume(resume: Resume, user_name: Optional[str] = None) -> dict:
     return {
         "id": resume.id,
         "type": "구직",
         "title": resume.title,
+        "user_name": user_name or "이름 미공개",
         "skills": resume.skills,
         "experience": (resume.experience or "")[:120] or None,
         "education": resume.education,

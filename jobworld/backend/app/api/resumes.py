@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.resume import Resume
-from app.api.deps import require_user
+from app.api.deps import require_user, get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
@@ -47,13 +47,14 @@ async def list_resumes(
 async def get_resume(
     resume_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_user),
+    user: Optional[User] = Depends(get_current_user),
 ):
     result = await db.execute(select(Resume).where(Resume.id == resume_id))
     resume = result.scalar_one_or_none()
     if not resume:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
-    if resume.user_id != user.id and not resume.is_public:
+    is_owner = user and resume.user_id == user.id
+    if not resume.is_public and not is_owner:
         raise HTTPException(status_code=403, detail="접근 권한이 없습니다.")
     return resume_to_dict(resume)
 

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
@@ -78,6 +78,7 @@ export interface ResumeDbResult {
   id: number
   type: '구직'
   title: string
+  user_name?: string
   skills?: string
   experience?: string
   education?: string

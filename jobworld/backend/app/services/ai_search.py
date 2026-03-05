@@ -1,6 +1,10 @@
 """AI Search Service - DB results first, Gemini AI augmentation second."""
 import asyncio
+import logging
+import sys
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from app.models.job import JobPosting
@@ -54,7 +58,7 @@ async def ai_search(
         db_results = await search_jobs_db(db, query)
 
     # Gemini AI 인사이트
-    ai_summary, ai_insights = await gemini_augment(query, detected_type, db_results)
+    ai_summary, ai_insights, ai_error = await gemini_augment(query, detected_type, db_results)
 
     await log_search(db, query, len(db_results), user_id, detected_type)
 
@@ -64,6 +68,7 @@ async def ai_search(
         "db_total": len(db_results),
         "ai_summary": ai_summary,
         "ai_insights": ai_insights,
+        "ai_error": ai_error,
         "query": query,
     }
 
@@ -157,18 +162,21 @@ GEMINI_MODEL = "gemini-2.0-flash-lite"
 
 async def gemini_augment(
     query: str, search_type: str, db_results: list[dict]
-) -> tuple[str, list[str]]:
-    """Gemini AI로 검색 요약 + 인사이트 생성."""
+) -> tuple[str, list[str], Optional[str]]:
+    """Gemini AI로 검색 요약 + 인사이트 생성. (summary, insights, error)"""
     if not settings.gemini_api_key:
-        return _fallback_summary(query, search_type, len(db_results)), []
+        return _fallback_summary(query, search_type, len(db_results)), [], "GEMINI_API_KEY 미설정"
 
     try:
         summary, insights = await asyncio.to_thread(
             _gemini_call_sync, query, search_type, db_results
         )
-        return summary, insights
-    except Exception:
-        return _fallback_summary(query, search_type, len(db_results)), []
+        return summary, insights, None
+    except Exception as e:
+        err_msg = f"{type(e).__name__}: {e}"
+        logger.error(f"[Gemini] 오류: {err_msg}", exc_info=True)
+        print(f"[Gemini ERROR] {err_msg}", file=sys.stderr)
+        return _fallback_summary(query, search_type, len(db_results)), [], err_msg
 
 
 def _build_prompt(query: str, search_type: str, db_results: list[dict]) -> str:

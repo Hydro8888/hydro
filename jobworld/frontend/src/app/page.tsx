@@ -45,7 +45,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top nav */}
-      <nav className="flex justify-end items-center px-6 py-3 gap-4 text-sm">
+      <nav className="relative z-10 flex justify-end items-center px-6 py-3 gap-4 text-sm">
         <Link href="/jobs/post" className="text-gray-600 hover:text-gray-900">채용 등록</Link>
         <Link href="/resume/new" className="text-gray-600 hover:text-gray-900">이력서 등록</Link>
         <Link href="/login" className="text-gray-600 hover:text-gray-900">로그인</Link>
@@ -53,7 +53,7 @@ export default function Home() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4" style={{ marginTop: '-80px' }}>
+      <main className="flex-1 flex flex-col items-center justify-center px-4" style={{ marginTop: '-60px' }}>
         {/* Logo */}
         <div className="mb-8 text-center">
           <h1 className="text-5xl font-bold tracking-tight">

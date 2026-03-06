@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuthStore } from '@/lib/store'
 
 type SearchType = '구인' | '구직'
 
@@ -10,6 +11,7 @@ export default function Home() {
   const [query, setQuery] = useState('')
   const [searchType, setSearchType] = useState<SearchType>('구인')
   const router = useRouter()
+  const { user, logout } = useAuthStore()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,41 +34,65 @@ export default function Home() {
       { label: '백엔드', q: '백엔드 개발자' },
       { label: '경력 3년', q: '경력 3년' },
       { label: 'UI/UX', q: 'UI UX 디자이너' },
-      { label: '마케터', q: '마케터 구직' },
+      { label: '마케터', q: '마케터' },
       { label: '신입', q: '신입 구직' },
     ],
   }
 
   const placeholders: Record<SearchType, string> = {
-    구인: '직무, 회사, 키워드로 채용공고 AI 검색...',
-    구직: '기술스택, 경력, 직종으로 구직자 AI 검색...',
+    구인: '직무, 회사, 기술, 지역으로 채용공고 검색...',
+    구직: '기술스택, 경력, 직종으로 구직자 검색...',
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Top nav */}
-      <nav className="relative z-10 flex justify-end items-center px-6 py-3 gap-4 text-sm">
-        <Link href="/jobs/post" className="text-gray-600 hover:text-gray-900">채용 등록</Link>
-        <Link href="/resume/new" className="text-gray-600 hover:text-gray-900">이력서 등록</Link>
-        <Link href="/login" className="text-gray-600 hover:text-gray-900">로그인</Link>
-        <Link href="/register" className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 text-sm">회원가입</Link>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* ── 상단 네비게이션 ── */}
+      <nav className="relative z-20 flex justify-between items-center px-6 py-3 text-sm">
+        <span className="text-base font-bold">
+          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
+          <span className="text-blue-600">Job</span>
+          <span className="text-gray-800">World</span>
+        </span>
+        <div className="flex items-center gap-4">
+          <Link href="/jobs/post" className="text-gray-500 hover:text-gray-900 transition-colors">채용 등록</Link>
+          <Link href="/resume/new" className="text-gray-500 hover:text-gray-900 transition-colors">이력서 등록</Link>
+          {user ? (
+            <>
+              <span className="text-gray-600">{user.name}</span>
+              <button onClick={logout} className="text-gray-500 hover:text-gray-900 transition-colors">로그아웃</button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-gray-500 hover:text-gray-900 transition-colors">로그인</Link>
+              <Link
+                href="/register"
+                className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors font-medium"
+              >
+                회원가입
+              </Link>
+            </>
+          )}
+        </div>
       </nav>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4" style={{ marginTop: '-60px' }}>
-        {/* Logo */}
+      {/* ── 메인 컨텐츠 ── */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
+        {/* 로고 & 헤드라인 */}
         <div className="mb-8 text-center">
-          <h1 className="text-5xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
+          <h1 className="text-5xl font-extrabold tracking-tight leading-tight">
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI</span>
+            {' '}
             <span className="text-blue-600">Job</span>
-            <span className="text-gray-800">World</span>
+            <span className="text-gray-900">World</span>
           </h1>
-          <p className="mt-3 text-gray-700 text-lg font-medium">AI가 찾아주는 나만의 맞춤 일자리</p>
-          <p className="mt-2 flex items-center justify-center gap-2 text-sm text-gray-500">
+          <p className="mt-4 text-xl font-semibold text-gray-800">
+            AI가 찾아주는 가장 정확한 일자리와 인재
+          </p>
+          <p className="mt-2 text-sm text-gray-500 flex items-center justify-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-0.5 rounded-full text-xs font-semibold">
-              ✓ Gemini AI 검색
+              ✓ 완전 무료
             </span>
-            구인·구직 등록부터 검색까지 무료
+            구인 등록부터 구직 등록, AI 검색까지 누구나 완전 무료
           </p>
         </div>
 
@@ -75,26 +101,27 @@ export default function Home() {
           {(['구인', '구직'] as SearchType[]).map((type) => (
             <button
               key={type}
+              type="button"
               onClick={() => setSearchType(type)}
-              className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
+              className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all ${
                 searchType === type
                   ? type === '구인'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-purple-600 text-white shadow-sm'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-purple-600 text-white shadow'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {type === '구인' ? '🏢 구인' : '👤 구직'}
+              {type === '구인' ? '🏢 구인 찾기' : '👤 구직 찾기'}
             </button>
           ))}
         </div>
 
-        {/* Search box */}
-        <form onSubmit={handleSearch} className="w-full max-w-xl">
-          <div className={`flex items-center border rounded-full px-5 py-3 shadow-sm hover:shadow-md transition-all ${
+        {/* 검색창 */}
+        <form onSubmit={handleSearch} className="w-full max-w-2xl">
+          <div className={`flex items-center border-2 rounded-full px-5 py-3 shadow-sm hover:shadow-md transition-all bg-white ${
             searchType === '구인'
-              ? 'border-gray-300 focus-within:border-blue-400 focus-within:shadow-md'
-              : 'border-gray-300 focus-within:border-purple-400 focus-within:shadow-md'
+              ? 'border-blue-300 focus-within:border-blue-500'
+              : 'border-purple-300 focus-within:border-purple-500'
           }`}>
             <svg className="w-5 h-5 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -115,7 +142,7 @@ export default function Home() {
             )}
             <button
               type="submit"
-              className={`text-white px-5 py-1.5 rounded-full text-sm shrink-0 ${
+              className={`text-white px-6 py-2 rounded-full text-sm font-semibold shrink-0 transition-colors ${
                 searchType === '구인' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
               }`}
             >
@@ -124,13 +151,14 @@ export default function Home() {
           </div>
         </form>
 
-        {/* Quick search tags */}
-        <div className="flex flex-wrap gap-2 mt-4 justify-center max-w-xl">
+        {/* 빠른 검색 태그 */}
+        <div className="flex flex-wrap gap-2 mt-4 justify-center max-w-2xl">
           {quickLinks[searchType].map((link) => (
             <button
               key={link.q}
+              type="button"
               onClick={() => router.push(`/search?q=${encodeURIComponent(link.q)}&type=${encodeURIComponent(searchType)}`)}
-              className={`text-sm border rounded-full px-3 py-1 transition-colors ${
+              className={`text-sm border rounded-full px-3.5 py-1 transition-colors ${
                 searchType === '구인'
                   ? 'text-blue-600 border-blue-200 hover:bg-blue-50'
                   : 'text-purple-600 border-purple-200 hover:bg-purple-50'
@@ -141,29 +169,32 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-3 mt-6">
-          <Link href="/jobs" className="text-sm text-gray-600 border border-gray-200 rounded-full px-5 py-2 hover:bg-gray-50 transition-colors">
+        {/* CTA 버튼 */}
+        <div className="flex flex-wrap gap-3 mt-8 justify-center">
+          <Link href="/jobs"
+            className="text-sm text-gray-600 border border-gray-200 rounded-full px-5 py-2 hover:bg-gray-50 transition-colors">
             채용공고 보기
           </Link>
-          <Link href="/jobs/post" className="text-sm text-white bg-blue-600 rounded-full px-5 py-2 hover:bg-blue-700 transition-colors">
+          <Link href="/jobs/post"
+            className="text-sm text-white bg-blue-600 rounded-full px-5 py-2 hover:bg-blue-700 transition-colors font-medium">
             채용공고 등록 (무료)
           </Link>
-          <Link href="/resume/new" className="text-sm text-white bg-purple-600 rounded-full px-5 py-2 hover:bg-purple-700 transition-colors">
+          <Link href="/resume/new"
+            className="text-sm text-white bg-purple-600 rounded-full px-5 py-2 hover:bg-purple-700 transition-colors font-medium">
             이력서 등록 (무료)
           </Link>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="text-center text-xs text-gray-400 py-5 space-y-1">
-        <div className="flex justify-center gap-4">
-          <Link href="/about" className="hover:text-gray-600">서비스 소개</Link>
+      {/* ── 푸터 ── */}
+      <footer className="relative z-10 text-center text-xs text-gray-400 py-5 space-y-1">
+        <div className="flex justify-center gap-4 flex-wrap">
+          <Link href="/jobs" className="hover:text-gray-600">채용공고</Link>
           <Link href="/privacy" className="hover:text-gray-600">개인정보처리방침</Link>
           <Link href="/terms" className="hover:text-gray-600">이용약관</Link>
           <Link href="/admin" className="hover:text-gray-600">관리자</Link>
         </div>
-        <p>© 2026 AI JobWorld. Gemini AI 기반 구인·구직 검색 플랫폼.</p>
+        <p>© 2026 AI JobWorld. Gemini AI 기반 구인·구직 플랫폼. 완전 무료.</p>
       </footer>
     </div>
   )

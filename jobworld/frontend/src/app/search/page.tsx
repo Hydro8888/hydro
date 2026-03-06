@@ -6,6 +6,8 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import { searchAPI, AISearchResult, JobDbResult, ResumeDbResult } from '@/lib/api'
 
+const GEMINI_MODEL_LABEL = 'gemini-3.1-flash-lite-preview'
+
 function SearchContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -34,8 +36,9 @@ function SearchContent() {
     try {
       const res = await searchAPI.ai(searchQuery, type)
       setResults(res.data)
-    } catch {
-      setError('검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.message || '검색 중 오류가 발생했습니다.'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -54,10 +57,9 @@ function SearchContent() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Search bar */}
+      {/* ── 검색 바 ── */}
       <div className="border-b border-gray-100 py-4 px-4">
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto space-y-2">
-          {/* 구인/구직 탭 */}
           <div className="flex gap-2 mb-1">
             {(['구인', '구직'] as const).map((type) => (
               <button
@@ -78,8 +80,10 @@ function SearchContent() {
           </div>
 
           <div className="flex gap-2">
-            <div className={`flex-1 flex items-center border rounded-full px-4 py-2 focus-within:ring-1 ${
-              searchType === '구인' ? 'focus-within:border-blue-400 focus-within:ring-blue-200' : 'focus-within:border-purple-400 focus-within:ring-purple-200'
+            <div className={`flex-1 flex items-center border-2 rounded-full px-4 py-2 focus-within:ring-1 ${
+              searchType === '구인'
+                ? 'border-blue-300 focus-within:border-blue-500 focus-within:ring-blue-100'
+                : 'border-purple-300 focus-within:border-purple-500 focus-within:ring-purple-100'
             }`}>
               <svg className="w-4 h-4 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -89,12 +93,12 @@ function SearchContent() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={searchType === '구인' ? '직무, 기술, 지역, 연봉으로 검색...' : '기술스택, 경력, 직종으로 구직자 검색...'}
-                className="flex-1 outline-none text-sm text-gray-800"
+                className="flex-1 outline-none text-sm text-gray-800 bg-transparent"
               />
             </div>
             <button
               type="submit"
-              className={`text-white px-5 py-2 rounded-full text-sm ${
+              className={`text-white px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
                 searchType === '구인' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
               }`}
             >
@@ -105,7 +109,7 @@ function SearchContent() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
-        {/* Loading */}
+        {/* 로딩 */}
         {loading && (
           <div className="text-center py-16 text-gray-400">
             <div className={`animate-spin w-9 h-9 border-2 border-t-transparent rounded-full mx-auto mb-3 ${
@@ -118,13 +122,24 @@ function SearchContent() {
           </div>
         )}
 
-        {/* Error */}
-        {error && <p className="text-red-500 text-sm text-center py-8">{error}</p>}
+        {/* 에러 */}
+        {error && (
+          <div className="text-center py-10 bg-red-50 rounded-xl border border-red-100">
+            <p className="text-red-500 text-sm font-medium">⚠️ {error}</p>
+            <button
+              type="button"
+              onClick={() => doSearch(q, searchType)}
+              className="mt-3 text-xs text-red-400 underline"
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
 
         {results && !loading && (
-          <>
-            {/* 검색 유형 배지 */}
-            <div className="flex items-center gap-2 mb-4">
+          <div className="space-y-8">
+            {/* ── 검색 뱃지 + 추천 필터 ── */}
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                 results.search_type === '구인'
                   ? 'bg-blue-100 text-blue-700'
@@ -133,10 +148,22 @@ function SearchContent() {
                 {results.search_type === '구인' ? '🏢 구인 검색' : '👤 구직 검색'}
               </span>
               <span className="text-xs text-gray-400">"{results.query}"</span>
+              {results.ai_recommended_filters && results.ai_recommended_filters.length > 0 &&
+                results.ai_recommended_filters.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => router.push(`/search?q=${encodeURIComponent(f)}&type=${encodeURIComponent(searchType)}`)}
+                    className="text-xs border border-gray-200 text-gray-500 px-2.5 py-0.5 rounded-full hover:bg-gray-50 transition-colors"
+                  >
+                    {f}
+                  </button>
+                ))
+              }
             </div>
 
-            {/* ── SECTION 1: DB 등록 데이터 (우선 표시) ── */}
-            <section className="mb-8">
+            {/* ── SECTION 1: 플랫폼 등록 결과 (우선 표시) ── */}
+            <section>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-sm font-bold text-gray-800">
                   {results.search_type === '구인' ? '📋 등록된 채용공고' : '📄 등록된 구직자'}
@@ -147,12 +174,16 @@ function SearchContent() {
               </div>
 
               {results.db_results.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-xl text-gray-400 text-sm">
+                <div className="text-center py-10 bg-gray-50 rounded-xl text-gray-400 text-sm">
                   <p>등록된 {results.search_type === '구인' ? '채용공고' : '이력서'}가 없습니다.</p>
                   {results.search_type === '구인' ? (
-                    <Link href="/jobs/post" className="text-blue-600 mt-1 block hover:underline">채용공고 등록하기</Link>
+                    <Link href="/jobs/post" className="text-blue-600 mt-1 block hover:underline text-xs">
+                      채용공고 등록하기 (무료)
+                    </Link>
                   ) : (
-                    <Link href="/resume/new" className="text-purple-600 mt-1 block hover:underline">이력서 등록하기</Link>
+                    <Link href="/resume/new" className="text-purple-600 mt-1 block hover:underline text-xs">
+                      이력서 등록하기 (무료)
+                    </Link>
                   )}
                 </div>
               ) : (
@@ -168,46 +199,78 @@ function SearchContent() {
               )}
             </section>
 
+            {/* ── AI 매칭 이유 ── */}
+            {results.ai_reasoning && (
+              <div className={`text-xs px-4 py-2.5 rounded-lg border-l-2 ${
+                results.search_type === '구인'
+                  ? 'border-blue-300 bg-blue-50 text-blue-700'
+                  : 'border-purple-300 bg-purple-50 text-purple-700'
+              }`}>
+                <span className="font-semibold">AI 매칭 이유:</span> {results.ai_reasoning}
+              </div>
+            )}
+
             {/* ── SECTION 2: Gemini AI 인사이트 ── */}
-            {(results.ai_summary || results.ai_insights?.length > 0) && (
+            {(results.ai_summary || results.ai_insights?.length > 0 || results.ai_tips?.length > 0) && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-sm font-bold text-gray-800">✨ Gemini AI 인사이트</span>
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">AI 분석</span>
+                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {GEMINI_MODEL_LABEL}
+                  </span>
                 </div>
 
-                <div className={`rounded-xl p-4 border ${
+                <div className={`rounded-xl p-4 border space-y-4 ${
                   results.search_type === '구인'
                     ? 'bg-blue-50 border-blue-100'
                     : 'bg-purple-50 border-purple-100'
                 }`}>
                   {results.ai_summary && (
-                    <p className="text-sm text-gray-700 leading-relaxed mb-3">{results.ai_summary}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{results.ai_summary}</p>
                   )}
 
-                  {results.ai_insights?.length > 0 && (
-                    <ul className="space-y-2">
-                      {results.ai_insights.map((insight, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                          <span className={`mt-0.5 shrink-0 font-bold ${
-                            results.search_type === '구인' ? 'text-blue-500' : 'text-purple-500'
-                          }`}>•</span>
-                          {insight}
-                        </li>
-                      ))}
-                    </ul>
+                  {results.ai_insights && results.ai_insights.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-1.5">💡 시장 인사이트</p>
+                      <ul className="space-y-1.5">
+                        {results.ai_insights.map((insight, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                            <span className={`mt-0.5 shrink-0 font-bold ${
+                              results.search_type === '구인' ? 'text-blue-500' : 'text-purple-500'
+                            }`}>•</span>
+                            {insight}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {results.ai_tips && results.ai_tips.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-1.5">
+                        {results.search_type === '구인' ? '📌 지원자를 위한 팁' : '📌 채용 담당자를 위한 팁'}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {results.ai_tips.map((tip, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                            <span className="mt-0.5 shrink-0 text-amber-500 font-bold">→</span>
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               </section>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-// ─── 구인 카드 (채용공고) ─────────────────────────────────────────────────────
+// ─── 구인 카드 ────────────────────────────────────────────────────────────────
 
 function JobCard({ job }: { job: JobDbResult }) {
   return (
@@ -224,12 +287,14 @@ function JobCard({ job }: { job: JobDbResult }) {
       </div>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-400">
-        <span className="flex items-center gap-1">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
-          </svg>
-          {job.location}
-        </span>
+        {job.location && (
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+            </svg>
+            {job.location}
+          </span>
+        )}
         {job.salary_range && (
           <span className="flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,7 +322,7 @@ function JobCard({ job }: { job: JobDbResult }) {
   )
 }
 
-// ─── 구직 카드 (이력서) ──────────────────────────────────────────────────────
+// ─── 구직 카드 ────────────────────────────────────────────────────────────────
 
 function ResumeCard({ resume }: { resume: ResumeDbResult }) {
   const skills = resume.skills?.split(',').map(s => s.trim()).filter(Boolean).slice(0, 5) || []

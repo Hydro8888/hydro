@@ -31,6 +31,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
       <Link href="/" className="text-3xl font-bold mb-8">
+        <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
         <span className="text-blue-600">Job</span><span className="text-gray-800">World</span>
       </Link>
       <div className="w-full max-w-sm border border-gray-200 rounded-2xl p-8">

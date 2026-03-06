@@ -92,6 +92,10 @@ export interface AISearchResult {
   db_total: number
   ai_summary: string
   ai_insights: string[]
+  ai_tips: string[]
+  ai_reasoning: string
+  ai_recommended_filters: string[]
+  ai_error?: string | null
   query: string
 }
 

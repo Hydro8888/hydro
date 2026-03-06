@@ -4,9 +4,212 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
-import { searchAPI, AISearchResult, JobDbResult, ResumeDbResult } from '@/lib/api'
+import {
+  searchAPI,
+  AISearchResult,
+  JobLocalResult,
+  ResumeLocalResult,
+  ExternalJobResult,
+  ExternalMarketResult,
+} from '@/lib/api'
 
 const GEMINI_MODEL_LABEL = 'gemini-3.1-flash-lite-preview'
+
+function SectionHeader({
+  label,
+  count,
+  badge,
+  badgeColor,
+}: {
+  label: string
+  count?: number
+  badge?: string
+  badgeColor?: 'green' | 'orange' | 'blue' | 'purple' | 'gray'
+}) {
+  const colors: Record<string, string> = {
+    green: 'bg-green-100 text-green-700',
+    orange: 'bg-orange-100 text-orange-700',
+    blue: 'bg-blue-100 text-blue-700',
+    purple: 'bg-purple-100 text-purple-700',
+    gray: 'bg-gray-100 text-gray-600',
+  }
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-sm font-bold text-gray-800">{label}</span>
+      {badge && (
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors[badgeColor ?? 'gray']}`}>
+          {badge}
+        </span>
+      )}
+      {count !== undefined && (
+        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+          {count}건
+        </span>
+      )}
+    </div>
+  )
+}
+
+function LocalJobCard({ job }: { job: JobLocalResult }) {
+  return (
+    <Link
+      href={`/jobs/${job.id}`}
+      className="block border border-gray-100 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
+            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded shrink-0">
+              ✓ 플랫폼 등록
+            </span>
+          </div>
+          <p className="text-sm text-gray-500">{job.company_name}</p>
+        </div>
+        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+          {job.job_type}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-400">
+        {job.location && (
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+            </svg>
+            {job.location}
+          </span>
+        )}
+        {job.salary_range && (
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {job.salary_range}
+          </span>
+        )}
+        {job.deadline && <span>~{job.deadline}</span>}
+      </div>
+      {job.requirements && (
+        <p className="text-xs text-gray-400 mt-2 line-clamp-1">
+          <span className="font-medium text-gray-500">자격요건:</span> {job.requirements}
+        </p>
+      )}
+    </Link>
+  )
+}
+
+function LocalResumeCard({ resume }: { resume: ResumeLocalResult }) {
+  const skills = resume.skills?.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5) || []
+  return (
+    <Link
+      href={`/resume/${resume.id}`}
+      className="block border border-gray-100 rounded-xl p-4 hover:border-purple-300 hover:shadow-sm transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="font-semibold text-gray-900 truncate">{resume.title}</h3>
+            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded shrink-0">
+              ✓ 플랫폼 등록
+            </span>
+          </div>
+          <p className="text-sm text-gray-500">{resume.user_name || '이름 미공개'}</p>
+          {resume.education && <p className="text-xs text-gray-400 mt-0.5">{resume.education}</p>}
+        </div>
+        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full shrink-0">
+          구직자
+        </span>
+      </div>
+      {skills.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {skills.map((skill) => (
+            <span key={skill} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+              {skill}
+            </span>
+          ))}
+        </div>
+      )}
+      {resume.experience && (
+        <p className="text-xs text-gray-400 mt-2 line-clamp-2">
+          <span className="font-medium text-gray-500">경력:</span> {resume.experience}
+        </p>
+      )}
+      {resume.introduction && (
+        <p className="text-xs text-gray-400 mt-1 line-clamp-1 italic">"{resume.introduction}"</p>
+      )}
+    </Link>
+  )
+}
+
+function ExternalJobCard({ job }: { job: ExternalJobResult }) {
+  return (
+    <a
+      href={job.url || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block border border-orange-100 rounded-xl p-4 hover:border-orange-300 hover:shadow-sm transition-all bg-orange-50/30"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
+            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">
+              🌐 외부
+            </span>
+          </div>
+          {job.company && <p className="text-sm text-gray-500">{job.company}</p>}
+        </div>
+        {job.job_type && (
+          <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+            {job.job_type}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-400">
+        {job.location && <span>📍 {job.location}</span>}
+        {job.salary && <span>💰 {job.salary}</span>}
+        <span className="text-orange-400">출처: {job.source}</span>
+      </div>
+      {job.summary && (
+        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{job.summary}</p>
+      )}
+    </a>
+  )
+}
+
+function ExternalMarketCard({ item }: { item: ExternalMarketResult }) {
+  const categoryLabel: Record<string, string> = {
+    salary: '💰 연봉',
+    trend: '📈 트렌드',
+    skill: '🛠 기술',
+  }
+  return (
+    <a
+      href={item.url || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block border border-orange-100 rounded-xl p-4 hover:border-orange-300 hover:shadow-sm transition-all bg-orange-50/30"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <h3 className="font-semibold text-gray-900 truncate">{item.title}</h3>
+            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shrink-0">
+              🌐 외부
+            </span>
+          </div>
+          {item.category && (
+            <span className="text-xs text-orange-500">{categoryLabel[item.category] ?? item.category}</span>
+          )}
+        </div>
+        <span className="text-xs text-orange-400 shrink-0">{item.source}</span>
+      </div>
+      {item.summary && (
+        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{item.summary}</p>
+      )}
+    </a>
+  )
+}
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -51,7 +254,9 @@ function SearchContent() {
     }
   }
 
-  const isJobResult = (r: JobDbResult | ResumeDbResult): r is JobDbResult => r.type === '구인'
+  const isJobLocal = (r: JobLocalResult | ResumeLocalResult): r is JobLocalResult => r.type === '구인'
+  const isExternalJob = (r: ExternalJobResult | ExternalMarketResult): r is ExternalJobResult =>
+    'company' in r || 'job_type' in r
 
   return (
     <div className="min-h-screen bg-white">
@@ -80,11 +285,13 @@ function SearchContent() {
           </div>
 
           <div className="flex gap-2">
-            <div className={`flex-1 flex items-center border-2 rounded-full px-4 py-2 focus-within:ring-1 ${
-              searchType === '구인'
-                ? 'border-blue-300 focus-within:border-blue-500 focus-within:ring-blue-100'
-                : 'border-purple-300 focus-within:border-purple-500 focus-within:ring-purple-100'
-            }`}>
+            <div
+              className={`flex-1 flex items-center border-2 rounded-full px-4 py-2 focus-within:ring-1 ${
+                searchType === '구인'
+                  ? 'border-blue-300 focus-within:border-blue-500 focus-within:ring-blue-100'
+                  : 'border-purple-300 focus-within:border-purple-500 focus-within:ring-purple-100'
+              }`}
+            >
               <svg className="w-4 h-4 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -112,12 +319,14 @@ function SearchContent() {
         {/* 로딩 */}
         {loading && (
           <div className="text-center py-16 text-gray-400">
-            <div className={`animate-spin w-9 h-9 border-2 border-t-transparent rounded-full mx-auto mb-3 ${
-              searchType === '구인' ? 'border-blue-600' : 'border-purple-600'
-            }`} />
+            <div
+              className={`animate-spin w-9 h-9 border-2 border-t-transparent rounded-full mx-auto mb-3 ${
+                searchType === '구인' ? 'border-blue-600' : 'border-purple-600'
+              }`}
+            />
             <p className="text-sm font-medium">Gemini AI가 분석 중...</p>
             <p className="text-xs mt-1 text-gray-400">
-              {searchType === '구인' ? '채용공고를 검색하고 있습니다' : '구직자 이력서를 검색하고 있습니다'}
+              플랫폼 DB와 실시간 외부 데이터를 동시에 검색하고 있습니다
             </p>
           </div>
         )}
@@ -138,42 +347,40 @@ function SearchContent() {
 
         {results && !loading && (
           <div className="space-y-8">
-            {/* ── 검색 뱃지 + 추천 필터 ── */}
+            {/* 검색 뱃지 + 추천 필터 */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                results.search_type === '구인'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-purple-100 text-purple-700'
-              }`}>
+              <span
+                className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                  results.search_type === '구인' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }`}
+              >
                 {results.search_type === '구인' ? '🏢 구인 검색' : '👤 구직 검색'}
               </span>
               <span className="text-xs text-gray-400">"{results.query}"</span>
-              {results.ai_recommended_filters && results.ai_recommended_filters.length > 0 &&
-                results.ai_recommended_filters.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => router.push(`/search?q=${encodeURIComponent(f)}&type=${encodeURIComponent(searchType)}`)}
-                    className="text-xs border border-gray-200 text-gray-500 px-2.5 py-0.5 rounded-full hover:bg-gray-50 transition-colors"
-                  >
-                    {f}
-                  </button>
-                ))
-              }
+              {results.ai_recommended_filters?.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() =>
+                    router.push(`/search?q=${encodeURIComponent(f)}&type=${encodeURIComponent(searchType)}`)
+                  }
+                  className="text-xs border border-gray-200 text-gray-500 px-2.5 py-0.5 rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  {f}
+                </button>
+              ))}
             </div>
 
-            {/* ── SECTION 1: 플랫폼 등록 결과 (우선 표시) ── */}
+            {/* ── SECTION 1: 플랫폼 등록 결과 ── */}
             <section>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-sm font-bold text-gray-800">
-                  {results.search_type === '구인' ? '📋 등록된 채용공고' : '📄 등록된 구직자'}
-                </span>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                  {results.db_total}건
-                </span>
-              </div>
+              <SectionHeader
+                label={results.search_type === '구인' ? '📋 플랫폼 등록 채용공고' : '📄 플랫폼 등록 이력서'}
+                badge={results.source_labels?.local ?? '플랫폼 등록 결과'}
+                badgeColor="green"
+                count={results.local_total}
+              />
 
-              {results.db_results.length === 0 ? (
+              {results.local_total === 0 ? (
                 <div className="text-center py-10 bg-gray-50 rounded-xl text-gray-400 text-sm">
                   <p>등록된 {results.search_type === '구인' ? '채용공고' : '이력서'}가 없습니다.</p>
                   {results.search_type === '구인' ? (
@@ -188,57 +395,72 @@ function SearchContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {results.db_results.map((item) =>
-                    isJobResult(item) ? (
-                      <JobCard key={`job-${item.id}`} job={item} />
+                  {results.local_results.map((item) =>
+                    isJobLocal(item) ? (
+                      <LocalJobCard key={`local-job-${item.id}`} job={item} />
                     ) : (
-                      <ResumeCard key={`resume-${item.id}`} resume={item} />
+                      <LocalResumeCard key={`local-resume-${item.id}`} resume={item} />
                     )
                   )}
                 </div>
               )}
             </section>
 
-            {/* ── AI 매칭 이유 ── */}
-            {results.ai_reasoning && (
-              <div className={`text-xs px-4 py-2.5 rounded-lg border-l-2 ${
-                results.search_type === '구인'
-                  ? 'border-blue-300 bg-blue-50 text-blue-700'
-                  : 'border-purple-300 bg-purple-50 text-purple-700'
-              }`}>
-                <span className="font-semibold">AI 매칭 이유:</span> {results.ai_reasoning}
-              </div>
+            {/* ── SECTION 2: 실시간 외부 검색 결과 ── */}
+            {results.external_total > 0 && (
+              <section>
+                <SectionHeader
+                  label={results.search_type === '구인' ? '🌐 실시간 외부 채용공고' : '🌐 실시간 시장 정보'}
+                  badge={results.source_labels?.external ?? '실시간 외부 검색 결과'}
+                  badgeColor="orange"
+                  count={results.external_total}
+                />
+                <div className="space-y-3">
+                  {results.external_results.map((item, i) =>
+                    isExternalJob(item) ? (
+                      <ExternalJobCard key={`ext-job-${i}`} job={item as ExternalJobResult} />
+                    ) : (
+                      <ExternalMarketCard key={`ext-market-${i}`} item={item as ExternalMarketResult} />
+                    )
+                  )}
+                </div>
+              </section>
             )}
 
-            {/* ── SECTION 2: Gemini AI 인사이트 ── */}
-            {(results.ai_summary || results.ai_insights?.length > 0 || results.ai_tips?.length > 0) && (
+            {/* ── SECTION 3: Gemini AI 분석 ── */}
+            {(results.ai_summary || results.ai_match_reasons?.length > 0 || results.ai_tips?.length > 0) && (
               <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-bold text-gray-800">✨ Gemini AI 인사이트</span>
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                    {GEMINI_MODEL_LABEL}
-                  </span>
-                </div>
+                <SectionHeader
+                  label="✨ Gemini AI 분석"
+                  badge={GEMINI_MODEL_LABEL}
+                  badgeColor={results.search_type === '구인' ? 'blue' : 'purple'}
+                />
 
-                <div className={`rounded-xl p-4 border space-y-4 ${
-                  results.search_type === '구인'
-                    ? 'bg-blue-50 border-blue-100'
-                    : 'bg-purple-50 border-purple-100'
-                }`}>
+                <div
+                  className={`rounded-xl p-4 border space-y-4 ${
+                    results.search_type === '구인'
+                      ? 'bg-blue-50 border-blue-100'
+                      : 'bg-purple-50 border-purple-100'
+                  }`}
+                >
                   {results.ai_summary && (
                     <p className="text-sm text-gray-700 leading-relaxed">{results.ai_summary}</p>
                   )}
 
-                  {results.ai_insights && results.ai_insights.length > 0 && (
+                  {results.ai_match_reasons && results.ai_match_reasons.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 mb-1.5">💡 시장 인사이트</p>
+                      <p className="text-xs font-semibold text-gray-500 mb-1.5">🎯 매칭 이유</p>
                       <ul className="space-y-1.5">
-                        {results.ai_insights.map((insight, i) => (
+                        {results.ai_match_reasons.map((reason, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                            <span className={`mt-0.5 shrink-0 font-bold ${
-                              results.search_type === '구인' ? 'text-blue-500' : 'text-purple-500'
-                            }`}>•</span>
-                            {insight}
+                            <span
+                              className={`mt-0.5 shrink-0 font-bold ${
+                                results.search_type === '구인' ? 'text-blue-500' : 'text-purple-500'
+                              }`}
+                            >
+                              •
+                            </span>
+                            {reason}
                           </li>
                         ))}
                       </ul>
@@ -260,6 +482,24 @@ function SearchContent() {
                       </ul>
                     </div>
                   )}
+
+                  {results.ai_reasoning && (
+                    <div
+                      className={`text-xs px-3 py-2 rounded-lg border-l-2 ${
+                        results.search_type === '구인'
+                          ? 'border-blue-300 bg-blue-100/50 text-blue-700'
+                          : 'border-purple-300 bg-purple-100/50 text-purple-700'
+                      }`}
+                    >
+                      <span className="font-semibold">AI 분석:</span> {results.ai_reasoning}
+                    </div>
+                  )}
+
+                  {results.ai_error && (
+                    <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
+                      ⚠️ AI 분석 일부 제한: {results.ai_error}
+                    </p>
+                  )}
                 </div>
               </section>
             )}
@@ -270,109 +510,15 @@ function SearchContent() {
   )
 }
 
-// ─── 구인 카드 ────────────────────────────────────────────────────────────────
-
-function JobCard({ job }: { job: JobDbResult }) {
-  return (
-    <Link href={`/jobs/${job.id}`}
-      className="block border border-gray-100 rounded-xl p-4 hover:border-blue-300 hover:shadow-sm transition-all">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{job.company_name}</p>
-        </div>
-        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-          {job.job_type}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-400">
-        {job.location && (
-          <span className="flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
-            </svg>
-            {job.location}
-          </span>
-        )}
-        {job.salary_range && (
-          <span className="flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {job.salary_range}
-          </span>
-        )}
-        {job.deadline && (
-          <span className="flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            ~{job.deadline}
-          </span>
-        )}
-      </div>
-
-      {job.requirements && (
-        <p className="text-xs text-gray-400 mt-2 line-clamp-1">
-          <span className="font-medium text-gray-500">자격요건:</span> {job.requirements}
-        </p>
-      )}
-    </Link>
-  )
-}
-
-// ─── 구직 카드 ────────────────────────────────────────────────────────────────
-
-function ResumeCard({ resume }: { resume: ResumeDbResult }) {
-  const skills = resume.skills?.split(',').map(s => s.trim()).filter(Boolean).slice(0, 5) || []
-
-  return (
-    <Link href={`/resume/${resume.id}`}
-      className="block border border-gray-100 rounded-xl p-4 hover:border-purple-300 hover:shadow-sm transition-all">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{resume.title}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{resume.user_name || '이름 미공개'}</p>
-          {resume.education && (
-            <p className="text-xs text-gray-400 mt-0.5">{resume.education}</p>
-          )}
-        </div>
-        <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-          구직자
-        </span>
-      </div>
-
-      {skills.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {skills.map((skill) => (
-            <span key={skill} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-              {skill}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {resume.experience && (
-        <p className="text-xs text-gray-400 mt-2 line-clamp-2">
-          <span className="font-medium text-gray-500">경력:</span> {resume.experience}
-        </p>
-      )}
-
-      {resume.introduction && (
-        <p className="text-xs text-gray-400 mt-1 line-clamp-1 italic">"{resume.introduction}"</p>
-      )}
-    </Link>
-  )
-}
-
 export default function SearchPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full" />
+        </div>
+      }
+    >
       <SearchContent />
     </Suspense>
   )

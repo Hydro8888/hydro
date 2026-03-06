@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    gemini_model: str = "gemini-3.1-flash-lite-preview"
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

@@ -60,7 +60,9 @@ export const searchAPI = {
 
 export type SearchType = '구인' | '구직' | 'auto'
 
-export interface JobDbResult {
+// ── Local platform results ──────────────────────────────────────────────────
+
+export interface JobLocalResult {
   id: number
   type: '구인'
   title: string
@@ -72,9 +74,10 @@ export interface JobDbResult {
   requirements?: string
   view_count: number
   created_at: string
+  source_type?: 'local'
 }
 
-export interface ResumeDbResult {
+export interface ResumeLocalResult {
   id: number
   type: '구직'
   title: string
@@ -84,20 +87,56 @@ export interface ResumeDbResult {
   education?: string
   introduction?: string
   created_at: string
+  source_type?: 'local'
 }
 
+// ── External real-time results ──────────────────────────────────────────────
+
+export interface ExternalJobResult {
+  title: string
+  company?: string
+  location?: string
+  salary?: string | null
+  job_type?: string
+  source: string
+  url: string
+  summary: string
+  source_type: 'external'
+}
+
+export interface ExternalMarketResult {
+  title: string
+  summary: string
+  source: string
+  url: string
+  category?: 'salary' | 'trend' | 'skill'
+  source_type: 'external'
+}
+
+// ── Combined AI search response ─────────────────────────────────────────────
+
 export interface AISearchResult {
+  query: string
   search_type: '구인' | '구직'
-  db_results: (JobDbResult | ResumeDbResult)[]
-  db_total: number
+  // Local platform data — always first
+  local_results: (JobLocalResult | ResumeLocalResult)[]
+  local_total: number
+  // External real-time data — supplemental
+  external_results: (ExternalJobResult | ExternalMarketResult)[]
+  external_total: number
+  // AI analysis layer
   ai_summary: string
-  ai_insights: string[]
+  ai_recommended_filters: string[]
+  ai_match_reasons: string[]
   ai_tips: string[]
   ai_reasoning: string
-  ai_recommended_filters: string[]
+  source_labels: { local: string; external: string }
   ai_error?: string | null
-  query: string
 }
+
+// Legacy aliases for backward compat (keep existing code working)
+export type JobDbResult = JobLocalResult
+export type ResumeDbResult = ResumeLocalResult
 
 // Types
 export interface RegisterData {

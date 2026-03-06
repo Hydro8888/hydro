@@ -12,7 +12,8 @@ External data strategy:
   - Gemini Google Search grounding REQUIRES gemini-2.0-flash (or later).
     gemini-3.1-flash-lite-preview does NOT support the google_search tool.
   - We hardcode GROUNDING_MODEL = "gemini-2.0-flash" for the external phase.
-  - The AI-analysis phase uses settings.gemini_model with a JSON-mode fallback.
+  - Grounding returns prose, so a second-pass JSON extraction converts it to structure.
+  - The AI-analysis phase uses settings.gemini_model with a model-chain fallback.
 """
 import asyncio
 import logging
@@ -35,7 +36,11 @@ logger = logging.getLogger(__name__)
 
 # gemini-2.0-flash is the minimum model with confirmed google_search grounding support.
 # Preview / lite models (gemini-3.1-flash-lite-preview) silently drop the tool.
-GROUNDING_MODEL = "gemini-2.0-flash"
+# Use settings.gemini_grounding_model so it can be overridden via .env.
+GROUNDING_MODEL = settings.gemini_grounding_model
+
+# Fallback model for structured JSON extraction (no grounding needed)
+EXTRACT_MODEL = "gemini-2.0-flash-lite"
 
 SOURCE_LABELS = {
     "local": "플랫폼 등록 결과",
@@ -57,7 +62,12 @@ async def realtime_search(
     """
     start_ts = time.monotonic()
     detected_type = detect_search_type(query, search_type)
-    logger.info("[Search] query=%r type=%s user=%s", query, detected_type, user_id)
+
+    has_key = bool(settings.gemini_api_key)
+    logger.info(
+        "[Search] query=%r type=%s user=%s gemini_key_present=%s",
+        query, detected_type, user_id, has_key,
+    )
 
     # Local DB + external grounding run concurrently
     local_results, external_results = await asyncio.gather(
@@ -73,7 +83,10 @@ async def realtime_search(
         logger.error("[Search] External error: %s", external_results)
         external_results = []
 
-    logger.info("[Search] local=%d external=%d", len(local_results), len(external_results))
+    logger.info(
+        "[Search] local=%d external=%d",
+        len(local_results), len(external_results),
+    )
 
     # AI enrichment (after both result sets are ready)
     ai_data = await _gemini_analyze(query, detected_type, local_results, external_results)
@@ -114,13 +127,16 @@ async def _fetch_external(query: str, search_type: str) -> list[dict]:
     """Fetch real-time external data using Gemini with Google Search grounding."""
     client = get_client()
     if not client:
+        logger.warning("[External] Gemini client not available — GEMINI_API_KEY missing")
         return []
+
+    logger.info("[External] Starting grounded web search query=%r type=%s", query, search_type)
     try:
         results = await asyncio.to_thread(_external_search_sync, client, query, search_type)
-        logger.info("[External] returned %d items", len(results))
+        logger.info("[External] grounded search returned %d items", len(results))
         return results
     except Exception as e:
-        logger.error("[External] failed: %s", e)
+        logger.error("[External] failed: %s", e, exc_info=True)
         return []
 
 
@@ -134,40 +150,28 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
     Flow:
       1. Call Gemini with google_search tool → gets real web search results
       2. Extract grounding_chunks metadata → real URLs of pages Gemini retrieved
-      3. Parse delimited text blocks for structured fields
-      4. Merge real URLs from grounding_chunks into parsed items
-      5. If text parsing yields nothing, build items directly from grounding_chunks
+      3. Try structured block parsing (===JOB=== / ===END===)
+      4. If block parsing yields nothing, run second-pass JSON extraction
+      5. If second-pass fails, build minimal items from grounding chunk URLs
+      6. If no chunks, try free-form text parsing as last resort
     """
     from google.genai import types
 
+    # Use a natural-language prompt so Gemini with grounding can answer freely.
+    # A rigid delimiter format is often ignored when grounding is active.
     if search_type == "구인":
         prompt = (
-            f'사람인(saramin.co.kr), 잡코리아(jobkorea.co.kr), 원티드(wanted.co.kr)에서 '
-            f'"{query}" 채용공고를 검색하세요. '
-            f'실제로 찾은 채용공고 최대 5건을 아래 형식으로 나열하세요:\n\n'
-            f'===JOB===\n'
-            f'제목: [공고 제목]\n'
-            f'회사: [회사명]\n'
-            f'지역: [근무지]\n'
-            f'급여: [급여 또는 미기재]\n'
-            f'유형: [정규직/계약직/인턴 등]\n'
-            f'출처: [사이트명]\n'
-            f'요약: [공고 핵심 내용 1-2문장]\n'
-            f'===END===\n\n'
-            f'각 공고를 ===JOB=== / ===END=== 블록 안에 작성하세요. '
-            f'실제로 검색된 공고만 포함하세요.'
+            f'사람인(saramin.co.kr), 잡코리아(jobkorea.co.kr), 원티드(wanted.co.kr) 등 '
+            f'한국 채용 사이트에서 "{query}" 관련 채용공고를 실시간으로 검색해서 '
+            f'실제로 찾은 채용공고 5건을 상세히 알려주세요. '
+            f'각 공고에 대해 회사명, 직위, 근무지, 급여, 고용형태, 핵심 내용을 포함해서 설명해주세요. '
+            f'실제로 검색된 공고만 포함하고, 가능하면 각 공고에 대해 번호를 붙여 설명해주세요.'
         )
     else:
         prompt = (
-            f'"{query}" 분야 한국 채용 시장 최신 정보를 검색하세요. '
-            f'평균 연봉, 인기 기술스택, 채용 트렌드를 최대 5건 아래 형식으로 나열하세요:\n\n'
-            f'===MARKET===\n'
-            f'제목: [정보 제목]\n'
-            f'요약: [핵심 내용 1-2문장]\n'
-            f'출처: [사이트명]\n'
-            f'유형: [salary 또는 trend 또는 skill]\n'
-            f'===END===\n\n'
-            f'각 항목을 ===MARKET=== / ===END=== 블록 안에 작성하세요.'
+            f'"{query}" 분야 한국 채용 시장의 최신 정보를 실시간으로 검색해서 알려주세요. '
+            f'평균 연봉, 인기 기술스택, 채용 트렌드 등 실제 최신 데이터를 포함해서 상세히 설명해주세요. '
+            f'각 항목에 번호를 붙여 설명해주세요.'
         )
 
     logger.info("[External] calling grounding model=%s", GROUNDING_MODEL)
@@ -177,10 +181,11 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
-                max_output_tokens=1800,
+                max_output_tokens=2000,
                 temperature=0.1,
             ),
         )
+        logger.info("[External] grounding call succeeded")
     except Exception as e:
         logger.warning("[External] grounding call failed: %s", e)
         return []
@@ -206,7 +211,7 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
     try:
         raw_text = response.text or ""
     except Exception as e:
-        logger.warning("[External] response.text access failed: %s — trying parts", e)
+        logger.warning("[External] response.text failed: %s — trying parts", e)
         try:
             for cand in (response.candidates or []):
                 if cand.content and cand.content.parts:
@@ -215,32 +220,136 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
                             raw_text += part.text
         except Exception as inner:
             logger.warning("[External] parts extraction also failed: %s", inner)
-    logger.debug("[External] raw_text[:300]=%s", raw_text[:300])
 
-    # ── Try structured text parsing first ──
+    logger.info("[External] raw_text_length=%d", len(raw_text))
+    if raw_text:
+        logger.debug("[External] raw_text[:500]=%s", raw_text[:500])
+
+    # ── Pass 1: Try structured block parsing (===JOB=== / ===END===) ──
     items = _parse_grounded_text(raw_text, search_type, grounding_urls)
-    logger.info("[External] parsed_blocks_items=%d", len(items))
+    logger.info("[External] pass1_block_items=%d", len(items))
 
-    # ── Fallback 1: build items directly from grounding chunks ──
+    # ── Pass 2: Second-pass JSON extraction from grounded prose ──
+    # This is the primary fallback when grounding returns prose (not blocks).
+    if not items and raw_text and len(raw_text) > 50:
+        logger.info("[External] pass1 yielded 0 — running second-pass JSON extraction")
+        items = _second_pass_extraction(client, raw_text, query, search_type, grounding_urls)
+        logger.info("[External] pass2_extraction_items=%d", len(items))
+
+    # ── Pass 3: Build items from grounding chunk URLs ──
     if not items and grounding_urls:
-        logger.info("[External] text parse yielded 0 — building from grounding_chunks")
+        logger.info("[External] pass2 yielded 0 — building from grounding_chunks")
         items = _chunks_to_items(grounding_urls, search_type)
+        logger.info("[External] pass3_chunk_items=%d", len(items))
 
-    # ── Fallback 2: parse free-form text from Gemini response ──
+    # ── Pass 4: Parse free-form text as last resort ──
     if not items and raw_text:
-        logger.info("[External] grounding_chunks empty — parsing free-form text")
+        logger.info("[External] pass3 yielded 0 — parsing free-form text")
         items = _parse_freeform_text(raw_text, search_type)
+        logger.info("[External] pass4_freeform_items=%d", len(items))
 
     logger.info("[External] final_items=%d", len(items))
     return items[:5]
 
 
+def _second_pass_extraction(
+    client,
+    grounded_text: str,
+    query: str,
+    search_type: str,
+    grounding_urls: list[dict],
+) -> list[dict]:
+    """
+    Second-pass: take Gemini's grounded prose and extract structured items via JSON mode.
+    Uses EXTRACT_MODEL (no grounding needed) to convert prose → structured list.
+    """
+    from google.genai import types
+
+    if search_type == "구인":
+        schema_example = (
+            '[{"title": "직위명", "company": "회사명", "location": "근무지", '
+            '"salary": "급여(없으면 null)", "job_type": "고용형태", '
+            '"summary": "핵심 내용 1-2문장", "source": "출처 사이트명"}]'
+        )
+        item_type = "채용공고"
+    else:
+        schema_example = (
+            '[{"title": "정보 제목", "summary": "핵심 내용 1-2문장", '
+            '"source": "출처 사이트명", "category": "salary 또는 trend 또는 skill"}]'
+        )
+        item_type = "채용시장 정보"
+
+    prompt = (
+        f'다음 텍스트에서 {item_type}를 최대 5건 추출해서 JSON 배열만 출력하세요.\n\n'
+        f'텍스트:\n{grounded_text[:3000]}\n\n'
+        f'출력 형식 (JSON 배열만, 다른 설명 없이):\n{schema_example}'
+    )
+
+    for model in [EXTRACT_MODEL, "gemini-2.0-flash"]:
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    max_output_tokens=1500,
+                    temperature=0.1,
+                ),
+            )
+            text = ""
+            try:
+                text = resp.text or ""
+            except Exception:
+                pass
+
+            parsed = parse_json_safe(text)
+            if not isinstance(parsed, list):
+                logger.warning("[External/2ndPass] model=%s result not list: %s", model, type(parsed))
+                continue
+
+            items = []
+            for i, item in enumerate(parsed[:5]):
+                if not isinstance(item, dict):
+                    continue
+                title = item.get("title") or item.get("제목") or ""
+                if not title:
+                    continue
+                url = grounding_urls[i]["url"] if i < len(grounding_urls) else ""
+                base: dict = {
+                    "title": str(title),
+                    "summary": str(item.get("summary") or item.get("요약") or ""),
+                    "source": str(item.get("source") or item.get("출처") or "외부 검색"),
+                    "url": url,
+                    "source_type": "external",
+                }
+                if search_type == "구인":
+                    base["company"] = str(item.get("company") or item.get("회사") or "")
+                    base["location"] = str(item.get("location") or item.get("근무지") or "")
+                    salary = item.get("salary") or item.get("급여")
+                    base["salary"] = str(salary) if salary and salary not in ("null", "없음", "미기재") else None
+                    base["job_type"] = str(item.get("job_type") or item.get("고용형태") or "")
+                else:
+                    cat = str(item.get("category") or "trend").lower()
+                    base["category"] = cat if cat in ("salary", "trend", "skill") else "trend"
+                items.append(base)
+
+            logger.info("[External/2ndPass] model=%s extracted %d items", model, len(items))
+            if items:
+                return items
+
+        except Exception as e:
+            logger.warning("[External/2ndPass] model=%s failed: %s", model, e)
+            continue
+
+    return []
+
+
 def _parse_grounded_text(text: str, search_type: str, grounding_urls: list[dict]) -> list[dict]:
-    """Parse ===JOB=== / ===MARKET=== delimited blocks."""
+    """Parse ===JOB=== / ===MARKET=== delimited blocks (used when Gemini follows the format)."""
     marker = "JOB" if search_type == "구인" else "MARKET"
     pattern = rf"===\s*{marker}\s*===(.*?)===\s*END\s*==="
     blocks = re.findall(pattern, text, re.DOTALL | re.IGNORECASE)
-    logger.info("[External] parsed_blocks=%d", len(blocks))
+    logger.info("[External] structured_blocks_found=%d", len(blocks))
 
     results = []
     for i, block in enumerate(blocks[:5]):
@@ -276,9 +385,8 @@ def _parse_grounded_text(text: str, search_type: str, grounding_urls: list[dict]
 
 def _parse_freeform_text(text: str, search_type: str) -> list[dict]:
     """
-    Last-resort parser: split Gemini's free-form text response into items.
-    Looks for numbered entries (1., 2., …) or line-separated blocks and
-    converts them to structured result items.
+    Last-resort parser: split Gemini's free-form prose into result items.
+    Looks for numbered entries (1., 2., …) or double-newline separated blocks.
     """
     items: list[dict] = []
 
@@ -287,18 +395,18 @@ def _parse_freeform_text(text: str, search_type: str) -> list[dict]:
     blocks = [b.strip() for b in numbered if len(b.strip()) > 20]
 
     if not blocks:
-        # Fallback: split by double newline
         blocks = [b.strip() for b in re.split(r"\n{2,}", text) if len(b.strip()) > 20]
 
     for block in blocks[:5]:
         first_line = block.split("\n")[0].strip()
         if not first_line:
             continue
-        # Try to extract company/title from "회사: X" or "제목: X" patterns
+
         company = ""
         m = re.search(r"(?:회사|기업|company)[:\s]+(.+?)(?:\n|$)", block, re.IGNORECASE)
         if m:
             company = m.group(1).strip()
+
         title_m = re.search(r"(?:제목|포지션|직무|title)[:\s]+(.+?)(?:\n|$)", block, re.IGNORECASE)
         title = title_m.group(1).strip() if title_m else first_line[:80]
 
@@ -318,7 +426,7 @@ def _parse_freeform_text(text: str, search_type: str) -> list[dict]:
 
 
 def _chunks_to_items(grounding_urls: list[dict], search_type: str) -> list[dict]:
-    """Build result items directly from grounding chunk metadata."""
+    """Build minimal result items directly from grounding chunk metadata (URL + title only)."""
     items = []
     for chunk in grounding_urls[:5]:
         title = chunk["title"]
@@ -360,7 +468,10 @@ async def _gemini_analyze(
 ) -> dict:
     client = get_client()
     if not client:
-        return {**_rich_fallback(query, search_type, local_results), "error": "GEMINI_API_KEY 미설정"}
+        return {
+            **_rich_fallback(query, search_type, local_results, external_results),
+            "error": "GEMINI_API_KEY 미설정",
+        }
     try:
         data = await asyncio.to_thread(
             _analyze_sync, client, query, search_type, local_results, external_results
@@ -369,7 +480,10 @@ async def _gemini_analyze(
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
         logger.error("[Analyze] %s", err_msg)
-        return {**_rich_fallback(query, search_type, local_results), "error": err_msg}
+        return {
+            **_rich_fallback(query, search_type, local_results, external_results),
+            "error": err_msg,
+        }
 
 
 def _analyze_sync(
@@ -381,79 +495,79 @@ def _analyze_sync(
 ) -> dict:
     """
     Gemini AI analysis in JSON mode.
-    Tries settings.gemini_model first; if JSON parsing fails retries without
-    the MIME type constraint to get plain-text then parses manually.
+    Tries models in order: settings.gemini_model → gemini-2.0-flash → EXTRACT_MODEL.
+    Context-aware prompt that distinguishes local vs external result counts.
     """
     from google.genai import types
 
     local_preview = _fmt_local(local_results, search_type)
     external_preview = _fmt_external(external_results)
+    local_count = len(local_results)
+    external_count = len(external_results)
+
+    # Context-aware summary instruction
+    if local_count == 0 and external_count > 0:
+        summary_ctx = (
+            f"플랫폼 등록 결과는 없지만 실시간 웹 검색에서 {external_count}건의 결과를 찾았습니다. "
+            "외부 검색 결과를 중심으로 요약하세요."
+        )
+    elif local_count > 0 and external_count > 0:
+        summary_ctx = f"플랫폼 {local_count}건 + 실시간 외부 {external_count}건을 통합해서 요약하세요."
+    elif local_count > 0:
+        summary_ctx = f"플랫폼 등록 결과 {local_count}건을 중심으로 요약하세요."
+    else:
+        summary_ctx = "결과가 없으므로 검색어 변경 또는 범위 확대를 안내하세요."
 
     prompt = (
         f'당신은 "AI JobWorld" 한국 채용 플랫폼의 AI 어시스턴트입니다.\n'
         f'검색어: "{query}" | 유형: {search_type}\n\n'
-        f'[플랫폼 등록 데이터]\n{local_preview}\n\n'
-        f'[실시간 외부 검색 데이터]\n{external_preview}\n\n'
-        f'위 데이터를 분석해서 아래 JSON 스키마로 한국어 응답하세요:\n'
+        f'[플랫폼 등록 데이터] ({local_count}건)\n{local_preview}\n\n'
+        f'[실시간 외부 검색 데이터] ({external_count}건)\n{external_preview}\n\n'
+        f'지시: {summary_ctx}\n\n'
+        f'아래 JSON 스키마로 한국어 응답하세요:\n'
         f'{{"summary":"전체 검색 결과 요약 2-3문장",'
-        f'"match_reasons":["검색어와 잘 맞는 이유 1","이유 2"],'
+        f'"match_reasons":["검색어와 관련된 이유 1","이유 2"],'
         f'"recommended_filters":["추천 검색 키워드 1","키워드 2","키워드 3"],'
         f'"tips":["팁 1","팁 2"],'
         f'"reasoning":"로컬/외부 데이터 차이 및 활용법 1문장"}}'
     )
 
-    # Attempt 1: JSON mode
-    try:
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                max_output_tokens=700,
-                temperature=0.3,
-            ),
-        )
-        parsed = parse_json_safe(response.text or "")
-        if isinstance(parsed, dict) and parsed.get("summary"):
-            return _extract_ai_fields(parsed)
-        logger.warning("[Analyze] JSON mode parse failed, retrying without MIME constraint")
-    except Exception as e:
-        logger.warning("[Analyze] JSON mode attempt failed: %s", e)
+    # Try models in order until one succeeds
+    for model in [settings.gemini_model, "gemini-2.0-flash", EXTRACT_MODEL]:
+        for use_json_mime in [True, False]:
+            try:
+                cfg_kwargs: dict = {"max_output_tokens": 700, "temperature": 0.3}
+                if use_json_mime:
+                    cfg_kwargs["response_mime_type"] = "application/json"
 
-    # Attempt 2: plain text mode (no response_mime_type)
-    try:
-        response2 = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=700,
-                temperature=0.3,
-            ),
-        )
-        parsed2 = parse_json_safe(response2.text or "")
-        if isinstance(parsed2, dict) and parsed2.get("summary"):
-            return _extract_ai_fields(parsed2)
-    except Exception as e:
-        logger.warning("[Analyze] plain mode attempt failed: %s", e)
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(**cfg_kwargs),
+                )
+                text = ""
+                try:
+                    text = response.text or ""
+                except Exception:
+                    pass
 
-    # Attempt 3: try gemini-2.0-flash-lite as fallback model
-    try:
-        response3 = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                max_output_tokens=700,
-                temperature=0.3,
-            ),
-        )
-        parsed3 = parse_json_safe(response3.text or "")
-        if isinstance(parsed3, dict) and parsed3.get("summary"):
-            return _extract_ai_fields(parsed3)
-    except Exception as e:
-        logger.warning("[Analyze] gemini-2.0-flash-lite fallback failed: %s", e)
+                parsed = parse_json_safe(text)
+                if isinstance(parsed, dict) and parsed.get("summary"):
+                    logger.info("[Analyze] succeeded model=%s json_mode=%s", model, use_json_mime)
+                    return _extract_ai_fields(parsed)
 
-    return _rich_fallback(query, search_type, local_results)
+                logger.warning(
+                    "[Analyze] model=%s json_mode=%s — invalid/empty JSON, trying next",
+                    model, use_json_mime,
+                )
+                break  # don't retry plain mode if JSON mode already yielded a parseable but empty result
+            except Exception as e:
+                logger.warning("[Analyze] model=%s json_mode=%s failed: %s", model, use_json_mime, e)
+                break  # move to next model on any exception
+
+    # All models failed
+    logger.error("[Analyze] all models failed — using rich fallback")
+    return _rich_fallback(query, search_type, local_results, external_results)
 
 
 def _extract_ai_fields(parsed: dict) -> dict:
@@ -497,7 +611,7 @@ def _fmt_external(results: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ── Rich fallback (used when Gemini is fully unavailable) ─────────────────────
+# ── Rich fallback (used when Gemini analysis is fully unavailable) ─────────────
 
 _JOB_TIPS: dict[str, list] = {
     "개발자": ["포트폴리오 GitHub 링크를 이력서에 반드시 첨부하세요", "기술 스택은 JD와 일치하는 것을 강조하세요"],
@@ -514,36 +628,70 @@ _JOB_FILTERS: dict[str, list] = {
 }
 
 
-def _rich_fallback(query: str, search_type: str, local_results: list[dict]) -> dict:
+def _rich_fallback(
+    query: str,
+    search_type: str,
+    local_results: list[dict],
+    external_results: list[dict] = None,
+) -> dict:
     """
-    When Gemini is unavailable, return keyword-matched static insights
-    so the AI section still provides value.
+    When Gemini analysis is unavailable, return keyword-matched static insights.
+    Now properly accounts for external_results to avoid false '0 results' messages.
     """
+    external_results = external_results or []
+    local_count = len(local_results)
+    external_count = len(external_results)
+
     q_lower = query.lower()
     matched_key = next(
         (k for k in _JOB_TIPS if k != "default" and k in q_lower), "default"
     )
     tips = _JOB_TIPS[matched_key]
     filters = _JOB_FILTERS[matched_key]
-    local_count = len(local_results)
 
     if search_type == "구직":
-        summary = (
-            f"'{query}' 관련 이력서 {local_count}건이 플랫폼에 등록되어 있습니다. "
-            f"외부 검색 결과도 함께 확인해 적합한 인재를 찾아보세요."
-        ) if local_count > 0 else (
-            f"아직 플랫폼에 등록된 '{query}' 이력서가 없습니다. "
-            f"외부 시장 정보를 참고하거나 직접 구직자를 초대해 보세요."
-        )
+        if local_count > 0 and external_count > 0:
+            summary = (
+                f"'{query}' 관련 이력서 {local_count}건이 플랫폼에 등록되어 있으며, "
+                f"실시간 웹 검색에서 {external_count}건의 시장 정보를 찾았습니다."
+            )
+        elif local_count > 0:
+            summary = (
+                f"'{query}' 관련 이력서 {local_count}건이 플랫폼에 등록되어 있습니다. "
+                f"외부 검색 결과도 함께 확인해 적합한 인재를 찾아보세요."
+            )
+        elif external_count > 0:
+            summary = (
+                f"플랫폼 등록 결과는 없지만 실시간 웹 검색에서 '{query}' 관련 "
+                f"시장 정보 {external_count}건을 찾았습니다."
+            )
+        else:
+            summary = (
+                f"아직 플랫폼에 등록된 '{query}' 이력서가 없습니다. "
+                f"외부 시장 정보를 참고하거나 직접 구직자를 초대해 보세요."
+            )
         tips = ["기술스택 필터를 활용해 원하는 인재를 찾아보세요", "면접 전 포트폴리오를 미리 검토하세요"]
     else:
-        summary = (
-            f"'{query}' 채용공고 {local_count}건이 플랫폼에 등록되어 있습니다. "
-            f"외부 검색 결과도 함께 참고해 취업 시장을 파악하세요."
-        ) if local_count > 0 else (
-            f"아직 플랫폼에 등록된 '{query}' 채용공고가 없습니다. "
-            f"외부 검색 결과를 통해 현재 채용 시장 현황을 확인하세요."
-        )
+        if local_count > 0 and external_count > 0:
+            summary = (
+                f"'{query}' 채용공고 {local_count}건이 플랫폼에 등록되어 있으며, "
+                f"실시간 웹 검색에서 {external_count}건의 채용 정보를 찾았습니다."
+            )
+        elif local_count > 0:
+            summary = (
+                f"'{query}' 채용공고 {local_count}건이 플랫폼에 등록되어 있습니다. "
+                f"외부 검색 결과도 함께 참고해 취업 시장을 파악하세요."
+            )
+        elif external_count > 0:
+            summary = (
+                f"플랫폼 등록 결과는 없지만 실시간 웹 검색에서 '{query}' 관련 "
+                f"채용 정보 {external_count}건을 찾았습니다."
+            )
+        else:
+            summary = (
+                f"아직 플랫폼에 등록된 '{query}' 채용공고가 없습니다. "
+                f"다른 검색어를 시도하거나 플랫폼에 채용공고를 등록해 보세요."
+            )
 
     return {
         "summary": summary,

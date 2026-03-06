@@ -371,6 +371,18 @@ function SearchContent() {
               ))}
             </div>
 
+            {/* 복합 결과 상태 배너 */}
+            {results.local_total === 0 && results.external_total > 0 && (
+              <div className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                플랫폼 등록 결과는 없지만, 실시간 웹 검색 결과를 찾았습니다.
+              </div>
+            )}
+            {results.local_total === 0 && results.external_total === 0 && (
+              <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                플랫폼 등록 결과와 실시간 웹 검색 결과를 찾지 못했습니다. 다른 검색어를 시도해 보세요.
+              </div>
+            )}
+
             {/* ── SECTION 1: 플랫폼 등록 결과 ── */}
             <section>
               <SectionHeader
@@ -417,8 +429,12 @@ function SearchContent() {
               {results.external_total === 0 ? (
                 <div className="text-center py-8 bg-orange-50/50 rounded-xl border border-orange-100 text-gray-400 text-xs">
                   <p className="text-sm font-medium text-orange-400">실시간 외부 검색 결과가 없습니다</p>
-                  <p className="mt-1">Gemini Google Search 그라운딩이 결과를 반환하지 않았습니다.</p>
-                  <p className="mt-0.5 text-gray-400">플랫폼에 직접 채용공고를 등록하거나 다른 검색어를 시도해 보세요.</p>
+                  {results.ai_error ? (
+                    <p className="mt-1 text-amber-600">AI 검색 오류: {results.ai_error}</p>
+                  ) : (
+                    <p className="mt-1">Gemini Google Search 그라운딩이 결과를 반환하지 않았습니다.</p>
+                  )}
+                  <p className="mt-0.5 text-gray-400">다른 검색어를 시도하거나 플랫폼에 채용공고를 등록해 보세요.</p>
                 </div>
               ) : (
                 <div className="space-y-3">

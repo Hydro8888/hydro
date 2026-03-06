@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.1-flash-lite-preview"
+    # gemini-2.0-flash is required for Google Search grounding support.
+    # Lite/preview models silently drop the google_search tool.
+    gemini_grounding_model: str = "gemini-2.0-flash"
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

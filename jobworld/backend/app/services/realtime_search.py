@@ -201,17 +201,37 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
     except Exception as e:
         logger.warning("[External] grounding_chunks extraction failed: %s", e)
 
-    raw_text = response.text or ""
+    # ── Safely extract response text (response.text can raise ValueError) ──
+    raw_text = ""
+    try:
+        raw_text = response.text or ""
+    except Exception as e:
+        logger.warning("[External] response.text access failed: %s — trying parts", e)
+        try:
+            for cand in (response.candidates or []):
+                if cand.content and cand.content.parts:
+                    for part in cand.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            raw_text += part.text
+        except Exception as inner:
+            logger.warning("[External] parts extraction also failed: %s", inner)
     logger.debug("[External] raw_text[:300]=%s", raw_text[:300])
 
     # ── Try structured text parsing first ──
     items = _parse_grounded_text(raw_text, search_type, grounding_urls)
+    logger.info("[External] parsed_blocks_items=%d", len(items))
 
-    # ── Fallback: build items directly from grounding chunks ──
+    # ── Fallback 1: build items directly from grounding chunks ──
     if not items and grounding_urls:
         logger.info("[External] text parse yielded 0 — building from grounding_chunks")
         items = _chunks_to_items(grounding_urls, search_type)
 
+    # ── Fallback 2: parse free-form text from Gemini response ──
+    if not items and raw_text:
+        logger.info("[External] grounding_chunks empty — parsing free-form text")
+        items = _parse_freeform_text(raw_text, search_type)
+
+    logger.info("[External] final_items=%d", len(items))
     return items[:5]
 
 
@@ -252,6 +272,49 @@ def _parse_grounded_text(text: str, search_type: str, grounding_urls: list[dict]
 
         results.append(item)
     return results
+
+
+def _parse_freeform_text(text: str, search_type: str) -> list[dict]:
+    """
+    Last-resort parser: split Gemini's free-form text response into items.
+    Looks for numbered entries (1., 2., …) or line-separated blocks and
+    converts them to structured result items.
+    """
+    items: list[dict] = []
+
+    # Try numbered list: "1. 회사명 - 포지션 ..." or "1) ..."
+    numbered = re.split(r"\n\s*\d+[.)]\s+", "\n" + text)
+    blocks = [b.strip() for b in numbered if len(b.strip()) > 20]
+
+    if not blocks:
+        # Fallback: split by double newline
+        blocks = [b.strip() for b in re.split(r"\n{2,}", text) if len(b.strip()) > 20]
+
+    for block in blocks[:5]:
+        first_line = block.split("\n")[0].strip()
+        if not first_line:
+            continue
+        # Try to extract company/title from "회사: X" or "제목: X" patterns
+        company = ""
+        m = re.search(r"(?:회사|기업|company)[:\s]+(.+?)(?:\n|$)", block, re.IGNORECASE)
+        if m:
+            company = m.group(1).strip()
+        title_m = re.search(r"(?:제목|포지션|직무|title)[:\s]+(.+?)(?:\n|$)", block, re.IGNORECASE)
+        title = title_m.group(1).strip() if title_m else first_line[:80]
+
+        item: dict = {
+            "title": title,
+            "summary": block[:200].replace("\n", " "),
+            "source": "Gemini 검색",
+            "url": "",
+            "source_type": "external",
+        }
+        if search_type == "구인":
+            item.update({"company": company, "location": "", "salary": None, "job_type": ""})
+        else:
+            item["category"] = "trend"
+        items.append(item)
+    return items
 
 
 def _chunks_to_items(grounding_urls: list[dict], search_type: str) -> list[dict]:

@@ -407,14 +407,20 @@ function SearchContent() {
             </section>
 
             {/* ── SECTION 2: 실시간 외부 검색 결과 ── */}
-            {results.external_total > 0 && (
-              <section>
-                <SectionHeader
-                  label={results.search_type === '구인' ? '🌐 실시간 외부 채용공고' : '🌐 실시간 시장 정보'}
-                  badge={results.source_labels?.external ?? '실시간 외부 검색 결과'}
-                  badgeColor="orange"
-                  count={results.external_total}
-                />
+            <section>
+              <SectionHeader
+                label={results.search_type === '구인' ? '🌐 실시간 외부 채용공고' : '🌐 실시간 시장 정보'}
+                badge={results.source_labels?.external ?? '실시간 외부 검색 결과'}
+                badgeColor="orange"
+                count={results.external_total}
+              />
+              {results.external_total === 0 ? (
+                <div className="text-center py-8 bg-orange-50/50 rounded-xl border border-orange-100 text-gray-400 text-xs">
+                  <p className="text-sm font-medium text-orange-400">실시간 외부 검색 결과가 없습니다</p>
+                  <p className="mt-1">Gemini Google Search 그라운딩이 결과를 반환하지 않았습니다.</p>
+                  <p className="mt-0.5 text-gray-400">플랫폼에 직접 채용공고를 등록하거나 다른 검색어를 시도해 보세요.</p>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   {results.external_results.map((item, i) =>
                     isExternalJob(item) ? (
@@ -424,8 +430,8 @@ function SearchContent() {
                     )
                   )}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
 
             {/* ── SECTION 3: Gemini AI 분석 ── */}
             {(results.ai_summary || results.ai_match_reasons?.length > 0 || results.ai_tips?.length > 0) && (

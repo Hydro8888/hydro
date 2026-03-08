@@ -407,7 +407,7 @@ function SearchContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {results.local_results.map((item) =>
+                  {(results.local_results ?? []).map((item) =>
                     isJobLocal(item) ? (
                       <LocalJobCard key={`local-job-${item.id}`} job={item} />
                     ) : (
@@ -438,7 +438,7 @@ function SearchContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {results.external_results.map((item, i) =>
+                  {(results.external_results ?? []).map((item, i) =>
                     isExternalJob(item) ? (
                       <ExternalJobCard key={`ext-job-${i}`} job={item as ExternalJobResult} />
                     ) : (

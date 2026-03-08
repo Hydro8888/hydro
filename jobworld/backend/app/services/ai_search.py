@@ -15,6 +15,17 @@ from app.models.company import Company
 from app.models.resume import Resume
 from app.models.user import User
 from app.config import settings
+from app.services.gemini_client import parse_json_safe
+from pydantic import BaseModel, Field
+
+
+class AugmentResponse(BaseModel):
+    """_gemini_call_sync 의 response_schema 로 사용."""
+    summary: str = ""
+    insights: list[str] = Field(default_factory=list)
+    tips: list[str] = Field(default_factory=list)
+    reasoning: str = ""
+    recommended_filters: list[str] = Field(default_factory=list)
 
 
 # ─── Intent Detection ────────────────────────────────────────────────────────
@@ -237,17 +248,20 @@ def _gemini_call_sync(query: str, search_type: str, db_results: list[dict]) -> d
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
+            response_schema=AugmentResponse,
             max_output_tokens=700,
             temperature=0.35,
+            # gemini-3.1-flash-lite-preview: low 레벨로 불필요한 추론 생략, 지연 최소화
+            thinking_config=types.ThinkingConfig(thinking_level="low"),
         ),
     )
-    text = response.text.strip()
+    text = ""
+    try:
+        text = response.text or ""
+    except Exception:
+        pass
 
-    # 마크다운 코드블록 제거 (방어적 처리)
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-
-    data = _json.loads(text.strip())
+    data = parse_json_safe(text) or {}
     return {
         "summary": str(data.get("summary", "")),
         "insights": [str(i) for i in data.get("insights", []) if i],

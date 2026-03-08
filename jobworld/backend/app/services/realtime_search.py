@@ -19,7 +19,9 @@ import asyncio
 import logging
 import re
 import time
-from typing import Optional
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,8 +41,20 @@ logger = logging.getLogger(__name__)
 # Use settings.gemini_grounding_model so it can be overridden via .env.
 GROUNDING_MODEL = settings.gemini_grounding_model
 
-# Fallback model for structured JSON extraction (no grounding needed)
-EXTRACT_MODEL = "gemini-2.0-flash-lite"
+# 구조화 JSON 추출용 모델 — gemini-3.1-flash-lite-preview (빠름·저렴)
+EXTRACT_MODEL = "gemini-3.1-flash-lite-preview"
+
+
+# ── Pydantic schema: Gemini AI 분석 응답 (structured output용) ─────────────────
+
+class AIAnalysisResponse(BaseModel):
+    """_analyze_sync 의 response_schema 로 사용."""
+    summary: str = ""
+    match_reasons: List[str] = Field(default_factory=list)
+    recommended_filters: List[str] = Field(default_factory=list)
+    tips: List[str] = Field(default_factory=list)
+    reasoning: str = ""
+
 
 SOURCE_LABELS = {
     "local": "플랫폼 등록 결과",
@@ -287,14 +301,18 @@ def _second_pass_extraction(
 
     for model in [EXTRACT_MODEL, "gemini-2.0-flash"]:
         try:
+            _cfg: dict = {
+                "response_mime_type": "application/json",
+                "max_output_tokens": 1500,
+                "temperature": 0.1,
+            }
+            # ThinkingConfig: Gemini 3 시리즈만 지원 (gemini-3.x-*)
+            if "3." in model:
+                _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="minimal")
             resp = client.models.generate_content(
                 model=model,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    max_output_tokens=1500,
-                    temperature=0.1,
-                ),
+                config=types.GenerateContentConfig(**_cfg),
             )
             text = ""
             try:
@@ -548,38 +566,38 @@ def _analyze_sync(
         f'"reasoning":"로컬/외부 데이터 차이 및 활용법 1문장"}}'
     )
 
-    # Try models in order until one succeeds
-    for model in [settings.gemini_model, "gemini-2.0-flash", EXTRACT_MODEL]:
-        for use_json_mime in [True, False]:
+    # 모델 체인: gemini-3.1-flash-lite-preview (저지연) → gemini-2.0-flash (안정 폴백)
+    for model in [settings.gemini_model, "gemini-2.0-flash"]:
+        try:
+            _cfg: dict = {
+                "response_mime_type": "application/json",
+                "response_schema": AIAnalysisResponse,
+                "max_output_tokens": 700,
+                "temperature": 0.3,
+            }
+            # ThinkingConfig: Gemini 3 시리즈 전용 — low 레벨로 지연 시간 최소화
+            if "3." in model:
+                _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(**_cfg),
+            )
+            text = ""
             try:
-                cfg_kwargs: dict = {"max_output_tokens": 700, "temperature": 0.3}
-                if use_json_mime:
-                    cfg_kwargs["response_mime_type"] = "application/json"
+                text = response.text or ""
+            except Exception:
+                pass
 
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(**cfg_kwargs),
-                )
-                text = ""
-                try:
-                    text = response.text or ""
-                except Exception:
-                    pass
+            parsed = parse_json_safe(text)
+            if isinstance(parsed, dict) and parsed.get("summary"):
+                logger.info("[Analyze] succeeded model=%s", model)
+                return _extract_ai_fields(parsed)
 
-                parsed = parse_json_safe(text)
-                if isinstance(parsed, dict) and parsed.get("summary"):
-                    logger.info("[Analyze] succeeded model=%s json_mode=%s", model, use_json_mime)
-                    return _extract_ai_fields(parsed)
-
-                logger.warning(
-                    "[Analyze] model=%s json_mode=%s — invalid/empty JSON, trying next",
-                    model, use_json_mime,
-                )
-                break  # don't retry plain mode if JSON mode already yielded a parseable but empty result
-            except Exception as e:
-                logger.warning("[Analyze] model=%s json_mode=%s failed: %s", model, use_json_mime, e)
-                break  # move to next model on any exception
+            logger.warning("[Analyze] model=%s — invalid/empty response, trying next", model)
+        except Exception as e:
+            logger.warning("[Analyze] model=%s failed: %s", model, e)
 
     # All models failed
     logger.error("[Analyze] all models failed — using rich fallback")

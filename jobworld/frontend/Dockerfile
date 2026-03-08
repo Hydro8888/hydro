@@ -1,6 +1,10 @@
-FROM node:20 AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY node_modules ./node_modules
+
+# 의존성 먼저 복사 → 레이어 캐시 활용 (소스 변경 시 npm ci 재실행 안 함)
+COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY . .
 RUN npm run build
 

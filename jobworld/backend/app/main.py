@@ -9,6 +9,19 @@ from app.api import auth, jobs, resumes, applications, search, admin
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Gemini 설정 상태 로깅
+    import logging
+    _log = logging.getLogger("app.startup")
+    has_key = bool(settings.gemini_api_key)
+    _log.info(
+        "[Startup] Gemini config — key_present=%s model=%s grounding_model=%s",
+        has_key, settings.gemini_model, settings.gemini_grounding_model,
+    )
+    if not has_key:
+        _log.warning(
+            "[Startup] GEMINI_API_KEY is NOT set! "
+            "Add GEMINI_API_KEY=your-key to .env and restart the container."
+        )
     yield
 
 

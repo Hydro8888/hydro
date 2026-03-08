@@ -260,9 +260,29 @@ def _gemini_call_sync(query: str, search_type: str, db_results: list[dict]) -> d
 
 def _fallback_ai(query: str, search_type: str, count: int) -> dict:
     if search_type == "구직":
-        summary = f"'{query}' 조건에 맞는 구직자 이력서 {count}개를 찾았습니다."
+        if count > 0:
+            summary = (
+                f"'{query}' 관련 이력서 {count}건이 플랫폼에 등록되어 있습니다. "
+                "기술스택 필터를 활용해 더 정확한 인재를 찾아보세요."
+            )
+        else:
+            summary = (
+                f"현재 플랫폼에 '{query}' 조건의 이력서가 아직 없습니다. "
+                "검색어를 더 넓게 변경하거나 관련 직무명으로 다시 검색해 보세요. "
+                "구직자에게 직접 이력서 등록을 안내하는 것도 좋은 방법입니다."
+            )
     else:
-        summary = f"'{query}' 관련 채용공고 {count}개를 찾았습니다."
+        if count > 0:
+            summary = (
+                f"'{query}' 관련 채용공고 {count}건이 플랫폼에 등록되어 있습니다. "
+                "상세 필터를 활용해 조건에 맞는 공고를 찾아보세요."
+            )
+        else:
+            summary = (
+                f"현재 플랫폼에 '{query}' 관련 채용공고가 아직 없습니다. "
+                "검색어를 변경하거나 관련 키워드로 다시 검색해 보세요. "
+                "외부 채용 플랫폼도 함께 확인해 보시길 추천합니다."
+            )
     return {"summary": summary, "insights": [], "tips": [], "reasoning": "", "recommended_filters": []}
 
 

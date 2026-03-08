@@ -508,15 +508,30 @@ def _analyze_sync(
     # Context-aware summary instruction
     if local_count == 0 and external_count > 0:
         summary_ctx = (
-            f"플랫폼 등록 결과는 없지만 실시간 웹 검색에서 {external_count}건의 결과를 찾았습니다. "
-            "외부 검색 결과를 중심으로 요약하세요."
+            f"플랫폼에 아직 등록된 이력서/공고가 없지만, 실시간 웹 검색에서 '{query}' 관련 "
+            f"시장 정보 {external_count}건을 찾았습니다. "
+            "외부 검색 결과를 바탕으로 시장 동향과 구직자/구인 팁을 안내하세요. "
+            "절대 '0개를 찾았습니다' 같은 표현은 사용하지 마세요."
         )
     elif local_count > 0 and external_count > 0:
-        summary_ctx = f"플랫폼 {local_count}건 + 실시간 외부 {external_count}건을 통합해서 요약하세요."
+        summary_ctx = (
+            f"플랫폼 {local_count}건 + 실시간 외부 {external_count}건을 통합해서 요약하세요. "
+            "절대 '0개를 찾았습니다' 같은 표현은 사용하지 마세요."
+        )
     elif local_count > 0:
-        summary_ctx = f"플랫폼 등록 결과 {local_count}건을 중심으로 요약하세요."
+        summary_ctx = (
+            f"플랫폼 등록 결과 {local_count}건을 중심으로 요약하세요. "
+            "절대 '0개를 찾았습니다' 같은 표현은 사용하지 마세요."
+        )
     else:
-        summary_ctx = "결과가 없으므로 검색어 변경 또는 범위 확대를 안내하세요."
+        summary_ctx = (
+            f"현재 플랫폼과 외부 검색 모두에서 '{query}' 관련 결과를 찾지 못했습니다. "
+            "'X개를 찾았습니다' 같은 단순 카운트 표현은 절대 사용하지 마세요. "
+            "대신 다음 내용으로 2-3문장 안내: "
+            "1) 검색어를 더 넓게 바꿔볼 것을 제안 (예: 관련 직무명, 기술 스택), "
+            "2) 플랫폼에 이력서 등록을 유도하거나 다른 키워드로 재검색 권유, "
+            "3) 해당 직무의 시장 수요나 관련 트렌드 한 마디."
+        )
 
     prompt = (
         f'당신은 "AI JobWorld" 한국 채용 플랫폼의 AI 어시스턴트입니다.\n'
@@ -524,8 +539,9 @@ def _analyze_sync(
         f'[플랫폼 등록 데이터] ({local_count}건)\n{local_preview}\n\n'
         f'[실시간 외부 검색 데이터] ({external_count}건)\n{external_preview}\n\n'
         f'지시: {summary_ctx}\n\n'
+        f'중요: summary 필드에 절대로 "N개를 찾았습니다" 형태의 표현을 쓰지 마세요.\n\n'
         f'아래 JSON 스키마로 한국어 응답하세요:\n'
-        f'{{"summary":"전체 검색 결과 요약 2-3문장",'
+        f'{{"summary":"검색 결과 요약 및 유용한 안내 2-3문장",'
         f'"match_reasons":["검색어와 관련된 이유 1","이유 2"],'
         f'"recommended_filters":["추천 검색 키워드 1","키워드 2","키워드 3"],'
         f'"tips":["팁 1","팁 2"],'

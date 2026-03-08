@@ -587,12 +587,21 @@ def _analyze_sync(
 
 
 def _extract_ai_fields(parsed: dict) -> dict:
+    def _to_str_list(val) -> list:
+        """Gemini가 list 대신 null/string을 반환할 경우를 방어적으로 처리."""
+        if isinstance(val, list):
+            return [str(item) for item in val if item]
+        if isinstance(val, str) and val.strip():
+            # 단일 문자열을 리스트로 감싸 반환
+            return [val.strip()]
+        return []
+
     return {
         "summary": str(parsed.get("summary", "")),
-        "match_reasons": [str(r) for r in parsed.get("match_reasons", []) if r],
-        "recommended_filters": [str(f) for f in parsed.get("recommended_filters", []) if f],
-        "tips": [str(t) for t in parsed.get("tips", []) if t],
-        "reasoning": str(parsed.get("reasoning", "")),
+        "match_reasons": _to_str_list(parsed.get("match_reasons")),
+        "recommended_filters": _to_str_list(parsed.get("recommended_filters")),
+        "tips": _to_str_list(parsed.get("tips")),
+        "reasoning": str(parsed.get("reasoning") or ""),
         "error": None,
     }
 

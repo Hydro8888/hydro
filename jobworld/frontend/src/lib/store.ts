@@ -14,15 +14,17 @@ interface AuthStore {
   logout: () => void
 }
 
+const isBrowser = typeof window !== 'undefined'
+
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
-  token: typeof window !== 'undefined' ? localStorage.getItem('access_token') : null,
+  token: isBrowser ? localStorage.getItem('access_token') : null,
   setAuth: (user, token) => {
-    localStorage.setItem('access_token', token)
+    if (isBrowser) localStorage.setItem('access_token', token)
     set({ user, token })
   },
   logout: () => {
-    localStorage.removeItem('access_token')
+    if (isBrowser) localStorage.removeItem('access_token')
     set({ user: null, token: null })
   },
 }))

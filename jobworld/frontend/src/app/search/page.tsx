@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -14,6 +14,11 @@ import {
 } from '@/lib/api'
 
 const GEMINI_MODEL_LABEL = 'gemini-3.1-flash-lite-preview'
+
+// 배열 타입 안전 헬퍼
+function safeArr<T>(val: unknown): T[] {
+  return Array.isArray(val) ? (val as T[]) : []
+}
 
 function SectionHeader({
   label,
@@ -99,7 +104,7 @@ function LocalJobCard({ job }: { job: JobLocalResult }) {
 }
 
 function LocalResumeCard({ resume }: { resume: ResumeLocalResult }) {
-  const skills = resume.skills?.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5) || []
+  const skills = resume.skills?.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5) ?? []
   return (
     <Link
       href={`/resume/${resume.id}`}
@@ -223,6 +228,23 @@ function SearchContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // useCallback으로 안정적인 함수 참조 유지 → useEffect 의존성 정확히 선언
+  const doSearch = useCallback(async (searchQuery: string, type: '구인' | '구직') => {
+    setLoading(true)
+    setError('')
+    setResults(null)
+    try {
+      const res = await searchAPI.ai(searchQuery, type)
+      setResults(res.data)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string }
+      const msg = e.response?.data?.detail || e.message || '검색 중 오류가 발생했습니다.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (q) {
       setQuery(q)
@@ -230,22 +252,7 @@ function SearchContent() {
       setSearchType(t)
       doSearch(q, t)
     }
-  }, [q, typeParam])
-
-  const doSearch = async (searchQuery: string, type: '구인' | '구직') => {
-    setLoading(true)
-    setError('')
-    setResults(null)
-    try {
-      const res = await searchAPI.ai(searchQuery, type)
-      setResults(res.data)
-    } catch (err: any) {
-      const msg = err.response?.data?.detail || err.message || '검색 중 오류가 발생했습니다.'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [q, typeParam, doSearch])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -257,6 +264,15 @@ function SearchContent() {
   const isJobLocal = (r: JobLocalResult | ResumeLocalResult): r is JobLocalResult => r.type === '구인'
   const isExternalJob = (r: ExternalJobResult | ExternalMarketResult): r is ExternalJobResult =>
     'company' in r || 'job_type' in r
+
+  // 렌더링에서 안전하게 사용할 파생값
+  const localResults = safeArr<JobLocalResult | ResumeLocalResult>(results?.local_results)
+  const externalResults = safeArr<ExternalJobResult | ExternalMarketResult>(results?.external_results)
+  const recommendedFilters = safeArr<string>(results?.ai_recommended_filters)
+  const matchReasons = safeArr<string>(results?.ai_match_reasons)
+  const aiTips = safeArr<string>(results?.ai_tips)
+  const localTotal = results?.local_total ?? 0
+  const externalTotal = results?.external_total ?? 0
 
   return (
     <div className="min-h-screen bg-white">
@@ -357,7 +373,7 @@ function SearchContent() {
                 {results.search_type === '구인' ? '🏢 구인 검색' : '👤 구직 검색'}
               </span>
               <span className="text-xs text-gray-400">"{results.query}"</span>
-              {results.ai_recommended_filters?.map((f) => (
+              {recommendedFilters.map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -372,12 +388,12 @@ function SearchContent() {
             </div>
 
             {/* 복합 결과 상태 배너 */}
-            {results.local_total === 0 && results.external_total > 0 && (
+            {localTotal === 0 && externalTotal > 0 && (
               <div className="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
                 플랫폼 등록 결과는 없지만, 실시간 웹 검색 결과를 찾았습니다.
               </div>
             )}
-            {results.local_total === 0 && results.external_total === 0 && (
+            {localTotal === 0 && externalTotal === 0 && (
               <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                 플랫폼 등록 결과와 실시간 웹 검색 결과를 찾지 못했습니다. 다른 검색어를 시도해 보세요.
               </div>
@@ -389,10 +405,10 @@ function SearchContent() {
                 label={results.search_type === '구인' ? '📋 플랫폼 등록 채용공고' : '📄 플랫폼 등록 이력서'}
                 badge={results.source_labels?.local ?? '플랫폼 등록 결과'}
                 badgeColor="green"
-                count={results.local_total}
+                count={localTotal}
               />
 
-              {results.local_total === 0 ? (
+              {localTotal === 0 ? (
                 <div className="text-center py-10 bg-gray-50 rounded-xl text-gray-400 text-sm">
                   <p>등록된 {results.search_type === '구인' ? '채용공고' : '이력서'}가 없습니다.</p>
                   {results.search_type === '구인' ? (
@@ -407,7 +423,7 @@ function SearchContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {(results.local_results ?? []).map((item) =>
+                  {localResults.map((item) =>
                     isJobLocal(item) ? (
                       <LocalJobCard key={`local-job-${item.id}`} job={item} />
                     ) : (
@@ -424,9 +440,9 @@ function SearchContent() {
                 label={results.search_type === '구인' ? '🌐 실시간 외부 채용공고' : '🌐 실시간 시장 정보'}
                 badge={results.source_labels?.external ?? '실시간 외부 검색 결과'}
                 badgeColor="orange"
-                count={results.external_total}
+                count={externalTotal}
               />
-              {results.external_total === 0 ? (
+              {externalTotal === 0 ? (
                 <div className="text-center py-8 bg-orange-50/50 rounded-xl border border-orange-100 text-gray-400 text-xs">
                   <p className="text-sm font-medium text-orange-400">실시간 외부 검색 결과가 없습니다</p>
                   {results.ai_error ? (
@@ -438,7 +454,7 @@ function SearchContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {(results.external_results ?? []).map((item, i) =>
+                  {externalResults.map((item, i) =>
                     isExternalJob(item) ? (
                       <ExternalJobCard key={`ext-job-${i}`} job={item as ExternalJobResult} />
                     ) : (
@@ -450,7 +466,7 @@ function SearchContent() {
             </section>
 
             {/* ── SECTION 3: Gemini AI 분석 ── */}
-            {(results.ai_summary || results.ai_match_reasons?.length > 0 || results.ai_tips?.length > 0) && (
+            {(results.ai_summary || matchReasons.length > 0 || aiTips.length > 0) && (
               <section>
                 <SectionHeader
                   label="✨ Gemini AI 분석"
@@ -469,11 +485,11 @@ function SearchContent() {
                     <p className="text-sm text-gray-700 leading-relaxed">{results.ai_summary}</p>
                   )}
 
-                  {results.ai_match_reasons && results.ai_match_reasons.length > 0 && (
+                  {matchReasons.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-1.5">🎯 매칭 이유</p>
                       <ul className="space-y-1.5">
-                        {results.ai_match_reasons.map((reason, i) => (
+                        {matchReasons.map((reason, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                             <span
                               className={`mt-0.5 shrink-0 font-bold ${
@@ -489,13 +505,13 @@ function SearchContent() {
                     </div>
                   )}
 
-                  {results.ai_tips && results.ai_tips.length > 0 && (
+                  {aiTips.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-500 mb-1.5">
                         {results.search_type === '구인' ? '📌 지원자를 위한 팁' : '📌 채용 담당자를 위한 팁'}
                       </p>
                       <ul className="space-y-1.5">
-                        {results.ai_tips.map((tip, i) => (
+                        {aiTips.map((tip, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                             <span className="mt-0.5 shrink-0 text-amber-500 font-bold">→</span>
                             {tip}

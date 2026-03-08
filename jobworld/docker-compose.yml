@@ -36,7 +36,6 @@ services:
       - DATABASE_URL=postgresql+asyncpg://jobworld:${POSTGRES_PASSWORD}@db:5432/jobworld
       - REDIS_URL=redis://redis:6379
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - db
       - redis

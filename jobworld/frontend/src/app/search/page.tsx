@@ -13,7 +13,7 @@ import {
   ExternalMarketResult,
 } from '@/lib/api'
 
-const GEMINI_MODEL_LABEL = 'gemini-3.1-flash-lite-preview'
+const GEMINI_MODEL_LABEL = 'gemini-2.5-flash'
 
 // 배열 타입 안전 헬퍼
 function safeArr<T>(val: unknown): T[] {

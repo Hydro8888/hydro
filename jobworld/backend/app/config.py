@@ -18,10 +18,9 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-3.1-flash-lite-preview"
-    # gemini-2.0-flash is required for Google Search grounding support.
-    # Lite/preview models silently drop the google_search tool.
-    gemini_grounding_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash-lite"
+    # Google Search 그라운딩용 모델. gemini-2.5-flash 이상 권장.
+    gemini_grounding_model: str = "gemini-2.5-flash"
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

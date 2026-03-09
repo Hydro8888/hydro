@@ -69,13 +69,13 @@ jobworld/
 ```
 1. detect_search_type(query)  →  구인 / 구직
 2. DB 검색 (local_results)    ←  최우선 표시
-3. Gemini grounding 검색      ←  gemini-2.0-flash + google_search tool
+3. Gemini grounding 검색      ←  gemini-2.5-flash + google_search tool
    └─ 4-pass 파싱 전략
       1) ===JOB=== 블록 파싱
-      2) 2nd-pass JSON 추출 (gemini-2.0-flash-lite)
+      2) 2nd-pass JSON 추출 (gemini-2.5-flash-lite)
       3) grounding_chunks URL 활용
       4) 자유형식 텍스트 파싱
-4. Gemini 분석               ←  gemini-3.1-flash-lite-preview 우선
+4. Gemini 분석               ←  gemini-2.5-flash-lite 우선
 5. 통합 응답 반환
 ```
 
@@ -88,8 +88,8 @@ jobworld/
 - 실제 `.env` → git 무시 (절대 커밋 금지)
 - `.env.example` → placeholder만 (값 없이)
 - `GEMINI_API_KEY` 필수 — AI 검색 기능 필요
-- `GEMINI_GROUNDING_MODEL` 기본값: `gemini-2.0-flash`
-- `GEMINI_MODEL` 기본값: `gemini-3.1-flash-lite-preview`
+- `GEMINI_GROUNDING_MODEL` 기본값: `gemini-2.5-flash`
+- `GEMINI_MODEL` 기본값: `gemini-2.5-flash-lite`
 
 ---
 

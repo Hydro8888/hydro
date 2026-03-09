@@ -9,9 +9,8 @@ Pipeline (order is mandatory):
   5. Return combined structured response
 
 External data strategy:
-  - Gemini Google Search grounding REQUIRES gemini-2.0-flash (or later).
-    gemini-3.1-flash-lite-preview does NOT support the google_search tool.
-  - We hardcode GROUNDING_MODEL = "gemini-2.0-flash" for the external phase.
+  - Gemini Google Search grounding: gemini-2.5-flash 이상 권장 (gemini-2.0-flash도 가능).
+  - We use settings.gemini_grounding_model (default: gemini-2.5-flash) for the external phase.
   - Grounding returns prose, so a second-pass JSON extraction converts it to structure.
   - The AI-analysis phase uses settings.gemini_model with a model-chain fallback.
 """
@@ -21,7 +20,7 @@ import re
 import time
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,24 +35,28 @@ from app.services.ai_search import (
 
 logger = logging.getLogger(__name__)
 
-# gemini-2.0-flash is the minimum model with confirmed google_search grounding support.
-# Preview / lite models (gemini-3.1-flash-lite-preview) silently drop the tool.
+# Google Search 그라운딩용 모델.
+# gemini-2.5-flash 이상 권장. gemini-2.0-flash도 사용 가능(2026-06 퇴역 예정).
 # Use settings.gemini_grounding_model so it can be overridden via .env.
 GROUNDING_MODEL = settings.gemini_grounding_model
 
-# 구조화 JSON 추출용 모델 — gemini-3.1-flash-lite-preview (빠름·저렴)
-EXTRACT_MODEL = "gemini-3.1-flash-lite-preview"
+# 구조화 JSON 추출용 모델 — 빠르고 저렴한 모델 우선
+EXTRACT_MODEL = "gemini-2.5-flash-lite"
 
 
 # ── Pydantic schema: Gemini AI 분석 응답 (structured output용) ─────────────────
 
 class AIAnalysisResponse(BaseModel):
-    """_analyze_sync 의 response_schema 로 사용."""
-    summary: str = ""
-    match_reasons: List[str] = Field(default_factory=list)
-    recommended_filters: List[str] = Field(default_factory=list)
-    tips: List[str] = Field(default_factory=list)
-    reasoning: str = ""
+    """_analyze_sync 의 response_schema 로 사용.
+
+    NOTE: Gemini API는 response_schema에 default 값이 있으면 거부하므로
+    모든 필드에 default를 설정하지 않는다.
+    """
+    summary: str
+    match_reasons: List[str]
+    recommended_filters: List[str]
+    tips: List[str]
+    reasoning: str
 
 
 SOURCE_LABELS = {
@@ -158,8 +161,7 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
     """
     Synchronous Gemini call with Google Search grounding.
 
-    IMPORTANT: grounding requires GROUNDING_MODEL ("gemini-2.0-flash"), NOT the
-    preview/lite model which silently ignores the google_search tool.
+    IMPORTANT: grounding requires GROUNDING_MODEL (gemini-2.5-flash 이상).
 
     Flow:
       1. Call Gemini with google_search tool → gets real web search results
@@ -299,16 +301,21 @@ def _second_pass_extraction(
         f'출력 형식 (JSON 배열만, 다른 설명 없이):\n{schema_example}'
     )
 
-    for model in [EXTRACT_MODEL, "gemini-2.0-flash"]:
+    for model in [EXTRACT_MODEL, "gemini-2.5-flash"]:
         try:
             _cfg: dict = {
                 "response_mime_type": "application/json",
                 "max_output_tokens": 1500,
                 "temperature": 0.1,
             }
-            # ThinkingConfig: Gemini 3 시리즈만 지원 (gemini-3.x-*)
-            if "3." in model:
-                _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="minimal")
+            # ThinkingConfig: Gemini 3.x → thinking_level, Gemini 2.5 → thinking_budget
+            try:
+                if "3." in model:
+                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="minimal")
+                elif "2.5" in model:
+                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+            except Exception:
+                pass  # SDK 버전이 ThinkingConfig 미지원 시 무시
             resp = client.models.generate_content(
                 model=model,
                 contents=prompt,
@@ -566,8 +573,8 @@ def _analyze_sync(
         f'"reasoning":"로컬/외부 데이터 차이 및 활용법 1문장"}}'
     )
 
-    # 모델 체인: gemini-3.1-flash-lite-preview (저지연) → gemini-2.0-flash (안정 폴백)
-    for model in [settings.gemini_model, "gemini-2.0-flash"]:
+    # 모델 체인: settings.gemini_model (저지연) → gemini-2.5-flash (안정 폴백)
+    for model in [settings.gemini_model, "gemini-2.5-flash"]:
         try:
             _cfg: dict = {
                 "response_mime_type": "application/json",
@@ -575,9 +582,14 @@ def _analyze_sync(
                 "max_output_tokens": 700,
                 "temperature": 0.3,
             }
-            # ThinkingConfig: Gemini 3 시리즈 전용 — low 레벨로 지연 시간 최소화
-            if "3." in model:
-                _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+            # ThinkingConfig: Gemini 3.x → thinking_level, Gemini 2.5 → thinking_budget
+            try:
+                if "3." in model:
+                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
+                elif "2.5" in model:
+                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=256)
+            except Exception:
+                pass  # SDK 버전이 ThinkingConfig 미지원 시 무시
 
             response = client.models.generate_content(
                 model=model,

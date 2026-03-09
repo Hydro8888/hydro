@@ -80,8 +80,6 @@ export default function Home() {
         {/* 로고 & 헤드라인 */}
         <div className="mb-8 text-center">
           <h1 className="text-5xl font-extrabold tracking-tight leading-tight">
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI</span>
-            {' '}
             <span className="text-blue-600">Job</span>
             <span className="text-gray-900">World</span>
           </h1>
@@ -111,7 +109,7 @@ export default function Home() {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {type === '구인' ? '🏢 구인 찾기' : '👤 구직 찾기'}
+              {type === '구인' ? '🏢 구인' : '👤 구직'}
             </button>
           ))}
         </div>

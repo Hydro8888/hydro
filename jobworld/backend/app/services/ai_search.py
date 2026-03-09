@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 
 class AugmentResponse(BaseModel):
-    """_gemini_call_sync 의 response_schema 로 사용."""
+    """참고용 (response_schema 미사용 — default_factory=list → API 400 오류)."""
     summary: str = ""
     insights: list[str] = Field(default_factory=list)
     tips: list[str] = Field(default_factory=list)
@@ -248,7 +248,7 @@ def _gemini_call_sync(query: str, search_type: str, db_results: list[dict]) -> d
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=AugmentResponse,
+            # response_schema 미사용: default_factory=list → API 400 오류
             max_output_tokens=700,
             temperature=0.35,
         ),

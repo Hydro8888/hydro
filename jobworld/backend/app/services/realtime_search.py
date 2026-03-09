@@ -47,10 +47,10 @@ EXTRACT_MODEL = "gemini-2.5-flash-lite"
 # ── Pydantic schema: Gemini AI 분석 응답 (structured output용) ─────────────────
 
 class AIAnalysisResponse(BaseModel):
-    """_analyze_sync 의 response_schema 로 사용.
+    """참고용 구조 정의 (response_schema에는 사용하지 않음).
 
-    NOTE: Gemini API는 response_schema에 default 값이 있으면 거부하므로
-    모든 필드에 default를 설정하지 않는다.
+    NOTE: google-genai SDK가 List[str] → JSON Schema 변환 시 "default": [] 추가 →
+    Gemini API 400 오류. response_mime_type="application/json" + 수동 파싱으로 대체.
     """
     summary: str
     match_reasons: List[str]
@@ -576,12 +576,10 @@ def _analyze_sync(
         try:
             _cfg: dict = {
                 "response_mime_type": "application/json",
-                "response_schema": AIAnalysisResponse,
+                # response_schema 미사용: List[str] 필드 → SDK가 default:[] 추가 → API 400
                 "max_output_tokens": 700,
                 "temperature": 0.3,
             }
-            # thinking_budget=256 은 gemini-2.5-flash 최솟값(1024) 미달로 API 오류.
-            # JSON 모드에서 ThinkingConfig 미설정 → 모델 기본값 사용.
             response = client.models.generate_content(
                 model=model,
                 contents=prompt,

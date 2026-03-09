@@ -340,7 +340,7 @@ function SearchContent() {
                 searchType === '구인' ? 'border-blue-600' : 'border-purple-600'
               }`}
             />
-            <p className="text-sm font-medium">Gemini AI가 분석 중...</p>
+            <p className="text-sm font-medium">AI가 분석 중...</p>
             <p className="text-xs mt-1 text-gray-400">
               플랫폼 DB와 실시간 외부 데이터를 동시에 검색하고 있습니다
             </p>
@@ -448,7 +448,7 @@ function SearchContent() {
                   {results.ai_error ? (
                     <p className="mt-1 text-amber-600">AI 검색 오류: {results.ai_error}</p>
                   ) : (
-                    <p className="mt-1">Gemini Google Search 그라운딩이 결과를 반환하지 않았습니다.</p>
+                    <p className="mt-1">AI 검색이 결과를 반환하지 않았습니다.</p>
                   )}
                   <p className="mt-0.5 text-gray-400">다른 검색어를 시도하거나 플랫폼에 채용공고를 등록해 보세요.</p>
                 </div>
@@ -465,12 +465,11 @@ function SearchContent() {
               )}
             </section>
 
-            {/* ── SECTION 3: Gemini AI 분석 ── */}
+            {/* ── SECTION 3: AI 분석 ── */}
             {(results.ai_summary || matchReasons.length > 0 || aiTips.length > 0) && (
               <section>
                 <SectionHeader
-                  label="✨ Gemini AI 분석"
-                  badge={GEMINI_MODEL_LABEL}
+                  label="✨ AI 분석"
                   badgeColor={results.search_type === '구인' ? 'blue' : 'purple'}
                 />
 

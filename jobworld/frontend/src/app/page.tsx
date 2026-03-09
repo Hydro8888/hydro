@@ -194,7 +194,7 @@ export default function Home() {
           <Link href="/terms" className="hover:text-gray-600">이용약관</Link>
           <Link href="/admin" className="hover:text-gray-600">관리자</Link>
         </div>
-        <p>© 2026 AI JobWorld. Gemini AI 기반 구인·구직 플랫폼. 완전 무료.</p>
+        <p>© 2026 AI JobWorld. AI 기반 구인·구직 플랫폼. 완전 무료.</p>
       </footer>
     </div>
   )

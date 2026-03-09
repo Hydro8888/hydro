@@ -232,8 +232,12 @@ def _external_search_sync(client, query: str, search_type: str) -> list[dict]:
             for cand in (response.candidates or []):
                 if cand.content and cand.content.parts:
                     for part in cand.content.parts:
-                        if hasattr(part, "text") and part.text:
-                            raw_text += part.text
+                        try:
+                            t = part.text
+                            if t:
+                                raw_text += t
+                        except Exception:
+                            pass  # function_call 등 비텍스트 part 무시
         except Exception as inner:
             logger.warning("[External] parts extraction also failed: %s", inner)
 
@@ -308,14 +312,8 @@ def _second_pass_extraction(
                 "max_output_tokens": 1500,
                 "temperature": 0.1,
             }
-            # ThinkingConfig: Gemini 3.x → thinking_level, Gemini 2.5 → thinking_budget
-            try:
-                if "3." in model:
-                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="minimal")
-                elif "2.5" in model:
-                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
-            except Exception:
-                pass  # SDK 버전이 ThinkingConfig 미지원 시 무시
+            # thinking_budget=0 은 JSON 모드(response_mime_type)와 함께 사용 시 API 오류 발생.
+            # 단순 추출 작업이므로 ThinkingConfig 미설정 (기본값 사용).
             resp = client.models.generate_content(
                 model=model,
                 contents=prompt,

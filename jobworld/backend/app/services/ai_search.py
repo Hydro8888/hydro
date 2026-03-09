@@ -174,7 +174,7 @@ def _format_resume(resume: Resume, user_name: Optional[str] = None) -> dict:
 
 # ─── Gemini AI ───────────────────────────────────────────────────────────────
 
-GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+GEMINI_MODEL = settings.gemini_model  # config에서 읽음 (기본값: gemini-2.5-flash-lite)
 
 
 async def gemini_augment(query: str, search_type: str, db_results: list[dict]) -> dict:
@@ -251,8 +251,6 @@ def _gemini_call_sync(query: str, search_type: str, db_results: list[dict]) -> d
             response_schema=AugmentResponse,
             max_output_tokens=700,
             temperature=0.35,
-            # gemini-3.1-flash-lite-preview: low 레벨로 불필요한 추론 생략, 지연 최소화
-            thinking_config=types.ThinkingConfig(thinking_level="low"),
         ),
     )
     text = ""

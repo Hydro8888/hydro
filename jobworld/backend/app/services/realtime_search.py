@@ -305,7 +305,7 @@ def _second_pass_extraction(
         f'출력 형식 (JSON 배열만, 다른 설명 없이):\n{schema_example}'
     )
 
-    for model in [EXTRACT_MODEL, "gemini-2.5-flash"]:
+    for model in [EXTRACT_MODEL, "gemini-2.5-flash", "gemini-2.0-flash-lite"]:
         try:
             _cfg: dict = {
                 "response_mime_type": "application/json",
@@ -571,8 +571,8 @@ def _analyze_sync(
         f'"reasoning":"로컬/외부 데이터 차이 및 활용법 1문장"}}'
     )
 
-    # 모델 체인: settings.gemini_model (저지연) → gemini-2.5-flash (안정 폴백)
-    for model in [settings.gemini_model, "gemini-2.5-flash"]:
+    # 모델 체인: settings.gemini_model → gemini-2.5-flash → gemini-2.0-flash-lite (안정 폴백)
+    for model in [settings.gemini_model, "gemini-2.5-flash", "gemini-2.0-flash-lite"]:
         try:
             _cfg: dict = {
                 "response_mime_type": "application/json",
@@ -580,15 +580,8 @@ def _analyze_sync(
                 "max_output_tokens": 700,
                 "temperature": 0.3,
             }
-            # ThinkingConfig: Gemini 3.x → thinking_level, Gemini 2.5 → thinking_budget
-            try:
-                if "3." in model:
-                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_level="low")
-                elif "2.5" in model:
-                    _cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=256)
-            except Exception:
-                pass  # SDK 버전이 ThinkingConfig 미지원 시 무시
-
+            # thinking_budget=256 은 gemini-2.5-flash 최솟값(1024) 미달로 API 오류.
+            # JSON 모드에서 ThinkingConfig 미설정 → 모델 기본값 사용.
             response = client.models.generate_content(
                 model=model,
                 contents=prompt,

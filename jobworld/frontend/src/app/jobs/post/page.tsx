@@ -5,6 +5,17 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { jobsAPI } from '@/lib/api'
 
+const inputCls = 'w-full border border-[#dadce0] rounded px-4 py-2.5 text-sm text-[#202124] placeholder-[#9aa0a6] focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition-colors'
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-[#3c4043] mb-1.5">{label}</label>
+      {children}
+    </div>
+  )
+}
+
 export default function PostJobPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -37,8 +48,8 @@ export default function PostJobPage() {
     <div className="min-h-screen bg-white">
       <Header />
       <div className="max-w-xl mx-auto px-4 py-8">
-        <h1 className="text-lg font-semibold mb-6">채용공고 등록</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <h1 className="text-xl font-normal text-[#202124] mb-6">채용공고 등록</h1>
+        <form onSubmit={handleSubmit} className="space-y-5">
           <Field label="공고 제목 *">
             <input name="title" required value={form.title} onChange={handleChange}
               placeholder="예: 프론트엔드 개발자 (React)" className={inputCls} />
@@ -73,24 +84,16 @@ export default function PostJobPage() {
             <textarea name="preferred" rows={3} value={form.preferred} onChange={handleChange}
               placeholder="우대 사항을 입력해주세요" className={inputCls} />
           </Field>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-full font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {error && <p className="text-[#d93025] text-sm">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#1a73e8] text-white py-3 rounded text-sm font-medium hover:bg-[#1557b0] disabled:opacity-50 transition-colors"
+          >
             {loading ? '등록 중...' : '무료로 채용공고 등록'}
           </button>
         </form>
       </div>
-    </div>
-  )
-}
-
-const inputCls = 'w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400'
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      {children}
     </div>
   )
 }

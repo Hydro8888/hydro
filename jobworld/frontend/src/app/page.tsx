@@ -39,35 +39,37 @@ export default function Home() {
     ],
   }
 
-  const placeholders: Record<SearchType, string> = {
-    구인: '직무, 회사, 기술, 지역으로 채용공고 검색...',
-    구직: '기술스택, 경력, 직종으로 구직자 검색...',
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* ── 상단 네비게이션 ── */}
-      <nav className="relative z-20 flex justify-between items-center px-6 py-3 text-sm">
-        <span className="text-base font-bold">
-          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI </span>
-          <span className="text-blue-600">Job</span>
-          <span className="text-gray-800">World</span>
+      {/* 상단 네비 */}
+      <nav className="flex justify-between items-center px-6 py-3 text-sm border-b border-[#dadce0]">
+        <span className="flex items-center text-xl font-medium select-none">
+          <span className="text-[#1a73e8] font-bold">Job</span>
+          <span className="text-[#ea4335] font-bold">W</span>
+          <span className="text-[#fbbc04] font-bold">o</span>
+          <span className="text-[#34a853] font-bold">r</span>
+          <span className="text-[#1a73e8] font-bold">ld</span>
         </span>
-        <div className="flex items-center gap-4">
-          <Link href="/jobs/post" className="text-gray-500 hover:text-gray-900 transition-colors">채용 등록</Link>
-          <Link href="/resume/new" className="text-gray-500 hover:text-gray-900 transition-colors">이력서 등록</Link>
+        <div className="flex items-center gap-1">
+          <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+            채용 등록
+          </Link>
+          <Link href="/resume/new" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+            이력서 등록
+          </Link>
           {user ? (
             <>
-              <span className="text-gray-600">{user.name}</span>
-              <button onClick={logout} className="text-gray-500 hover:text-gray-900 transition-colors">로그아웃</button>
+              <span className="px-3 py-1.5 text-[#5f6368]">{user.name}</span>
+              <button onClick={logout} className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+                로그아웃
+              </button>
             </>
           ) : (
             <>
-              <Link href="/login" className="text-gray-500 hover:text-gray-900 transition-colors">로그인</Link>
-              <Link
-                href="/register"
-                className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors font-medium"
-              >
+              <Link href="/login" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+                로그인
+              </Link>
+              <Link href="/register" className="ml-1 px-4 py-2 bg-[#1a73e8] text-white text-sm font-medium rounded hover:bg-[#1557b0] transition-colors">
                 회원가입
               </Link>
             </>
@@ -75,124 +77,116 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* ── 메인 컨텐츠 ── */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
-        {/* 로고 & 헤드라인 */}
+      {/* 메인 */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+        {/* 로고 */}
         <div className="mb-8 text-center">
-          <h1 className="text-5xl font-extrabold tracking-tight leading-tight">
-            <span className="text-blue-600">Job</span>
-            <span className="text-gray-900">World</span>
+          <h1 className="flex items-center justify-center text-7xl font-medium select-none mb-6">
+            <span className="text-[#4285f4]">J</span>
+            <span className="text-[#ea4335]">o</span>
+            <span className="text-[#fbbc04]">b</span>
+            <span className="text-[#4285f4]">W</span>
+            <span className="text-[#34a853]">o</span>
+            <span className="text-[#ea4335]">r</span>
+            <span className="text-[#4285f4]">l</span>
+            <span className="text-[#fbbc04]">d</span>
           </h1>
-          <p className="mt-4 text-xl font-semibold text-gray-800">
-            AI가 찾아주는 가장 정확한 일자리와 인재
-          </p>
-          <p className="mt-2 text-sm text-gray-500 flex items-center justify-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-0.5 rounded-full text-xs font-semibold">
-              ✓ 완전 무료
-            </span>
-            구인 등록부터 구직 등록, AI 검색까지 누구나 완전 무료
+          <p className="text-[#5f6368] text-base">
+            AI가 찾아주는 가장 정확한 일자리와 인재 &nbsp;·&nbsp;
+            <span className="text-[#188038] font-medium">완전 무료</span>
           </p>
         </div>
 
-        {/* 구인 / 구직 탭 */}
-        <div className="flex bg-gray-100 rounded-full p-1 mb-4 gap-1">
+        {/* 구인/구직 탭 */}
+        <div className="flex gap-2 mb-4">
           {(['구인', '구직'] as SearchType[]).map((type) => (
             <button
               key={type}
               type="button"
               onClick={() => setSearchType(type)}
-              className={`px-8 py-2.5 rounded-full text-sm font-semibold transition-all ${
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all border ${
                 searchType === type
-                  ? type === '구인'
-                    ? 'bg-blue-600 text-white shadow'
-                    : 'bg-purple-600 text-white shadow'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-[#1a73e8] text-white border-[#1a73e8]'
+                  : 'text-[#5f6368] border-[#dadce0] hover:bg-[#f8f9fa]'
               }`}
             >
-              {type === '구인' ? '🏢 구인' : '👤 구직'}
+              {type === '구인' ? '구인 검색' : '구직자 검색'}
             </button>
           ))}
         </div>
 
         {/* 검색창 */}
-        <form onSubmit={handleSearch} className="w-full max-w-2xl">
-          <div className={`flex items-center border-2 rounded-full px-5 py-3 shadow-sm hover:shadow-md transition-all bg-white ${
-            searchType === '구인'
-              ? 'border-blue-300 focus-within:border-blue-500'
-              : 'border-purple-300 focus-within:border-purple-500'
-          }`}>
-            <svg className="w-5 h-5 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <form onSubmit={handleSearch} className="w-full max-w-xl">
+          <div className="flex items-center border border-[#dadce0] rounded-full px-5 py-3 hover:shadow-md focus-within:shadow-md transition-shadow bg-white">
+            <svg className="w-5 h-5 text-[#9aa0a6] mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={placeholders[searchType]}
-              className="flex-1 outline-none text-gray-800 placeholder-gray-400 text-base bg-transparent"
+              placeholder={searchType === '구인' ? '직무, 회사, 기술, 지역으로 검색...' : '기술스택, 경력, 직종으로 구직자 검색...'}
+              className="flex-1 outline-none text-[#202124] placeholder-[#9aa0a6] text-base bg-transparent"
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 mr-2">
+              <button type="button" onClick={() => setQuery('')} className="text-[#9aa0a6] hover:text-[#5f6368] mr-2">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
             )}
+          </div>
+
+          {/* 검색 버튼 */}
+          <div className="flex justify-center gap-3 mt-5">
             <button
               type="submit"
-              className={`text-white px-6 py-2 rounded-full text-sm font-semibold shrink-0 transition-colors ${
-                searchType === '구인' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
-              }`}
+              className="px-6 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
             >
               AI 검색
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (query.trim()) {
+                  router.push(`/search?q=${encodeURIComponent(query.trim())}&type=${encodeURIComponent(searchType)}`)
+                } else {
+                  router.push('/jobs')
+                }
+              }}
+              className="px-6 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
+            >
+              채용공고 보기
             </button>
           </div>
         </form>
 
         {/* 빠른 검색 태그 */}
-        <div className="flex flex-wrap gap-2 mt-4 justify-center max-w-2xl">
+        <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-xl">
           {quickLinks[searchType].map((link) => (
             <button
               key={link.q}
               type="button"
               onClick={() => router.push(`/search?q=${encodeURIComponent(link.q)}&type=${encodeURIComponent(searchType)}`)}
-              className={`text-sm border rounded-full px-3.5 py-1 transition-colors ${
-                searchType === '구인'
-                  ? 'text-blue-600 border-blue-200 hover:bg-blue-50'
-                  : 'text-purple-600 border-purple-200 hover:bg-purple-50'
-              }`}
+              className="text-sm text-[#5f6368] border border-[#dadce0] rounded-full px-3.5 py-1 hover:bg-[#f8f9fa] transition-colors"
             >
               {link.label}
             </button>
           ))}
         </div>
-
-        {/* CTA 버튼 */}
-        <div className="flex flex-wrap gap-3 mt-8 justify-center">
-          <Link href="/jobs"
-            className="text-sm text-gray-600 border border-gray-200 rounded-full px-5 py-2 hover:bg-gray-50 transition-colors">
-            채용공고 보기
-          </Link>
-          <Link href="/jobs/post"
-            className="text-sm text-white bg-blue-600 rounded-full px-5 py-2 hover:bg-blue-700 transition-colors font-medium">
-            채용공고 등록 (무료)
-          </Link>
-          <Link href="/resume/new"
-            className="text-sm text-white bg-purple-600 rounded-full px-5 py-2 hover:bg-purple-700 transition-colors font-medium">
-            이력서 등록 (무료)
-          </Link>
-        </div>
       </main>
 
-      {/* ── 푸터 ── */}
-      <footer className="relative z-10 text-center text-xs text-gray-400 py-5 space-y-1">
-        <div className="flex justify-center gap-4 flex-wrap">
-          <Link href="/jobs" className="hover:text-gray-600">채용공고</Link>
-          <Link href="/privacy" className="hover:text-gray-600">개인정보처리방침</Link>
-          <Link href="/terms" className="hover:text-gray-600">이용약관</Link>
-          <Link href="/admin" className="hover:text-gray-600">관리자</Link>
+      {/* 푸터 */}
+      <footer className="border-t border-[#dadce0] bg-[#f8f9fa] py-4">
+        <div className="flex justify-center gap-6 text-xs text-[#5f6368] flex-wrap">
+          <Link href="/jobs" className="hover:text-[#202124] transition-colors">채용공고</Link>
+          <Link href="/jobs/post" className="hover:text-[#202124] transition-colors">채용 등록</Link>
+          <Link href="/resume/new" className="hover:text-[#202124] transition-colors">이력서 등록</Link>
+          <Link href="/privacy" className="hover:text-[#202124] transition-colors">개인정보처리방침</Link>
+          <Link href="/terms" className="hover:text-[#202124] transition-colors">이용약관</Link>
+          <Link href="/admin.html" className="hover:text-[#202124] transition-colors">관리자</Link>
         </div>
-        <p>© 2026 AI JobWorld. AI 기반 구인·구직 플랫폼. 완전 무료.</p>
+        <p className="text-center text-xs text-[#80868b] mt-3">© 2026 AI JobWorld</p>
       </footer>
     </div>
   )

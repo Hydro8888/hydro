@@ -20,6 +20,15 @@ interface JobDetail {
   view_count: number
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6">
+      <h2 className="text-sm font-medium text-[#3c4043] mb-2 pb-1 border-b border-[#f1f3f4]">{title}</h2>
+      <p className="text-sm text-[#5f6368] whitespace-pre-wrap leading-relaxed">{children}</p>
+    </div>
+  )
+}
+
 export default function JobDetailPage() {
   const { id } = useParams()
   const [job, setJob] = useState<JobDetail | null>(null)
@@ -47,7 +56,7 @@ export default function JobDetailPage() {
     <div className="min-h-screen bg-white">
       <Header />
       <div className="flex justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-[#1a73e8] border-t-transparent rounded-full" />
       </div>
     </div>
   )
@@ -55,7 +64,7 @@ export default function JobDetailPage() {
   if (!job) return (
     <div className="min-h-screen bg-white">
       <Header />
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center text-gray-400">
+      <div className="max-w-2xl mx-auto px-4 py-12 text-center text-[#80868b] text-sm">
         채용공고를 찾을 수 없습니다.
       </div>
     </div>
@@ -65,43 +74,40 @@ export default function JobDetailPage() {
     <div className="min-h-screen bg-white">
       <Header />
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Job header */}
-        <div className="border-b border-gray-100 pb-6 mb-6">
-          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{job.job_type}</span>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2 mb-1">{job.title}</h1>
-          <p className="text-gray-600 font-medium">{job.company_name}</p>
-          <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
+        {/* 헤더 */}
+        <div className="pb-6 mb-6 border-b border-[#dadce0]">
+          <span className="text-xs text-[#5f6368] bg-[#f8f9fa] border border-[#dadce0] px-2 py-0.5 rounded-full">{job.job_type}</span>
+          <h1 className="text-2xl font-normal text-[#202124] mt-3 mb-1">{job.title}</h1>
+          <p className="text-[#5f6368] font-medium">{job.company_name}</p>
+          <div className="flex flex-wrap gap-4 mt-3 text-sm text-[#80868b]">
             <span>{job.location}</span>
             {job.salary_range && <span>{job.salary_range}</span>}
             {job.deadline && <span>마감 {job.deadline}</span>}
-            <span>조회 {job.view_count}</span>
+            <span>조회 {job.view_count.toLocaleString()}</span>
           </div>
         </div>
 
-        {/* Apply button */}
-        <button onClick={handleApply} disabled={applied || applying}
-          className={`w-full py-3 rounded-full font-medium mb-8 transition-colors ${
-            applied ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-          } disabled:opacity-50`}>
-          {applied ? '지원 완료!' : applying ? '지원 중...' : '원클릭 지원'}
+        {/* 지원 버튼 */}
+        <button
+          onClick={handleApply}
+          disabled={applied || applying}
+          className={`w-full py-3 rounded text-sm font-medium mb-8 transition-colors ${
+            applied
+              ? 'bg-[#e6f4ea] text-[#188038] border border-[#a8d5b5]'
+              : 'bg-[#1a73e8] text-white hover:bg-[#1557b0]'
+          } disabled:opacity-50`}
+        >
+          {applied ? '지원 완료' : applying ? '지원 중...' : '원클릭 지원'}
         </button>
 
-        {/* Content sections */}
         <Section title="업무 내용">{job.description}</Section>
         {job.requirements && <Section title="자격 요건">{job.requirements}</Section>}
         {job.preferred && <Section title="우대 사항">{job.preferred}</Section>}
 
-        <p className="text-xs text-gray-400 mt-8">등록일: {new Date(job.created_at).toLocaleDateString('ko-KR')}</p>
+        <p className="text-xs text-[#80868b] mt-8">
+          등록일: {new Date(job.created_at).toLocaleDateString('ko-KR')}
+        </p>
       </div>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-900 mb-2">{title}</h2>
-      <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{children}</p>
     </div>
   )
 }

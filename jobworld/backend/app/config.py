@@ -30,6 +30,8 @@ class Settings(BaseSettings):
         "https://jobworld.co.kr",
         "http://211.198.54.207",
         "http://211.198.54.207:8080",
+        "http://172.30.1.99",
+        "http://172.30.1.99:8080",
     ]
 
     class Config:

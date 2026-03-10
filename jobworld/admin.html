@@ -431,10 +431,8 @@ tr:hover td{background:#fafbff}
 const API = (() => {
   const stored = localStorage.getItem('jw_api_base');
   if (stored) return stored;
-  // 현재 브라우저 주소의 포트 8080 → 8000으로 자동 변환 시도
-  const h = location.hostname;
-  const port = location.port === '8080' ? '8000' : (location.port || '8000');
-  return `http://${h}:${port}`;
+  // nginx가 /api/ → backend:8000 프록시하므로 같은 origin 사용
+  return location.origin;
 })();
 
 // ── 상태 ─────────────────────────────────────────────────────────────────

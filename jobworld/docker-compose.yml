@@ -8,6 +8,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./admin.html:/usr/share/nginx/html/admin.html:ro
     depends_on:
       - frontend
       - backend

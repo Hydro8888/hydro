@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db
-from app.api import auth, jobs, resumes, applications, search, admin
+from app.api import auth, jobs, resumes, applications, search, admin, worknet
+from app.services.worknet_sync import worknet_scheduler
 
 
 @asynccontextmanager
@@ -22,7 +23,13 @@ async def lifespan(app: FastAPI):
             "[Startup] GEMINI_API_KEY is NOT set! "
             "Add GEMINI_API_KEY=your-key to .env and restart the container."
         )
+    # 워크넷 스케줄러 시작
+    if settings.worknet_api_key:
+        worknet_scheduler.start()
+    else:
+        _log.warning("[Startup] WORKNET_API_KEY 미설정 — 워크넷 자동 동기화 비활성화")
     yield
+    worknet_scheduler.shutdown()
 
 
 app = FastAPI(
@@ -47,6 +54,7 @@ app.include_router(resumes.router, prefix="/api/v1")
 app.include_router(applications.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(worknet.router, prefix="/api/v1")
 
 
 @app.get("/health")

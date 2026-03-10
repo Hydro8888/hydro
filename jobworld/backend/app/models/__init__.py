@@ -5,3 +5,4 @@ from app.models.resume import Resume
 from app.models.application import Application
 from app.models.bookmark import Bookmark
 from app.models.search_log import SearchLog
+from app.models.worknet_job import WorknetJob

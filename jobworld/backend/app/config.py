@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379"
     # Elasticsearch
     elasticsearch_url: str = "http://elasticsearch:9200"
+    # WorkNet OpenAPI
+    worknet_api_key: str = ""
     # AI
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None

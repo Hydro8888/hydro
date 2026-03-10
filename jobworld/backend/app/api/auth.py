@@ -43,7 +43,10 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if body.user_type not in ("jobseeker", "employer"):
         raise HTTPException(status_code=400, detail="올바른 회원 유형을 선택해주세요.")
 
-    user = await create_user(db, body.email, body.password, body.name, body.user_type)
+    try:
+        user = await create_user(db, body.email, body.password, body.name, body.user_type)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     token = create_access_token({"sub": str(user.id)})
     return user_response(user, token)
 

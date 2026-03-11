@@ -42,8 +42,8 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* 상단 네비 */}
-      <nav className="flex justify-between items-center px-6 py-3 text-sm border-b border-[#dadce0]">
-        <span className="flex items-center text-xl font-medium select-none">
+      <nav className="flex justify-between items-center px-4 py-3 text-sm border-b border-[#dadce0]">
+        <span className="flex items-center text-xl font-medium select-none shrink-0">
           <span className="text-[#1a73e8] font-bold">Job</span>
           <span className="text-[#ea4335] font-bold">W</span>
           <span className="text-[#fbbc04] font-bold">o</span>
@@ -51,15 +51,16 @@ export default function Home() {
           <span className="text-[#1a73e8] font-bold">ld</span>
         </span>
         <div className="flex items-center gap-1">
-          <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+          {/* 데스크탑에서만 콘텐츠 링크 노출 */}
+          <Link href="/jobs/post" className="hidden sm:block px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
             채용 등록
           </Link>
-          <Link href="/resume/new" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+          <Link href="/resume/new" className="hidden sm:block px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
             이력서 등록
           </Link>
           {user ? (
             <>
-              <span className="px-3 py-1.5 text-[#5f6368]">{user.name}</span>
+              <span className="hidden sm:block px-2 py-1.5 text-[#5f6368] max-w-[100px] truncate">{user.name}</span>
               <button onClick={logout} className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
                 로그아웃
               </button>
@@ -78,10 +79,10 @@ export default function Home() {
       </nav>
 
       {/* 메인 */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
         {/* 로고 */}
         <div className="mb-8 text-center">
-          <h1 className="flex items-center justify-center text-7xl font-medium select-none mb-6">
+          <h1 className="flex items-center justify-center text-5xl sm:text-7xl font-medium select-none mb-4 sm:mb-6">
             <span className="text-[#4285f4]">J</span>
             <span className="text-[#ea4335]">o</span>
             <span className="text-[#fbbc04]">b</span>
@@ -91,7 +92,7 @@ export default function Home() {
             <span className="text-[#4285f4]">l</span>
             <span className="text-[#fbbc04]">d</span>
           </h1>
-          <p className="text-[#5f6368] text-base">
+          <p className="text-[#5f6368] text-sm sm:text-base">
             AI가 찾아주는 가장 정확한 일자리와 인재 &nbsp;·&nbsp;
             <span className="text-[#188038] font-medium">완전 무료</span>
           </p>
@@ -104,13 +105,13 @@ export default function Home() {
               key={type}
               type="button"
               onClick={() => setSearchType(type)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all border ${
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all border ${
                 searchType === type
                   ? 'bg-[#1a73e8] text-white border-[#1a73e8]'
                   : 'text-[#5f6368] border-[#dadce0] hover:bg-[#f8f9fa]'
               }`}
             >
-              {type === '구인' ? '구인 검색' : '구직자 검색'}
+              {type === '구인' ? '채용공고 검색' : '인재 검색'}
             </button>
           ))}
         </div>
@@ -125,11 +126,11 @@ export default function Home() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchType === '구인' ? '직무, 회사, 기술, 지역으로 검색...' : '기술스택, 경력, 직종으로 구직자 검색...'}
-              className="flex-1 outline-none text-[#202124] placeholder-[#9aa0a6] text-base bg-transparent"
+              placeholder={searchType === '구인' ? '직무, 회사, 기술, 지역으로 검색...' : '기술스택, 경력, 직종으로 인재 검색...'}
+              className="flex-1 outline-none text-[#202124] placeholder-[#9aa0a6] text-base bg-transparent min-w-0"
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} className="text-[#9aa0a6] hover:text-[#5f6368] mr-2">
+              <button type="button" onClick={() => setQuery('')} className="text-[#9aa0a6] hover:text-[#5f6368] ml-2 shrink-0">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
@@ -141,22 +142,16 @@ export default function Home() {
           <div className="flex justify-center gap-3 mt-5">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
+              className="px-5 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
             >
               AI 검색
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (query.trim()) {
-                  router.push(`/search?q=${encodeURIComponent(query.trim())}&type=${encodeURIComponent(searchType)}`)
-                } else {
-                  router.push('/jobs')
-                }
-              }}
-              className="px-6 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
+              onClick={() => router.push('/jobs')}
+              className="px-5 py-2.5 bg-[#f8f9fa] text-[#3c4043] text-sm font-medium rounded border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm transition-all"
             >
-              채용공고 보기
+              채용공고 목록
             </button>
           </div>
         </form>
@@ -178,13 +173,12 @@ export default function Home() {
 
       {/* 푸터 */}
       <footer className="border-t border-[#dadce0] bg-[#f8f9fa] py-4">
-        <div className="flex justify-center gap-6 text-xs text-[#5f6368] flex-wrap">
+        <div className="flex justify-center gap-4 sm:gap-6 text-xs text-[#5f6368] flex-wrap px-4">
           <Link href="/jobs" className="hover:text-[#202124] transition-colors">채용공고</Link>
           <Link href="/jobs/post" className="hover:text-[#202124] transition-colors">채용 등록</Link>
           <Link href="/resume/new" className="hover:text-[#202124] transition-colors">이력서 등록</Link>
           <Link href="/privacy" className="hover:text-[#202124] transition-colors">개인정보처리방침</Link>
           <Link href="/terms" className="hover:text-[#202124] transition-colors">이용약관</Link>
-          <Link href="/admin.html" className="hover:text-[#202124] transition-colors">관리자</Link>
         </div>
         <p className="text-center text-xs text-[#80868b] mt-3">© 2026 AI JobWorld</p>
       </footer>

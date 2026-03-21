@@ -138,6 +138,16 @@ else
   iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null && echo "  iptables: 80포트 개방" || true
 fi
 
+# ── 5. PM2 부팅 자동실행 등록 ──────────────────────────────
+echo "[5/5] PM2 자동실행 등록 중..."
+if command -v pm2 &>/dev/null; then
+  pm2 save
+  pm2 startup | tail -1 | bash || true
+  echo "  PM2 startup 등록 완료"
+else
+  echo "  PM2 미설치 - 수동으로 설치 필요: npm install -g pm2"
+fi
+
 # ── 완료 ──────────────────────────────────────────────────
 echo ""
 echo "================================================"

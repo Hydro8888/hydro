@@ -9,58 +9,69 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <header className="bg-white border-b border-[#dadce0]">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center text-xl font-medium select-none shrink-0">
-          <span className="text-[#1a73e8] font-bold">Job</span>
-          <span className="text-[#ea4335] font-bold">W</span>
-          <span className="text-[#fbbc04] font-bold">o</span>
-          <span className="text-[#34a853] font-bold">r</span>
-          <span className="text-[#1a73e8] font-bold">ld</span>
+    <header className="bg-[#f2f0eb] border-b border-[#ddd9d0]">
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        {/* 로고 */}
+        <Link href="/" className="flex items-center gap-1.5 select-none shrink-0">
+          <span className="w-2 h-2 rounded-full bg-[#e8623a]" />
+          <span className="text-lg font-bold text-[#1c1c1c] tracking-tight">JobWorld</span>
         </Link>
 
-        {/* 데스크탑 nav */}
-        <nav className="hidden sm:flex items-center gap-1 text-sm">
-          <Link href="/jobs" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+        {/* 데스크탑 nav — 중앙 */}
+        <nav className="hidden sm:flex items-center gap-1 text-sm absolute left-1/2 -translate-x-1/2">
+          <Link href="/jobs" className="px-3 py-1.5 text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors rounded">
             채용공고
           </Link>
-          <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+          <Link href="/search?q=개발자&type=구인" className="px-3 py-1.5 text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors rounded">
+            AI 검색
+          </Link>
+          <Link href="/jobs/post" className="px-3 py-1.5 text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors rounded">
             채용 등록
           </Link>
+          <Link href="/resume/new" className="px-3 py-1.5 text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors rounded">
+            이력서 등록
+          </Link>
+        </nav>
+
+        {/* 우측 액션 */}
+        <div className="hidden sm:flex items-center gap-2">
           {user ? (
             <>
-              <Link href="/resume/new" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
-                이력서 등록
-              </Link>
-              <span className="px-3 py-1.5 text-[#5f6368] max-w-[100px] truncate">{user.name}</span>
-              <button onClick={logout} className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+              <span className="text-sm text-[#6b6b6b] max-w-[100px] truncate">{user.name}</span>
+              <button
+                onClick={logout}
+                className="px-4 py-1.5 text-sm text-[#1c1c1c] border border-[#ddd9d0] rounded-full hover:border-[#1c1c1c] transition-colors"
+              >
                 로그아웃
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" className="px-3 py-1.5 text-[#5f6368] hover:text-[#202124] hover:bg-[#f8f9fa] rounded transition-colors">
+              <Link href="/login" className="px-3 py-1.5 text-sm text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors">
                 로그인
               </Link>
-              <Link href="/register" className="ml-1 px-4 py-2 bg-[#1a73e8] text-white text-sm font-medium rounded hover:bg-[#1557b0] transition-colors">
+              <Link
+                href="/register"
+                className="px-4 py-1.5 text-sm font-medium text-[#1c1c1c] border border-[#1c1c1c] rounded-full hover:bg-[#1c1c1c] hover:text-white transition-colors"
+              >
                 회원가입
               </Link>
             </>
           )}
-        </nav>
+        </div>
 
-        {/* 모바일: 로그인 표시 + 햄버거 */}
+        {/* 모바일: 로그인 + 햄버거 */}
         <div className="flex sm:hidden items-center gap-2">
           {user ? (
-            <span className="text-sm text-[#5f6368] max-w-[80px] truncate">{user.name}</span>
+            <span className="text-sm text-[#6b6b6b] max-w-[80px] truncate">{user.name}</span>
           ) : (
-            <Link href="/login" className="text-sm text-[#1a73e8] font-medium px-2 py-1">
+            <Link href="/login" className="text-sm text-[#1c1c1c] font-medium px-2 py-1">
               로그인
             </Link>
           )}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-[#5f6368] hover:bg-[#f8f9fa] rounded transition-colors"
+            className="p-2 text-[#6b6b6b] hover:text-[#1c1c1c] transition-colors"
             aria-label="메뉴 열기"
           >
             {menuOpen ? (
@@ -76,35 +87,18 @@ export default function Header() {
         </div>
       </div>
 
-      {/* 모바일 드롭다운 메뉴 */}
+      {/* 모바일 드롭다운 */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-[#dadce0] bg-white">
+        <div className="sm:hidden border-t border-[#ddd9d0] bg-[#f2f0eb]">
           <nav className="flex flex-col py-1">
-            <Link
-              href="/jobs"
-              onClick={() => setMenuOpen(false)}
-              className="px-6 py-3 text-sm text-[#202124] hover:bg-[#f8f9fa] transition-colors"
-            >
-              채용공고
-            </Link>
-            <Link
-              href="/jobs/post"
-              onClick={() => setMenuOpen(false)}
-              className="px-6 py-3 text-sm text-[#202124] hover:bg-[#f8f9fa] transition-colors"
-            >
-              채용 등록
-            </Link>
-            <Link
-              href="/resume/new"
-              onClick={() => setMenuOpen(false)}
-              className="px-6 py-3 text-sm text-[#202124] hover:bg-[#f8f9fa] transition-colors"
-            >
-              이력서 등록
-            </Link>
+            <Link href="/jobs" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-sm text-[#1c1c1c] hover:bg-[#eceae3] transition-colors">채용공고</Link>
+            <Link href="/search?q=개발자&type=구인" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-sm text-[#1c1c1c] hover:bg-[#eceae3] transition-colors">AI 검색</Link>
+            <Link href="/jobs/post" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-sm text-[#1c1c1c] hover:bg-[#eceae3] transition-colors">채용 등록</Link>
+            <Link href="/resume/new" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-sm text-[#1c1c1c] hover:bg-[#eceae3] transition-colors">이력서 등록</Link>
             {user ? (
               <button
                 onClick={() => { logout(); setMenuOpen(false) }}
-                className="px-6 py-3 text-sm text-left text-[#d93025] hover:bg-[#f8f9fa] transition-colors"
+                className="px-6 py-3 text-sm text-left text-[#e8623a] hover:bg-[#eceae3] transition-colors"
               >
                 로그아웃
               </button>
@@ -112,7 +106,7 @@ export default function Header() {
               <Link
                 href="/register"
                 onClick={() => setMenuOpen(false)}
-                className="mx-4 my-2 px-4 py-2.5 bg-[#1a73e8] text-white text-sm font-medium rounded text-center hover:bg-[#1557b0] transition-colors block"
+                className="mx-4 my-2 px-4 py-2.5 border border-[#1c1c1c] text-[#1c1c1c] text-sm font-medium rounded-full text-center hover:bg-[#1c1c1c] hover:text-white transition-colors block"
               >
                 회원가입
               </Link>

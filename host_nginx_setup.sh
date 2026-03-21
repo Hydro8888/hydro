@@ -137,6 +137,7 @@ NGINXEOF
 
 # 기본 설정 비활성화, hydro 설정 활성화
 rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-enabled/multi-service
 ln -sf /etc/nginx/sites-available/hydro /etc/nginx/sites-enabled/hydro
 
 # ── 4. nginx 문법 검사 & 재시작 ────────────────────────────

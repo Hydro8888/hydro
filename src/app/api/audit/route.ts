@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,7 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get('userId')
     const dateFrom = request.nextUrl.searchParams.get('dateFrom')
     const dateTo = request.nextUrl.searchParams.get('dateTo')
+    const entityId = request.nextUrl.searchParams.get('entityId')
     const page = parseInt(request.nextUrl.searchParams.get('page') || '1')
     const pageSize = 20
 
@@ -15,6 +17,7 @@ export async function GET(request: NextRequest) {
     if (entityType) where.entityType = entityType
     if (action) where.action = action
     if (userId) where.userId = userId
+    if (entityId) where.entityId = entityId
     if (dateFrom || dateTo) {
       where.createdAt = {}
       if (dateFrom) where.createdAt.gte = new Date(dateFrom)

@@ -17,14 +17,16 @@ import type { DashboardStats } from '@/types'
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard')
       .then(res => res.json())
       .then(data => {
         if (data.success) setStats(data.data)
+        else setError('대시보드 데이터를 불러올 수 없습니다')
       })
-      .catch(console.error)
+      .catch(() => setError('서버와 연결할 수 없습니다'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -79,6 +81,21 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold">대시보드</h2>
         <p className="text-muted-foreground">마케팅 운영 현황을 한눈에 확인하세요</p>
       </div>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <p className="text-sm text-red-800">{error}</p>
+            <button
+              onClick={() => { setError(null); setLoading(true); fetch('/api/dashboard').then(r => r.json()).then(d => { if (d.success) setStats(d.data); else setError('대시보드 데이터를 불러올 수 없습니다') }).catch(() => setError('서버와 연결할 수 없습니다')).finally(() => setLoading(false)) }}
+              className="ml-auto text-sm text-red-700 underline hover:text-red-900"
+            >
+              다시 시도
+            </button>
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -142,7 +159,7 @@ function RecommendationSection() {
       .then(data => {
         if (data.success) setRecommendations(data.data)
       })
-      .catch(() => {})
+      .catch(() => setRecommendations([]))
       .finally(() => setLoading(false))
   }, [])
 
@@ -155,6 +172,8 @@ function RecommendationSection() {
     HIGH_REJECTION_RATE: 'border-orange-200 bg-orange-50',
     AUTOMATION_UPGRADE: 'border-green-200 bg-green-50',
     GOOD_PERFORMANCE: 'border-green-200 bg-green-50',
+    UNASSIGNED_TASKS: 'border-purple-200 bg-purple-50',
+    EXPAND_CHANNELS: 'border-blue-200 bg-blue-50',
   }
 
   return (

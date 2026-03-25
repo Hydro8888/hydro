@@ -112,6 +112,57 @@ export async function notifyAssistedTaskAssigned(assistedTaskId: string) {
   })
 }
 
+export async function notifyChannelConnectionFailed(connectionId: string) {
+  const connection = await prisma.channelConnection.findUnique({
+    where: { id: connectionId },
+    include: { channel: true, service: true },
+  })
+  if (!connection) return
+
+  await createNotification({
+    userId: connection.service.userId,
+    type: 'CHANNEL_CONNECTION_FAILED',
+    priority: 'URGENT',
+    title: '채널 연결 실패',
+    message: `${connection.channel.displayName} 채널 연결에 실패했습니다.${connection.errorReason ? ` 사유: ${connection.errorReason}` : ''}`,
+    actionUrl: `/channels/connections`,
+  })
+}
+
+export async function notifyApprovalExpired(approvalId: string) {
+  const approval = await prisma.approvalRequest.findUnique({
+    where: { id: approvalId },
+    include: { task: { include: { service: true } } },
+  })
+  if (!approval) return
+
+  await createNotification({
+    userId: approval.task.service.userId,
+    type: 'APPROVAL_EXPIRED',
+    priority: 'IMPORTANT',
+    title: '승인 요청 만료',
+    message: `${approval.task.title} 작업의 승인 요청이 7일 경과로 만료되었습니다.`,
+    actionUrl: `/approvals/${approvalId}`,
+  })
+}
+
+export async function notifyTaskRetryExhausted(taskId: string) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { service: true },
+  })
+  if (!task) return
+
+  await createNotification({
+    userId: task.service.userId,
+    type: 'TASK_RETRY_EXHAUSTED',
+    priority: 'URGENT',
+    title: '재시도 횟수 초과',
+    message: `${task.title} 작업이 최대 재시도 횟수(${task.maxRetries}회)를 초과했습니다. 수동 확인이 필요합니다.`,
+    actionUrl: `/tasks/${taskId}`,
+  })
+}
+
 export async function notifyAssistedTaskCompleted(assistedTaskId: string) {
   const assisted = await prisma.assistedTask.findUnique({
     where: { id: assistedTaskId },

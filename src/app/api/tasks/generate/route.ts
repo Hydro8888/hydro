@@ -30,6 +30,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 연결 상태 검증: CONNECTED 상태만 작업 생성 허용
+    if (connection.status !== 'CONNECTED') {
+      return NextResponse.json(
+        { success: false, error: `채널이 연결된 상태가 아닙니다 (현재: ${connection.status})` },
+        { status: 400 }
+      )
+    }
+
     // 해당 채널이 지원하는 작업 유형별로 작업 생성
     const supportedTypes = connection.channel.supportedTaskTypes as string[]
     const createdTasks = []

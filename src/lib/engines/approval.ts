@@ -1,7 +1,7 @@
 import { prisma } from '../db'
 import { canTransitionApproval } from '../states/approval-state'
 import { canTransitionTask } from '../states/task-state'
-import { notifyApprovalResult } from './notification'
+import { notifyApprovalResult, notifyApprovalExpired } from './notification'
 import type { ApprovalStatus } from '../constants/enums'
 
 type ApprovalAction = 'start_review' | 'approve' | 'request_revision' | 'reject'
@@ -111,6 +111,7 @@ export async function checkExpiredApprovals() {
         where: { id: approval.id },
         data: { status: 'EXPIRED' },
       })
+      await notifyApprovalExpired(approval.id)
     }
   }
 

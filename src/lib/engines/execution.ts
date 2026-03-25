@@ -1,6 +1,6 @@
 import { prisma } from '../db'
 import { canTransitionTask } from '../states/task-state'
-import { notifyTaskFailed } from './notification'
+import { notifyTaskFailed, notifyTaskRetryExhausted } from './notification'
 import type { TaskStatus } from '../constants/enums'
 
 // A등급 작업 실행 (Phase 2: mock 실행. 향후 실제 API 연동)
@@ -72,6 +72,11 @@ export async function handleTaskFailure(taskId: string, reason: string) {
   })
 
   await notifyTaskFailed(taskId, reason)
+
+  // 재시도 횟수 초과 시 별도 알림
+  if (task.retryCount >= task.maxRetries) {
+    await notifyTaskRetryExhausted(taskId)
+  }
 }
 
 // 재시도
@@ -87,19 +92,14 @@ export async function retryTask(taskId: string) {
     throw new Error(`최대 재시도 횟수(${task.maxRetries})를 초과했습니다`)
   }
 
+  // 원자적 업데이트: RETRY_PENDING을 거쳐 바로 PENDING으로 전환
   await prisma.task.update({
     where: { id: taskId },
     data: {
-      status: 'RETRY_PENDING',
+      status: 'PENDING',
       retryCount: { increment: 1 },
       errorReason: null,
     },
-  })
-
-  // 바로 PENDING으로 전환하여 실행 큐에 넣기
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { status: 'PENDING' },
   })
 
   await prisma.auditLog.create({

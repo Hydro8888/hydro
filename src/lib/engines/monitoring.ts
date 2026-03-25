@@ -166,7 +166,7 @@ export async function getAlerts(serviceIds: string[]): Promise<Alert[]> {
   // 2. 승인 SLA 초과 (72시간)
   const slaThreshold = new Date()
   slaThreshold.setHours(slaThreshold.getHours() - 72)
-  const overduApprovals = await prisma.approvalRequest.findMany({
+  const overdueApprovals = await prisma.approvalRequest.findMany({
     where: {
       task: { serviceId: { in: serviceIds } },
       status: 'REVIEW_PENDING',
@@ -174,7 +174,7 @@ export async function getAlerts(serviceIds: string[]): Promise<Alert[]> {
     },
     include: { task: true },
   })
-  for (const a of overduApprovals) {
+  for (const a of overdueApprovals) {
     const hours = Math.round((Date.now() - a.createdAt.getTime()) / (1000 * 60 * 60))
     alerts.push({
       id: `approval-sla-${a.id}`,

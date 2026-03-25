@@ -143,7 +143,8 @@ export default function TasksPage() {
 
 function TaskCard({ task, onRetry }: { task: any; onRetry: (id: string) => void }) {
   return (
-    <Card>
+    <a href={`/tasks/${task.id}`}>
+    <Card className="hover:border-primary/50 transition-colors cursor-pointer">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
@@ -171,7 +172,7 @@ function TaskCard({ task, onRetry }: { task: any; onRetry: (id: string) => void 
             <AutomationGradeBadge grade={task.automationGrade as AutomationGrade} />
             <StatusBadge status={task.status} type="task" />
             {task.status === 'FAILED' && (
-              <Button size="sm" variant="outline" onClick={() => onRetry(task.id)}>
+              <Button size="sm" variant="outline" onClick={(e) => { e.preventDefault(); onRetry(task.id) }}>
                 <RefreshCw className="h-3 w-3 mr-1" />
                 재시도
               </Button>
@@ -180,5 +181,6 @@ function TaskCard({ task, onRetry }: { task: any; onRetry: (id: string) => void 
         </div>
       </CardContent>
     </Card>
+    </a>
   )
 }

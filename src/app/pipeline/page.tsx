@@ -19,6 +19,7 @@ import {
   Clock,
 } from 'lucide-react'
 import type { PipelineStatus, PipelineStage } from '@/types'
+import { apiUrl } from '@/lib/api'
 
 const STAGE_ICONS: Record<string, any> = {
   Search, Link2, Layers, CheckSquare, UserCheck, Zap, Target,
@@ -51,7 +52,7 @@ export default function PipelinePage() {
 
   // 서비스 목록 로드
   useEffect(() => {
-    fetch('/api/services')
+    fetch(apiUrl('/api/services'))
       .then(r => r.json())
       .then(d => { if (d.success) setServices(d.data || []) })
       .catch(() => {})
@@ -64,7 +65,7 @@ export default function PipelinePage() {
     const url = selectedService
       ? `/api/pipeline/status?serviceId=${selectedService}`
       : '/api/pipeline/status'
-    fetch(url)
+    fetch(apiUrl(url))
       .then(r => r.json())
       .then(d => {
         if (d.success) setData(d.data)

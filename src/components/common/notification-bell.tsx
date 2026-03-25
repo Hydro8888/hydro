@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { apiUrl } from '@/lib/api'
 
 interface Notification {
   id: string
@@ -28,7 +29,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
 
   const loadNotifications = () => {
-    fetch('/api/notifications')
+    fetch(apiUrl('/api/notifications'))
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -46,7 +47,7 @@ export function NotificationBell() {
   }, [])
 
   const markAsRead = async (id: string) => {
-    await fetch(`/api/notifications/${id}`, { method: 'PATCH' })
+    await fetch(apiUrl(`/api/notifications/${id}`), { method: 'PATCH' })
     loadNotifications()
   }
 

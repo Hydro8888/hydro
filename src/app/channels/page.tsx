@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import type { ChannelRecommendation } from '@/types'
 import type { AutomationGrade } from '@/lib/constants/enums'
 import { Search, Loader2 } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function ChannelExplorerPage() {
   const [services, setServices] = useState<any[]>([])
@@ -17,7 +18,7 @@ export default function ChannelExplorerPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/services')
+    fetch(apiUrl('/api/services'))
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.length > 0) {
@@ -30,7 +31,7 @@ export default function ChannelExplorerPage() {
   useEffect(() => {
     if (selectedServiceId) {
       setLoading(true)
-      fetch(`/api/channels/recommendations?serviceId=${selectedServiceId}`)
+      fetch(apiUrl(`/api/channels/recommendations?serviceId=${selectedServiceId}`))
         .then(res => res.json())
         .then(data => {
           if (data.success) setRecommendations(data.data.recommendations)

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/common/status-badge'
 import { Activity, AlertTriangle, Zap, Clock, UserCheck, ShieldAlert } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 const priorityColors: Record<string, string> = {
   URGENT: 'border-red-300 bg-red-50',
@@ -17,7 +18,7 @@ export default function OperationsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/monitoring')
+    fetch(apiUrl('/api/monitoring'))
       .then(res => res.json())
       .then(d => { if (d.success) setData(d.data) })
       .finally(() => setLoading(false))

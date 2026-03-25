@@ -9,6 +9,7 @@ import { AutomationGradeBadge } from '@/components/common/automation-grade-badge
 import { RiskLevelBadge } from '@/components/common/risk-level-badge'
 import type { AutomationGrade } from '@/lib/constants/enums'
 import { CheckSquare, Clock } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 const STATUS_TABS = [
   { value: '', label: '전체' },
@@ -28,7 +29,7 @@ export default function ApprovalsPage() {
     setLoading(true)
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
-    fetch(`/api/approvals?${params}`)
+    fetch(apiUrl(`/api/approvals?${params}`))
       .then(res => res.json())
       .then(data => { if (data.success) setApprovals(data.data) })
       .finally(() => setLoading(false))

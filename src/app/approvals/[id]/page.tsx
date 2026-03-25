@@ -11,6 +11,7 @@ import { RiskLevelBadge } from '@/components/common/risk-level-badge'
 import { DiffViewer } from '@/components/common/diff-viewer'
 import type { AutomationGrade } from '@/lib/constants/enums'
 import { ArrowLeft, Loader2, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function ApprovalDetailPage() {
   const params = useParams()
@@ -23,7 +24,7 @@ export default function ApprovalDetailPage() {
 
   useEffect(() => {
     if (params.id) {
-      fetch(`/api/approvals/${params.id}`)
+      fetch(apiUrl(`/api/approvals/${params.id}`))
         .then(res => res.json())
         .then(data => { if (data.success) setApproval(data.data) })
         .finally(() => setLoading(false))
@@ -33,7 +34,7 @@ export default function ApprovalDetailPage() {
   async function handleAction(action: string) {
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/approvals/${params.id}`, {
+      const res = await fetch(apiUrl(`/api/approvals/${params.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,7 +48,7 @@ export default function ApprovalDetailPage() {
         setShowRejectInput(false)
         setRejectionReason('')
         // 상세 다시 로드
-        const detail = await fetch(`/api/approvals/${params.id}`).then(r => r.json())
+        const detail = await fetch(apiUrl(`/api/approvals/${params.id}`)).then(r => r.json())
         if (detail.success) setApproval(detail.data)
       }
     } finally {

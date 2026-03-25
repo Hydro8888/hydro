@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/common/status-badge'
 import { AutomationGradeBadge } from '@/components/common/automation-grade-badge'
 import { UserCheck } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 const STATUS_TABS = [
   { value: '', label: '전체' },
@@ -28,7 +29,7 @@ export default function AssistedTasksPage() {
     setLoading(true)
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
-    fetch(`/api/assisted-tasks?${params}`)
+    fetch(apiUrl(`/api/assisted-tasks?${params}`))
       .then(res => res.json())
       .then(data => { if (data.success) setTasks(data.data) })
       .finally(() => setLoading(false))

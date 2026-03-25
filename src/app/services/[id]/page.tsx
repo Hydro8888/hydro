@@ -14,6 +14,7 @@ import { ServiceTypeLabel } from '@/lib/constants/enums'
 import type { AutomationGrade } from '@/lib/constants/enums'
 import { Edit3, Save, X, Plus, Trash2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { apiUrl } from '@/lib/api'
 
 const ASSET_TYPES = [
   { value: 'LOGO', label: '로고' },
@@ -43,7 +44,7 @@ export default function ServiceDetailPage() {
 
   function loadService() {
     if (!params.id) return
-    fetch(`/api/services/${params.id}`)
+    fetch(apiUrl(`/api/services/${params.id}`))
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -62,7 +63,7 @@ export default function ServiceDetailPage() {
   async function handleSave() {
     setSaving(true)
     try {
-      await fetch(`/api/services/${params.id}`, {
+      await fetch(apiUrl(`/api/services/${params.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName, url: editUrl || null, type: editType, description: editDescription }),
@@ -76,7 +77,7 @@ export default function ServiceDetailPage() {
 
   async function addAsset() {
     if (!newAssetName) return
-    await fetch(`/api/services/${params.id}/assets`, {
+    await fetch(apiUrl(`/api/services/${params.id}/assets`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: newAssetType, name: newAssetName, url: newAssetUrl || null }),
@@ -87,7 +88,7 @@ export default function ServiceDetailPage() {
   }
 
   async function deleteAsset(assetId: string) {
-    await fetch(`/api/services/${params.id}/assets`, {
+    await fetch(apiUrl(`/api/services/${params.id}/assets`), {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assetId }),

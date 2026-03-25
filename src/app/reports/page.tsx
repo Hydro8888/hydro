@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { BarChart3, TrendingUp, Clock, AlertTriangle, Lightbulb } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 type Tab = 'daily' | 'weekly' | 'monthly'
 
@@ -15,7 +16,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/reports/${tab}`)
+    fetch(apiUrl(`/api/reports/${tab}`))
       .then(res => res.json())
       .then(d => { if (d.success) setReport(d.data) })
       .finally(() => setLoading(false))

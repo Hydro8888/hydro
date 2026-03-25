@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { TaskStatusLabel, AutomationGradeLabel, TaskTypeLabel } from '@/lib/constants/enums'
 import type { AutomationGrade, TaskStatus } from '@/lib/constants/enums'
 import { ListTodo, RefreshCw } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function TasksPage() {
   const [services, setServices] = useState<any[]>([])
@@ -20,7 +21,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/services')
+    fetch(apiUrl('/api/services'))
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.length > 0) {
@@ -42,7 +43,7 @@ export default function TasksPage() {
     if (statusFilter) params.set('status', statusFilter)
     if (gradeFilter) params.set('grade', gradeFilter)
 
-    fetch(`/api/tasks?${params}`)
+    fetch(apiUrl(`/api/tasks?${params}`))
       .then(res => res.json())
       .then(data => {
         if (data.success) setTasks(data.data)
@@ -51,7 +52,7 @@ export default function TasksPage() {
   }
 
   async function handleRetry(taskId: string) {
-    await fetch(`/api/tasks/${taskId}`, {
+    await fetch(apiUrl(`/api/tasks/${taskId}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'RETRY_PENDING' }),

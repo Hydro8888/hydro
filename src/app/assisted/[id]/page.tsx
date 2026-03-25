@@ -11,6 +11,7 @@ import { AutomationGradeBadge } from '@/components/common/automation-grade-badge
 import { Checklist } from '@/components/common/checklist'
 import { MOCK_USERS } from '@/lib/auth'
 import { ArrowLeft, Loader2, Plus, CheckCircle, XCircle } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function AssistedTaskDetailPage() {
   const params = useParams()
@@ -22,7 +23,7 @@ export default function AssistedTaskDetailPage() {
 
   function loadData() {
     if (params.id) {
-      fetch(`/api/assisted-tasks/${params.id}`)
+      fetch(apiUrl(`/api/assisted-tasks/${params.id}`))
         .then(res => res.json())
         .then(data => { if (data.success) setAssisted(data.data) })
         .finally(() => setLoading(false))
@@ -34,7 +35,7 @@ export default function AssistedTaskDetailPage() {
   async function updateAssisted(body: any) {
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/assisted-tasks/${params.id}`, {
+      const res = await fetch(apiUrl(`/api/assisted-tasks/${params.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

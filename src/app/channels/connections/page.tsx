@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/common/status-badge'
 import { AutomationGradeBadge } from '@/components/common/automation-grade-badge'
 import type { AutomationGrade } from '@/lib/constants/enums'
 import { Link2 } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function ChannelConnectionsPage() {
   const [services, setServices] = useState<any[]>([])
@@ -14,7 +15,7 @@ export default function ChannelConnectionsPage() {
   const [connections, setConnections] = useState<any[]>([])
 
   useEffect(() => {
-    fetch('/api/services')
+    fetch(apiUrl('/api/services'))
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.length > 0) {
@@ -26,7 +27,7 @@ export default function ChannelConnectionsPage() {
 
   useEffect(() => {
     if (selectedServiceId) {
-      fetch(`/api/channels/connections?serviceId=${selectedServiceId}`)
+      fetch(apiUrl(`/api/channels/connections?serviceId=${selectedServiceId}`))
         .then(res => res.json())
         .then(data => {
           if (data.success) setConnections(data.data)

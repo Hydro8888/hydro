@@ -14,6 +14,7 @@ import type { AutomationGrade } from '@/lib/constants/enums'
 import { getTaskNextActions } from '@/lib/states/task-state'
 import type { TaskStatus } from '@/lib/constants/enums'
 import { ArrowLeft, Loader2, RefreshCw, ExternalLink } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 export default function TaskDetailPage() {
   const params = useParams()
@@ -25,12 +26,12 @@ export default function TaskDetailPage() {
 
   function loadTask() {
     if (!params.id) return
-    fetch(`/api/tasks/${params.id}`)
+    fetch(apiUrl(`/api/tasks/${params.id}`))
       .then(res => res.json())
       .then(data => { if (data.success) setTask(data.data) })
       .finally(() => setLoading(false))
 
-    fetch(`/api/audit?entityType=Task&entityId=${params.id}`)
+    fetch(apiUrl(`/api/audit?entityType=Task&entityId=${params.id}`))
       .then(res => res.json())
       .then(data => { if (data.success) setAuditLogs(data.data.logs || []) })
       .catch(() => {})
@@ -41,7 +42,7 @@ export default function TaskDetailPage() {
   async function handleStatusChange(newStatus: string) {
     setActionLoading(true)
     try {
-      await fetch(`/api/tasks/${params.id}`, {
+      await fetch(apiUrl(`/api/tasks/${params.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

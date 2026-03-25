@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { DiffViewer } from '@/components/common/diff-viewer'
 import { History, ChevronDown, ChevronRight, Bot, User } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 const ENTITY_TYPES = ['', 'Service', 'Task', 'ApprovalRequest', 'AssistedTask']
 const ACTIONS = ['', 'CREATE', 'UPDATE', 'STATUS_CHANGE', 'GENERATE', 'EXECUTE_SUCCESS', 'EXECUTE_FAILED', 'RETRY', 'START_REVIEW', 'APPROVE', 'REQUEST_REVISION', 'REJECT']
@@ -48,7 +49,7 @@ export default function AuditPage() {
     if (dateFrom) params.set('dateFrom', dateFrom)
     if (dateTo) params.set('dateTo', dateTo)
 
-    fetch(`/api/audit?${params}`)
+    fetch(apiUrl(`/api/audit?${params}`))
       .then(res => res.json())
       .then(d => {
         if (d.success) {

@@ -13,6 +13,7 @@ import { ServiceTypeLabel, GoalTypeLabel } from '@/lib/constants/enums'
 import type { GoalType, AutomationGrade } from '@/lib/constants/enums'
 import type { ChannelRecommendation, ServiceAnalysis } from '@/types'
 import { CheckCircle, ArrowRight, ArrowLeft, Loader2, Plus, X } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 type Step = 1 | 2 | 3 | 4 | 5
 
@@ -34,6 +35,7 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Step 1: 서비스 정보
   const [serviceName, setServiceName] = useState('')
@@ -59,8 +61,9 @@ export default function OnboardingPage() {
   // Step 1 → 서비스 등록
   async function handleServiceSubmit() {
     setLoading(true)
+    setError(null)
     try {
-      const res = await fetch('/api/services', {
+      const res = await fetch(apiUrl('/api/services'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: serviceName, url: serviceUrl || undefined, type: serviceType, description }),
@@ -70,7 +73,11 @@ export default function OnboardingPage() {
         setServiceId(data.data.service.id)
         setAnalysis(data.data.analysis)
         setStep(2)
+      } else {
+        setError(data.error || '서비스 등록에 실패했습니다')
       }
+    } catch {
+      setError('서버와 연결할 수 없습니다')
     } finally {
       setLoading(false)
     }
@@ -81,7 +88,7 @@ export default function OnboardingPage() {
     setLoading(true)
     try {
       for (const asset of assets) {
-        await fetch(`/api/services/${serviceId}/assets`, {
+        await fetch(apiUrl(`/api/services/${serviceId}/assets`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(asset),
@@ -109,13 +116,13 @@ export default function OnboardingPage() {
     setLoading(true)
     try {
       for (const goalType of selectedGoals) {
-        await fetch('/api/goals', {
+        await fetch(apiUrl('/api/goals'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ serviceId, type: goalType, description: GoalTypeLabel[goalType as GoalType] }),
         })
       }
-      const res = await fetch(`/api/channels/recommendations?serviceId=${serviceId}`)
+      const res = await fetch(apiUrl(`/api/channels/recommendations?serviceId=${serviceId}`))
       const data = await res.json()
       if (data.success) {
         setRecommendations(data.data.recommendations)
@@ -132,14 +139,14 @@ export default function OnboardingPage() {
     setLoading(true)
     try {
       for (const channelName of selectedChannels) {
-        const connRes = await fetch('/api/channels/connections', {
+        const connRes = await fetch(apiUrl('/api/channels/connections'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ serviceId, channelName }),
         })
         const connData = await connRes.json()
         if (connData.success) {
-          await fetch('/api/tasks/generate', {
+          await fetch(apiUrl('/api/tasks/generate'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ serviceId, channelConnectionId: connData.data.id }),
@@ -185,6 +192,11 @@ export default function OnboardingPage() {
               {Object.entries(ServiceTypeLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </Select>
             <Textarea label="서비스 소개 *" value={description} onChange={e => setDescription(e.target.value)} placeholder="서비스에 대해 간단히 설명해주세요" rows={4} />
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                {error}
+              </div>
+            )}
             <div className="flex justify-end">
               <Button onClick={handleServiceSubmit} disabled={!serviceName || !description || loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

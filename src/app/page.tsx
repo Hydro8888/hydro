@@ -13,6 +13,7 @@ import {
   ListTodo,
 } from 'lucide-react'
 import type { DashboardStats } from '@/types'
+import { apiUrl } from '@/lib/api'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -20,7 +21,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/dashboard')
+    fetch(apiUrl('/api/dashboard'))
       .then(res => res.json())
       .then(data => {
         if (data.success) setStats(data.data)
@@ -88,7 +89,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <p className="text-sm text-red-800">{error}</p>
             <button
-              onClick={() => { setError(null); setLoading(true); fetch('/api/dashboard').then(r => r.json()).then(d => { if (d.success) setStats(d.data); else setError('대시보드 데이터를 불러올 수 없습니다') }).catch(() => setError('서버와 연결할 수 없습니다')).finally(() => setLoading(false)) }}
+              onClick={() => { setError(null); setLoading(true); fetch(apiUrl('/api/dashboard')).then(r => r.json()).then(d => { if (d.success) setStats(d.data); else setError('대시보드 데이터를 불러올 수 없습니다') }).catch(() => setError('서버와 연결할 수 없습니다')).finally(() => setLoading(false)) }}
               className="ml-auto text-sm text-red-700 underline hover:text-red-900"
             >
               다시 시도
@@ -154,7 +155,7 @@ function RecommendationSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/recommendations')
+    fetch(apiUrl('/api/recommendations'))
       .then(res => res.json())
       .then(data => {
         if (data.success) setRecommendations(data.data)

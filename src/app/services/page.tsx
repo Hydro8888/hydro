@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ServiceTypeLabel } from '@/lib/constants/enums'
 import { Briefcase, ExternalLink } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
 
 interface ServiceItem {
   id: string
@@ -28,7 +29,7 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/services')
+    fetch(apiUrl('/api/services'))
       .then(res => res.json())
       .then(data => {
         if (data.success) setServices(data.data)

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hydro-postgres
+    environment:
+      POSTGRES_USER: hydro
+      POSTGRES_PASSWORD: hydro_dev_2024
+      POSTGRES_DB: hydro_marketing
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

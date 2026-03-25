@@ -1,0 +1,24 @@
+'use client'
+
+import { Card, CardContent } from '@/components/ui/card'
+import { UserCheck } from 'lucide-react'
+
+export default function AssistedTasksPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">반자동 작업 센터</h2>
+        <p className="text-muted-foreground">담당자가 직접 수행해야 하는 작업을 관리합니다</p>
+      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center p-12 text-center">
+          <UserCheck className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Phase 2에서 구현 예정</h3>
+          <p className="text-muted-foreground">
+            담당자 배정, 체크리스트, 증빙 업로드, 검수 처리 기능이 추가됩니다.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

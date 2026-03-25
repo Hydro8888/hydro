@@ -1,0 +1,382 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// 사용자 역할
+// ============================================================
+enum UserRole {
+  OWNER
+  MANAGER
+  REVIEWER
+  WORKER
+}
+
+enum ServiceType {
+  WEB_SERVICE
+  MOBILE_APP
+  LOCAL_BUSINESS
+  SAAS
+  ECOMMERCE
+  CONTENT_PLATFORM
+  OTHER
+}
+
+enum AssetType {
+  LOGO
+  IMAGE
+  TEXT
+  VIDEO
+  DOCUMENT
+}
+
+enum GoalType {
+  SIGNUP_INCREASE
+  APP_INSTALL_INCREASE
+  SEARCH_TRAFFIC_INCREASE
+  LOCAL_EXPOSURE_INCREASE
+  INQUIRY_INCREASE
+  BRAND_AWARENESS
+  REVIEW_MANAGEMENT
+  CUSTOM
+}
+
+enum ChannelCategory {
+  SEARCH_ENGINE
+  LOCAL_DIRECTORY
+  APP_STORE
+  SOCIAL_MEDIA
+  REVIEW_PLATFORM
+  BLOG_PLATFORM
+  BUSINESS_DIRECTORY
+  MAP_SERVICE
+}
+
+enum AutomationGrade {
+  A
+  B
+  C
+}
+
+enum ChannelConnectionStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  FAILED
+  INSUFFICIENT_PERMISSIONS
+  REAUTH_REQUIRED
+  SUSPENDED
+}
+
+enum TaskStatus {
+  CREATED
+  PENDING
+  RUNNING
+  APPROVAL_NEEDED
+  USER_ACTION_NEEDED
+  COMPLETED
+  FAILED
+  RETRY_PENDING
+  REJECTED
+  ON_HOLD
+}
+
+enum TaskType {
+  CHANNEL_REGISTRATION
+  PROFILE_UPDATE
+  CONTENT_PUBLISH
+  REVIEW_RESPONSE
+  INFO_SYNC
+  MONITORING
+  SEO_OPTIMIZATION
+  IMAGE_UPDATE
+  DESCRIPTION_UPDATE
+  CTA_UPDATE
+}
+
+enum ApprovalStatus {
+  REVIEW_PENDING
+  REVIEWING
+  APPROVED
+  REVISION_REQUESTED
+  REJECTED
+  EXPIRED
+}
+
+enum AssistedTaskStatus {
+  CREATED
+  INSUFFICIENT_DATA
+  ASSIGNED
+  IN_PROGRESS
+  EVIDENCE_PENDING
+  REVIEW_PENDING
+  COMPLETED
+  REJECTED
+}
+
+enum NotificationPriority {
+  URGENT
+  IMPORTANT
+  NORMAL
+  RECOMMENDATION
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================================
+// 모델 정의
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(WORKER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services         Service[]
+  approvalRequests ApprovalRequest[]   @relation("reviewer")
+  assistedTasks    AssistedTask[]      @relation("assignee")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+}
+
+model Service {
+  id          String      @id @default(cuid())
+  name        String
+  url         String?
+  appUrl      String?
+  type        ServiceType
+  description String
+  logoUrl     String?
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isLocal     Boolean     @default(false)
+  isApp       Boolean     @default(false)
+  isB2B       Boolean     @default(false)
+
+  user               User                @relation(fields: [userId], references: [id])
+  assets             BrandAsset[]
+  goals              Goal[]
+  channelConnections ChannelConnection[]
+  tasks              Task[]
+  recommendedActions RecommendedAction[]
+
+  @@index([userId])
+}
+
+model BrandAsset {
+  id        String    @id @default(cuid())
+  serviceId String
+  type      AssetType
+  name      String
+  url       String?
+  content   String?
+  createdAt DateTime  @default(now())
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  serviceId   String
+  type        GoalType
+  description String
+  subGoals    Json     @default("[]")
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+}
+
+model Channel {
+  id                    String          @id @default(cuid())
+  name                  String          @unique
+  displayName           String
+  category              ChannelCategory
+  description           String
+  automationCapability  AutomationGrade @default(B)
+  riskLevel             RiskLevel       @default(MEDIUM)
+  requiredAssets        Json            @default("[]")
+  supportedTaskTypes    Json            @default("[]")
+  isActive              Boolean         @default(true)
+  createdAt             DateTime        @default(now())
+
+  connections        ChannelConnection[]
+  automationPolicies AutomationPolicy[]
+}
+
+model ChannelConnection {
+  id          String                  @id @default(cuid())
+  serviceId   String
+  channelId   String
+  status      ChannelConnectionStatus @default(DISCONNECTED)
+  credentials Json?
+  errorReason String?
+  connectedAt DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id])
+  tasks   Task[]
+
+  @@unique([serviceId, channelId])
+  @@index([serviceId])
+  @@index([channelId])
+}
+
+model AutomationPolicy {
+  id         String          @id @default(cuid())
+  channelId  String
+  taskType   TaskType
+  grade      AutomationGrade
+  conditions Json            @default("{}")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  channel Channel @relation(fields: [channelId], references: [id])
+
+  @@unique([channelId, taskType])
+  @@index([channelId])
+}
+
+model Task {
+  id                  String          @id @default(cuid())
+  serviceId           String
+  channelConnectionId String?
+  type                TaskType
+  status              TaskStatus      @default(CREATED)
+  automationGrade     AutomationGrade
+  title               String
+  description         String?
+  payload             Json            @default("{}")
+  result              Json?
+  errorReason         String?
+  retryCount          Int             @default(0)
+  maxRetries          Int             @default(3)
+  scheduledAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  service           Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  channelConnection ChannelConnection? @relation(fields: [channelConnectionId], references: [id])
+  approvalRequest   ApprovalRequest?
+  assistedTask      AssistedTask?
+
+  @@index([serviceId])
+  @@index([channelConnectionId])
+  @@index([status])
+  @@index([automationGrade])
+}
+
+model ApprovalRequest {
+  id              String         @id @default(cuid())
+  taskId          String         @unique
+  status          ApprovalStatus @default(REVIEW_PENDING)
+  draftContent    Json
+  previousContent Json?
+  approvedContent Json?
+  reason          String?
+  rejectionReason String?
+  riskLevel       RiskLevel      @default(MEDIUM)
+  reviewerId      String?
+  reviewedAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  task     Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("reviewer", fields: [reviewerId], references: [id])
+
+  @@index([status])
+  @@index([reviewerId])
+}
+
+model AssistedTask {
+  id           String              @id @default(cuid())
+  taskId       String              @unique
+  status       AssistedTaskStatus  @default(CREATED)
+  instructions String
+  checklist    Json                @default("[]")
+  assigneeId   String?
+  evidenceUrls Json                @default("[]")
+  completedAt  DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  task     Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignee User? @relation("assignee", fields: [assigneeId], references: [id])
+
+  @@index([status])
+  @@index([assigneeId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  userId     String?
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  userId    String
+  type      String
+  priority  NotificationPriority @default(NORMAL)
+  title     String
+  message   String
+  actionUrl String?
+  read      Boolean              @default(false)
+  createdAt DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model RecommendedAction {
+  id        String   @id @default(cuid())
+  serviceId String
+  type      String
+  title     String
+  reason    String
+  priority  Int      @default(0)
+  payload   Json     @default("{}")
+  accepted  Boolean?
+  createdAt DateTime @default(now())
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+}

@@ -65,7 +65,7 @@ echo "[3/9] PostgreSQL 확인..."
 if ! docker ps 2>/dev/null | grep -q hydro-postgres; then
   echo "  Docker PostgreSQL 시작 중..."
   cd ${APP_DIR}
-  docker-compose up -d
+  docker compose up -d
   echo "  PostgreSQL 시작 대기 (5초)..."
   sleep 5
 fi
@@ -75,7 +75,7 @@ if docker exec hydro-postgres pg_isready -U ${DB_USER} > /dev/null 2>&1; then
   echo "  ✅ PostgreSQL 실행 중 (포트 ${DB_PORT})"
 else
   echo "  ❌ PostgreSQL 연결 실패!"
-  echo "  수동으로 확인하세요: docker-compose up -d"
+  echo "  수동으로 확인하세요: docker compose up -d"
   exit 1
 fi
 echo ""

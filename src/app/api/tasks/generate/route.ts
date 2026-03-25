@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { determineAutomationGrade } from '@/lib/engines/automation-policy'
+import { executeTask } from '@/lib/engines/execution'
+import { notifyApprovalNeeded } from '@/lib/engines/notification'
 import { getInitialTaskStatus } from '@/lib/states/task-state'
 import { TaskTypeLabel } from '@/lib/constants/enums'
 import type { TaskType } from '@/lib/constants/enums'
@@ -68,9 +70,14 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // B등급: 승인 요청 자동 생성
+      // A등급: 자동 실행 트리거 (비동기)
+      if (policy.grade === 'A') {
+        executeTask(task.id).catch(console.error)
+      }
+
+      // B등급: 승인 요청 자동 생성 + 알림
       if (policy.grade === 'B') {
-        await prisma.approvalRequest.create({
+        const approval = await prisma.approvalRequest.create({
           data: {
             taskId: task.id,
             status: 'REVIEW_PENDING',
@@ -83,6 +90,7 @@ export async function POST(request: NextRequest) {
             riskLevel: connection.channel.riskLevel,
           },
         })
+        notifyApprovalNeeded(approval.id).catch(console.error)
       }
 
       // C등급: 반자동 작업 자동 생성

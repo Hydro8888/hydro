@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canTransitionTask } from '@/lib/states/task-state'
+import { retryTask, executeTask } from '@/lib/engines/execution'
 import type { TaskStatus } from '@/lib/constants/enums'
 
 // GET /api/tasks/[id] - 작업 상세
@@ -64,13 +65,25 @@ export async function PATCH(
       )
     }
 
+    // RETRY_PENDING 요청: 실행 엔진의 retryTask()로 위임
+    if (newStatus === 'RETRY_PENDING') {
+      await retryTask(params.id)
+      const retriedTask = await prisma.task.findUnique({ where: { id: params.id } })
+
+      // 자동 실행 (A등급)
+      if (retriedTask && retriedTask.automationGrade === 'A') {
+        executeTask(params.id).catch(console.error) // 비동기 실행
+      }
+
+      return NextResponse.json({ success: true, data: retriedTask })
+    }
+
     const updatedTask = await prisma.task.update({
       where: { id: params.id },
       data: {
         status: newStatus,
         ...(errorReason && { errorReason }),
         ...(newStatus === 'COMPLETED' && { completedAt: new Date() }),
-        ...(newStatus === 'RETRY_PENDING' && { retryCount: { increment: 1 } }),
       },
     })
 
@@ -84,6 +97,11 @@ export async function PATCH(
         after: { status: newStatus, errorReason },
       },
     })
+
+    // PENDING 상태로 전환된 A등급 작업은 자동 실행
+    if (newStatus === 'PENDING' && task.automationGrade === 'A') {
+      executeTask(params.id).catch(console.error)
+    }
 
     return NextResponse.json({ success: true, data: updatedTask })
   } catch (error) {

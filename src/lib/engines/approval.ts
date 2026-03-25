@@ -2,6 +2,7 @@ import { prisma } from '../db'
 import { canTransitionApproval } from '../states/approval-state'
 import { canTransitionTask } from '../states/task-state'
 import { notifyApprovalResult, notifyApprovalExpired } from './notification'
+import { executeTask } from './execution'
 import type { ApprovalStatus } from '../constants/enums'
 
 type ApprovalAction = 'start_review' | 'approve' | 'request_revision' | 'reject'
@@ -59,6 +60,8 @@ export async function processApproval(params: ProcessApprovalParams) {
         where: { id: approval.taskId },
         data: { status: 'PENDING' },
       })
+      // 승인 후 자동 실행 트리거 (비동기)
+      executeTask(approval.taskId).catch(console.error)
     }
   } else if (action === 'reject') {
     if (canTransitionTask(approval.task.status as any, 'REJECTED')) {

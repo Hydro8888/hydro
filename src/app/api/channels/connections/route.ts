@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { canTransitionChannel } from '@/lib/states/channel-state'
+import { notifyChannelConnectionFailed } from '@/lib/engines/notification'
 
 // POST /api/channels/connections - 채널 연결 시작
 export async function POST(request: NextRequest) {
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Mock: 연결 시뮬레이션 (즉시 CONNECTED로 전환)
+    // 향후 실제 OAuth/API 인증으로 교체 시 CONNECTING → CONNECTED 비동기 처리
     const connection = await prisma.channelConnection.upsert({
       where: {
         serviceId_channelId: {
@@ -61,6 +63,20 @@ export async function POST(request: NextRequest) {
         channelId: channel.id,
         status: 'CONNECTED',
         connectedAt: new Date(),
+      },
+    })
+
+    // 감사 로그
+    await prisma.auditLog.create({
+      data: {
+        entityType: 'ChannelConnection',
+        entityId: connection.id,
+        action: 'CONNECT',
+        after: {
+          channelName: channel.name,
+          displayName: channel.displayName,
+          status: 'CONNECTED',
+        },
       },
     })
 

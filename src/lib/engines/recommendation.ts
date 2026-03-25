@@ -34,6 +34,22 @@ export async function generateRecommendations(serviceIds: string[]): Promise<Rec
       priority: 100,
       payload: { actionUrl: '/onboarding' },
     })
+
+    // 작업이 없어도 미연결 채널 추천은 제공
+    const connectedChannelIds = connections.map(c => c.channelId)
+    const allChannels = await prisma.channel.findMany({ where: { isActive: true } })
+    const unconnectedCount = allChannels.filter(ch => !connectedChannelIds.includes(ch.id)).length
+    if (unconnectedCount > 0 && connections.length > 0) {
+      recommendations.push({
+        type: 'EXPAND_CHANNELS',
+        title: '추가 채널을 연결해보세요',
+        reason: `아직 연결하지 않은 채널이 ${unconnectedCount}개 있습니다. 채널 탐색에서 적합도를 확인해보세요.`,
+        priority: 40,
+        payload: { unconnectedCount, actionUrl: '/channels' },
+      })
+    }
+
+    recommendations.sort((a, b) => b.priority - a.priority)
     return recommendations
   }
 

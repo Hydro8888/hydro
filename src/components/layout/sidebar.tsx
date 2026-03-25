@@ -12,6 +12,7 @@ import {
   CheckSquare,
   UserCheck,
   Activity,
+  GitBranch,
   BarChart3,
   History,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ const navigation = [
   { name: '승인 센터', href: '/approvals', icon: CheckSquare },
   { name: '반자동 작업', href: '/assisted', icon: UserCheck },
   { name: '운영 센터', href: '/operations', icon: Activity },
+  { name: '파이프라인', href: '/pipeline', icon: GitBranch },
   { name: '보고서', href: '/reports', icon: BarChart3 },
   { name: '감사 이력', href: '/audit', icon: History },
 ]

@@ -64,3 +64,35 @@ export interface ApiResponse<T = unknown> {
   data?: T
   error?: string
 }
+
+// Phase 7: 파이프라인 모니터링 타입
+export interface PipelineStage {
+  stage: number
+  title: string
+  icon: string
+  health: 'healthy' | 'warning' | 'critical'
+  primaryMetric: number
+  primaryLabel: string
+  details: Record<string, number>
+  actionUrl: string
+}
+
+export interface PipelineActivity {
+  id: string
+  timestamp: string
+  entityType: string
+  action: string
+  description: string
+}
+
+export interface PipelineStatus {
+  stages: PipelineStage[]
+  bottleneck: { stage: number; title: string; reason: string } | null
+  recentActivity: PipelineActivity[]
+  summary: {
+    totalChannels: number
+    totalTasks: number
+    completionRate: number
+    automationRate: number
+  }
+}

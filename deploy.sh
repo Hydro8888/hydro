@@ -14,7 +14,7 @@ set -e
 
 # === 설정 ===
 APP_NAME="hydro-marketing"
-APP_PORT=3200
+APP_PORT=3400
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_PATH="/hydro"
 DB_USER="hydro"

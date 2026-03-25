@@ -10,7 +10,7 @@
 set -e
 
 NGINX_CONF="/etc/nginx/sites-available/multi-service"
-APP_PORT=3200
+APP_PORT=3400
 BASE_PATH="/hydro"
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
@@ -71,10 +71,10 @@ TEMP_FILE=$(mktemp)
 cat > ${TEMP_FILE} << 'NGINXEOF'
 
     # ====================================
-    # Hydro Marketing Platform (port 3200)
+    # Hydro Marketing Platform (port 3400)
     # ====================================
     location /hydro/ {
-        proxy_pass http://127.0.0.1:3200/hydro/;
+        proxy_pass http://127.0.0.1:3400/hydro/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -88,7 +88,7 @@ cat > ${TEMP_FILE} << 'NGINXEOF'
     }
 
     location /hydro/_next/ {
-        proxy_pass http://127.0.0.1:3200/hydro/_next/;
+        proxy_pass http://127.0.0.1:3400/hydro/_next/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;

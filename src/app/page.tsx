@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   Zap,
   Clock,
   AlertTriangle,
   UserCheck,
   Link2,
+  Lightbulb,
   ListTodo,
 } from 'lucide-react'
 import type { DashboardStats } from '@/types'
@@ -123,6 +125,64 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 추천 액션 */}
+      {stats && stats.totalTasks > 0 && <RecommendationSection />}
     </div>
+  )
+}
+
+function RecommendationSection() {
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/recommendations')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setRecommendations(data.data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading || recommendations.length === 0) return null
+
+  const priorityColors: Record<string, string> = {
+    HIGH_FAILURE_RATE: 'border-red-200 bg-red-50',
+    APPROVAL_BOTTLENECK: 'border-orange-200 bg-orange-50',
+    LOW_AUTOMATION: 'border-yellow-200 bg-yellow-50',
+    HIGH_REJECTION_RATE: 'border-orange-200 bg-orange-50',
+    AUTOMATION_UPGRADE: 'border-green-200 bg-green-50',
+    GOOD_PERFORMANCE: 'border-green-200 bg-green-50',
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-yellow-500" />
+          추천 액션
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {recommendations.slice(0, 5).map((rec, i) => (
+          <div
+            key={i}
+            className={`rounded-lg border p-4 ${priorityColors[rec.type] || 'border-border'}`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="font-medium text-sm">{rec.title}</p>
+                <p className="text-xs text-muted-foreground">{rec.reason}</p>
+              </div>
+              <Badge variant="outline" className="text-xs flex-shrink-0">
+                우선순위 {rec.priority}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }

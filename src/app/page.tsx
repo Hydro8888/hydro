@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -38,6 +39,8 @@ export default function DashboardPage() {
       icon: Zap,
       color: 'text-green-600',
       bg: 'bg-green-50',
+      href: '/tasks?grade=A',
+      description: 'A등급 자동 실행 작업 보기',
     },
     {
       title: '승인 대기',
@@ -45,6 +48,8 @@ export default function DashboardPage() {
       icon: Clock,
       color: 'text-yellow-600',
       bg: 'bg-yellow-50',
+      href: '/approvals',
+      description: 'B등급 승인 요청 확인하기',
     },
     {
       title: '실패 작업',
@@ -52,6 +57,8 @@ export default function DashboardPage() {
       icon: AlertTriangle,
       color: 'text-red-600',
       bg: 'bg-red-50',
+      href: '/tasks?status=FAILED',
+      description: '실패 원인 확인 및 재시도',
     },
     {
       title: '사용자 작업 필요',
@@ -59,6 +66,8 @@ export default function DashboardPage() {
       icon: UserCheck,
       color: 'text-orange-600',
       bg: 'bg-orange-50',
+      href: '/assisted',
+      description: 'C등급 반자동 작업 처리하기',
     },
     {
       title: '연결된 채널',
@@ -66,6 +75,8 @@ export default function DashboardPage() {
       icon: Link2,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
+      href: '/channels/connections',
+      description: '채널 연결 상태 확인',
     },
     {
       title: '전체 작업',
@@ -73,6 +84,8 @@ export default function DashboardPage() {
       icon: ListTodo,
       color: 'text-indigo-600',
       bg: 'bg-indigo-50',
+      href: '/tasks',
+      description: '전체 작업 목록 보기',
     },
   ]
 
@@ -111,17 +124,20 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {cards.map((card) => (
-            <Card key={card.title}>
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className={`rounded-lg p-3 ${card.bg}`}>
-                  <card.icon className={`h-6 w-6 ${card.color}`} />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{card.title}</p>
-                  <p className="text-3xl font-bold">{card.value}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={card.title} href={card.href}>
+              <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group">
+                <CardContent className="flex items-center gap-4 p-6">
+                  <div className={`rounded-lg p-3 ${card.bg} group-hover:scale-110 transition-transform`}>
+                    <card.icon className={`h-6 w-6 ${card.color}`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">{card.title}</p>
+                    <p className="text-3xl font-bold">{card.value}</p>
+                    <p className="text-xs text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity">{card.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

@@ -1,0 +1,268 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
+import { AutomationGradeBadge } from '@/components/common/automation-grade-badge'
+import { DiffViewer } from '@/components/common/diff-viewer'
+import { TaskTypeLabel } from '@/lib/constants/enums'
+import type { AutomationGrade } from '@/lib/constants/enums'
+import { getTaskNextActions } from '@/lib/states/task-state'
+import type { TaskStatus } from '@/lib/constants/enums'
+import { ArrowLeft, Loader2, RefreshCw, ExternalLink } from 'lucide-react'
+import { apiUrl } from '@/lib/api'
+
+export default function TaskDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const [task, setTask] = useState<any>(null)
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  function loadTask() {
+    if (!params.id) return
+    fetch(apiUrl(`/api/tasks/${params.id}`))
+      .then(res => res.json())
+      .then(data => { if (data.success) setTask(data.data) })
+      .finally(() => setLoading(false))
+
+    fetch(apiUrl(`/api/audit?entityType=Task&entityId=${params.id}`))
+      .then(res => res.json())
+      .then(data => { if (data.success) setAuditLogs(data.data.logs || []) })
+      .catch(() => {})
+  }
+
+  useEffect(() => { loadTask() }, [params.id])
+
+  async function handleStatusChange(newStatus: string) {
+    setActionLoading(true)
+    try {
+      await fetch(apiUrl(`/api/tasks/${params.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      loadTask()
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="animate-pulse space-y-4">
+      <div className="h-8 bg-muted rounded w-1/3" />
+      <div className="h-60 bg-muted rounded" />
+    </div>
+  }
+
+  if (!task) return <p>작업을 찾을 수 없습니다.</p>
+
+  const nextActions = getTaskNextActions(task.status as TaskStatus)
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <Button variant="ghost" size="sm" onClick={() => router.push('/tasks')}>
+        <ArrowLeft className="h-4 w-4 mr-2" /> 작업 센터로 돌아가기
+      </Button>
+
+      {/* 헤더 */}
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold">{task.title}</h2>
+        <div className="flex items-center gap-2 flex-wrap">
+          <AutomationGradeBadge grade={task.automationGrade as AutomationGrade} showDescription />
+          <StatusBadge status={task.status} type="task" />
+          <Badge variant="outline">{TaskTypeLabel[task.type as keyof typeof TaskTypeLabel] || task.type}</Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* 기본 정보 */}
+        <Card>
+          <CardHeader><CardTitle className="text-lg">작업 정보</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {task.channelConnection?.channel && (
+              <p><span className="font-medium">채널:</span> {task.channelConnection.channel.displayName}</p>
+            )}
+            {task.description && <p><span className="font-medium">설명:</span> {task.description}</p>}
+            <p><span className="font-medium">재시도:</span> {task.retryCount}/{task.maxRetries}</p>
+            {task.scheduledAt && <p><span className="font-medium">예약:</span> {new Date(task.scheduledAt).toLocaleString('ko-KR')}</p>}
+            {task.completedAt && <p><span className="font-medium">완료:</span> {new Date(task.completedAt).toLocaleString('ko-KR')}</p>}
+            <p><span className="font-medium">생성:</span> {new Date(task.createdAt).toLocaleString('ko-KR')}</p>
+          </CardContent>
+        </Card>
+
+        {/* 실패 사유 / 상태 액션 */}
+        <Card>
+          <CardHeader><CardTitle className="text-lg">상태 관리</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {task.errorReason && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                <p className="text-sm font-medium text-red-600">실패 사유</p>
+                <p className="text-sm mt-1">{task.errorReason}</p>
+              </div>
+            )}
+
+            {nextActions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {nextActions.map(action => (
+                  <Button
+                    key={action.targetStatus}
+                    size="sm"
+                    variant={action.targetStatus === 'RETRY_PENDING' ? 'default' : 'outline'}
+                    onClick={() => handleStatusChange(action.targetStatus)}
+                    disabled={actionLoading}
+                  >
+                    {actionLoading && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 실제 결과 확인 */}
+      <ChannelVerifyCard
+        channelName={task.channelConnection?.channel?.name}
+        channelDisplayName={task.channelConnection?.channel?.displayName}
+        serviceName={task.service?.name || task.channelConnection?.channel?.displayName}
+        serviceUrl={task.service?.url}
+        taskType={task.type}
+      />
+
+      {/* 관련 승인/반자동 */}
+      {task.approvalRequest && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">관련 승인 요청</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <StatusBadge status={task.approvalRequest.status} type="approval" />
+              <Link href={`/approvals/${task.approvalRequest.id}`}>
+                <Button variant="outline" size="sm">
+                  승인 상세 보기 <ExternalLink className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {task.assistedTask && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">관련 반자동 작업</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <StatusBadge status={task.assistedTask.status} type="assisted" />
+              <Link href={`/assisted/${task.assistedTask.id}`}>
+                <Button variant="outline" size="sm">
+                  반자동 작업 보기 <ExternalLink className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 감사 이력 */}
+      {auditLogs.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">변경 이력</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {auditLogs.map((log: any) => (
+              <div key={log.id} className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{log.action}</Badge>
+                    <span className="text-muted-foreground">{log.user?.name || '시스템'}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString('ko-KR')}</span>
+                </div>
+                {(log.before || log.after) && (
+                  <DiffViewer before={log.before} after={log.after} />
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// 채널별 외부 확인 URL 매핑
+const CHANNEL_VERIFY_URLS: Record<string, { label: string; getUrl: (s?: string, url?: string) => string }[]> = {
+  google_business_profile: [
+    { label: 'Google 비즈니스 프로필', getUrl: () => 'https://business.google.com/' },
+    { label: 'Google 검색 결과', getUrl: (s) => `https://www.google.com/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  google_search_console: [
+    { label: 'Search Console', getUrl: () => 'https://search.google.com/search-console' },
+    { label: 'Google 사이트 검색', getUrl: (_, url) => `https://www.google.com/search?q=site:${encodeURIComponent(url || '')}` },
+  ],
+  naver_place: [
+    { label: '네이버 플레이스', getUrl: () => 'https://new.smartplace.naver.com/' },
+    { label: '네이버 검색 결과', getUrl: (s) => `https://search.naver.com/search.naver?query=${encodeURIComponent(s || '')}` },
+  ],
+  naver_blog: [
+    { label: '네이버 블로그', getUrl: () => 'https://blog.naver.com/' },
+    { label: '블로그 검색', getUrl: (s) => `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(s || '')}` },
+  ],
+  instagram: [
+    { label: 'Instagram', getUrl: () => 'https://www.instagram.com/' },
+  ],
+  facebook: [
+    { label: 'Facebook 비즈니스', getUrl: () => 'https://business.facebook.com/' },
+  ],
+  apple_app_store: [
+    { label: 'App Store Connect', getUrl: () => 'https://appstoreconnect.apple.com/' },
+  ],
+  google_play_store: [
+    { label: 'Play Console', getUrl: () => 'https://play.google.com/console/' },
+    { label: 'Play Store 검색', getUrl: (s) => `https://play.google.com/store/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  kakao_map: [
+    { label: '카카오맵 검색', getUrl: (s) => `https://map.kakao.com/?q=${encodeURIComponent(s || '')}` },
+  ],
+}
+
+function ChannelVerifyCard({ channelName, channelDisplayName, serviceName, serviceUrl, taskType }: {
+  channelName?: string; channelDisplayName?: string; serviceName?: string; serviceUrl?: string; taskType?: string
+}) {
+  const links = channelName ? CHANNEL_VERIFY_URLS[channelName] || [] : []
+  const defaultLink = { label: `Google에서 "${serviceName}" 검색`, getUrl: () => `https://www.google.com/search?q=${encodeURIComponent(serviceName || '')}` }
+  const allLinks = links.length > 0 ? links : [defaultLink]
+
+  return (
+    <Card className="border-blue-200 bg-blue-50/50">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ExternalLink className="h-4 w-4 text-blue-600" />
+          실제 결과 확인
+          {channelDisplayName && <span className="text-sm font-normal text-muted-foreground">({channelDisplayName})</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex flex-wrap gap-2">
+          {allLinks.map((link, i) => (
+            <Button
+              key={i}
+              variant="outline"
+              size="sm"
+              className="bg-white hover:bg-blue-50 text-sm"
+              onClick={() => window.open(link.getUrl(serviceName, serviceUrl), '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="h-3 w-3 mr-1.5" />
+              {link.label}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

@@ -127,6 +127,15 @@ export default function TaskDetailPage() {
         </Card>
       </div>
 
+      {/* 실제 결과 확인 */}
+      <ChannelVerifyCard
+        channelName={task.channelConnection?.channel?.name}
+        channelDisplayName={task.channelConnection?.channel?.displayName}
+        serviceName={task.service?.name || task.channelConnection?.channel?.displayName}
+        serviceUrl={task.service?.url}
+        taskType={task.type}
+      />
+
       {/* 관련 승인/반자동 */}
       {task.approvalRequest && (
         <Card>
@@ -183,5 +192,77 @@ export default function TaskDetailPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+// 채널별 외부 확인 URL 매핑
+const CHANNEL_VERIFY_URLS: Record<string, { label: string; getUrl: (s?: string, url?: string) => string }[]> = {
+  google_business_profile: [
+    { label: 'Google 비즈니스 프로필', getUrl: () => 'https://business.google.com/' },
+    { label: 'Google 검색 결과', getUrl: (s) => `https://www.google.com/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  google_search_console: [
+    { label: 'Search Console', getUrl: () => 'https://search.google.com/search-console' },
+    { label: 'Google 사이트 검색', getUrl: (_, url) => `https://www.google.com/search?q=site:${encodeURIComponent(url || '')}` },
+  ],
+  naver_place: [
+    { label: '네이버 플레이스', getUrl: () => 'https://new.smartplace.naver.com/' },
+    { label: '네이버 검색 결과', getUrl: (s) => `https://search.naver.com/search.naver?query=${encodeURIComponent(s || '')}` },
+  ],
+  naver_blog: [
+    { label: '네이버 블로그', getUrl: () => 'https://blog.naver.com/' },
+    { label: '블로그 검색', getUrl: (s) => `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(s || '')}` },
+  ],
+  instagram: [
+    { label: 'Instagram', getUrl: () => 'https://www.instagram.com/' },
+  ],
+  facebook: [
+    { label: 'Facebook 비즈니스', getUrl: () => 'https://business.facebook.com/' },
+  ],
+  apple_app_store: [
+    { label: 'App Store Connect', getUrl: () => 'https://appstoreconnect.apple.com/' },
+  ],
+  google_play_store: [
+    { label: 'Play Console', getUrl: () => 'https://play.google.com/console/' },
+    { label: 'Play Store 검색', getUrl: (s) => `https://play.google.com/store/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  kakao_map: [
+    { label: '카카오맵 검색', getUrl: (s) => `https://map.kakao.com/?q=${encodeURIComponent(s || '')}` },
+  ],
+}
+
+function ChannelVerifyCard({ channelName, channelDisplayName, serviceName, serviceUrl, taskType }: {
+  channelName?: string; channelDisplayName?: string; serviceName?: string; serviceUrl?: string; taskType?: string
+}) {
+  const links = channelName ? CHANNEL_VERIFY_URLS[channelName] || [] : []
+  const defaultLink = { label: `Google에서 "${serviceName}" 검색`, getUrl: () => `https://www.google.com/search?q=${encodeURIComponent(serviceName || '')}` }
+  const allLinks = links.length > 0 ? links : [defaultLink]
+
+  return (
+    <Card className="border-blue-200 bg-blue-50/50">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ExternalLink className="h-4 w-4 text-blue-600" />
+          실제 결과 확인
+          {channelDisplayName && <span className="text-sm font-normal text-muted-foreground">({channelDisplayName})</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex flex-wrap gap-2">
+          {allLinks.map((link, i) => (
+            <Button
+              key={i}
+              variant="outline"
+              size="sm"
+              className="bg-white hover:bg-blue-50 text-sm"
+              onClick={() => window.open(link.getUrl(serviceName, serviceUrl), '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="h-3 w-3 mr-1.5" />
+              {link.label}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

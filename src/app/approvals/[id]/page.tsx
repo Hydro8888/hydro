@@ -10,7 +10,7 @@ import { AutomationGradeBadge } from '@/components/common/automation-grade-badge
 import { RiskLevelBadge } from '@/components/common/risk-level-badge'
 import { DiffViewer } from '@/components/common/diff-viewer'
 import type { AutomationGrade } from '@/lib/constants/enums'
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Edit3, Eye } from 'lucide-react'
+import { ArrowLeft, Loader2, CheckCircle, XCircle, Edit3, Eye, ExternalLink } from 'lucide-react'
 import { apiUrl } from '@/lib/api'
 
 export default function ApprovalDetailPage() {
@@ -107,6 +107,15 @@ export default function ApprovalDetailPage() {
         </CardContent>
       </Card>
 
+      {/* 채널 확인 버튼 */}
+      <ChannelVerifyButtons
+        channelName={approval.task?.channelConnection?.channel?.name}
+        channelDisplayName={approval.task?.channelConnection?.channel?.displayName}
+        serviceName={approval.task?.service?.name}
+        serviceUrl={approval.task?.service?.url}
+        taskType={approval.draftContent?.taskType}
+      />
+
       {/* 변경 전/후 비교 */}
       <DiffViewer
         before={approval.previousContent}
@@ -195,5 +204,116 @@ export default function ApprovalDetailPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+// 채널별 외부 확인 URL 매핑
+const CHANNEL_URLS: Record<string, { label: string; getUrl: (service?: string, url?: string) => string }[]> = {
+  google_business_profile: [
+    { label: 'Google 비즈니스 프로필 관리', getUrl: () => 'https://business.google.com/' },
+    { label: 'Google에서 검색 결과 확인', getUrl: (s) => `https://www.google.com/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  google_search_console: [
+    { label: 'Google Search Console', getUrl: () => 'https://search.google.com/search-console' },
+    { label: 'Google에서 사이트 검색', getUrl: (_, url) => `https://www.google.com/search?q=site:${encodeURIComponent(url || '')}` },
+  ],
+  naver_place: [
+    { label: '네이버 플레이스 관리', getUrl: () => 'https://new.smartplace.naver.com/' },
+    { label: '네이버에서 검색 결과 확인', getUrl: (s) => `https://search.naver.com/search.naver?query=${encodeURIComponent(s || '')}` },
+  ],
+  naver_blog: [
+    { label: '네이버 블로그 관리', getUrl: () => 'https://blog.naver.com/' },
+    { label: '네이버 블로그 검색', getUrl: (s) => `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(s || '')}` },
+  ],
+  naver_search_advisor: [
+    { label: '네이버 서치어드바이저', getUrl: () => 'https://searchadvisor.naver.com/' },
+  ],
+  naver_smart_store: [
+    { label: '네이버 스마트스토어 센터', getUrl: () => 'https://sell.smartstore.naver.com/' },
+  ],
+  instagram: [
+    { label: 'Instagram 관리', getUrl: () => 'https://www.instagram.com/' },
+    { label: 'Instagram에서 검색', getUrl: (s) => `https://www.instagram.com/explore/tags/${encodeURIComponent((s || '').replace(/\s/g, ''))}` },
+  ],
+  facebook: [
+    { label: 'Facebook 비즈니스 관리', getUrl: () => 'https://business.facebook.com/' },
+  ],
+  apple_app_store: [
+    { label: 'App Store Connect', getUrl: () => 'https://appstoreconnect.apple.com/' },
+    { label: 'App Store에서 검색', getUrl: (s) => `https://www.google.com/search?q=${encodeURIComponent(s || '')}+site:apps.apple.com` },
+  ],
+  google_play_store: [
+    { label: 'Google Play Console', getUrl: () => 'https://play.google.com/console/' },
+    { label: 'Play Store에서 검색', getUrl: (s) => `https://play.google.com/store/search?q=${encodeURIComponent(s || '')}` },
+  ],
+  kakao_map: [
+    { label: '카카오맵 관리', getUrl: () => 'https://place.map.kakao.com/' },
+    { label: '카카오맵에서 검색', getUrl: (s) => `https://map.kakao.com/?q=${encodeURIComponent(s || '')}` },
+  ],
+}
+
+// 작업 유형별 추가 확인 URL
+const TASK_TYPE_URLS: Record<string, { label: string; getUrl: (service?: string) => string }[]> = {
+  IMAGE_UPDATE: [
+    { label: 'Google 이미지 검색으로 확인', getUrl: (s) => `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(s || '')}` },
+  ],
+  REVIEW_RESPONSE: [
+    { label: 'Google 리뷰 확인', getUrl: (s) => `https://www.google.com/search?q=${encodeURIComponent(s || '')}+리뷰` },
+  ],
+  SEO_UPDATE: [
+    { label: 'Google PageSpeed 확인', getUrl: (_, url) => `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(url || '')}` },
+  ],
+}
+
+function ChannelVerifyButtons({
+  channelName,
+  channelDisplayName,
+  serviceName,
+  serviceUrl,
+  taskType,
+}: {
+  channelName?: string
+  channelDisplayName?: string
+  serviceName?: string
+  serviceUrl?: string
+  taskType?: string
+}) {
+  const channelLinks = channelName ? CHANNEL_URLS[channelName] || [] : []
+  const taskLinks = taskType ? TASK_TYPE_URLS[taskType] || [] : []
+  const allLinks = [...channelLinks, ...taskLinks]
+
+  // 기본 구글 검색 링크는 항상 포함
+  const defaultLinks = [
+    { label: `"${serviceName || '서비스'}" Google 검색`, getUrl: () => `https://www.google.com/search?q=${encodeURIComponent(serviceName || '')}` },
+  ]
+
+  const links = allLinks.length > 0 ? allLinks : defaultLinks
+
+  return (
+    <Card className="border-blue-200 bg-blue-50/50">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ExternalLink className="h-4 w-4 text-blue-600" />
+          실제 결과 확인
+          {channelDisplayName && <span className="text-sm font-normal text-muted-foreground">({channelDisplayName})</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex flex-wrap gap-2">
+          {links.map((link, i) => (
+            <Button
+              key={i}
+              variant="outline"
+              size="sm"
+              className="bg-white hover:bg-blue-50 text-sm"
+              onClick={() => window.open(link.getUrl(serviceName, serviceUrl), '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="h-3 w-3 mr-1.5" />
+              {link.label}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

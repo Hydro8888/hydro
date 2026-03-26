@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -144,7 +145,7 @@ export default function TasksPage() {
 
 function TaskCard({ task, onRetry }: { task: any; onRetry: (id: string) => void }) {
   return (
-    <a href={`/tasks/${task.id}`}>
+    <Link href={`/tasks/${task.id}`}>
     <Card className="hover:border-primary/50 transition-colors cursor-pointer">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
@@ -182,6 +183,6 @@ function TaskCard({ task, onRetry }: { task: any; onRetry: (id: string) => void 
         </div>
       </CardContent>
     </Card>
-    </a>
+    </Link>
   )
 }

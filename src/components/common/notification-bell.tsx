@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiUrl } from '@/lib/api'
@@ -24,6 +25,7 @@ const priorityColors: Record<string, string> = {
 }
 
 export function NotificationBell() {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
@@ -84,7 +86,7 @@ export function NotificationBell() {
                     }`}
                     onClick={() => {
                       if (!n.read) markAsRead(n.id)
-                      if (n.actionUrl) window.location.href = n.actionUrl
+                      if (n.actionUrl) router.push(n.actionUrl)
                       setOpen(false)
                     }}
                   >

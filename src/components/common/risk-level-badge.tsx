@@ -16,7 +16,8 @@ const riskLabels: Record<string, string> = {
   CRITICAL: '매우 위험',
 }
 
-export function RiskLevelBadge({ level }: { level: string }) {
+export function RiskLevelBadge({ level }: { level: string | null | undefined }) {
+  if (!level) return null
   return (
     <Badge className={riskColors[level] || riskColors.MEDIUM}>
       {riskLabels[level] || level}

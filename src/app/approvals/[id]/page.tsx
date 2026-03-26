@@ -79,11 +79,11 @@ export default function ApprovalDetailPage() {
       {/* 헤더 */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold">{approval.task.title}</h2>
+          <h2 className="text-2xl font-bold">{approval.task?.title || '승인 요청'}</h2>
           <div className="flex items-center gap-2">
-            <AutomationGradeBadge grade={approval.task.automationGrade as AutomationGrade} />
+            {approval.task?.automationGrade && <AutomationGradeBadge grade={approval.task.automationGrade as AutomationGrade} />}
             <StatusBadge status={approval.status} type="approval" />
-            <RiskLevelBadge level={approval.riskLevel} />
+            {approval.riskLevel && <RiskLevelBadge level={approval.riskLevel} />}
           </div>
         </div>
       </div>
@@ -92,11 +92,13 @@ export default function ApprovalDetailPage() {
       <Card>
         <CardHeader><CardTitle className="text-lg">작업 정보</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
-          {approval.task.channelConnection?.channel && (
+          {approval.task?.channelConnection?.channel && (
             <p><span className="font-medium">채널:</span> {approval.task.channelConnection.channel.displayName}</p>
           )}
-          <p><span className="font-medium">서비스:</span> {approval.task.service?.name}</p>
-          {approval.task.description && (
+          {approval.task?.service?.name && (
+            <p><span className="font-medium">서비스:</span> {approval.task.service.name}</p>
+          )}
+          {approval.task?.description && (
             <p><span className="font-medium">설명:</span> {approval.task.description}</p>
           )}
           {approval.reason && (

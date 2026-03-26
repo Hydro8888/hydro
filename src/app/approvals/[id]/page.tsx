@@ -253,7 +253,7 @@ const CHANNEL_URLS: Record<string, { label: string; getUrl: (service?: string, u
 }
 
 // 작업 유형별 추가 확인 URL
-const TASK_TYPE_URLS: Record<string, { label: string; getUrl: (service?: string) => string }[]> = {
+const TASK_TYPE_URLS: Record<string, { label: string; getUrl: (service?: string, url?: string) => string }[]> = {
   IMAGE_UPDATE: [
     { label: 'Google 이미지 검색으로 확인', getUrl: (s) => `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(s || '')}` },
   ],

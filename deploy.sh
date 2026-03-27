@@ -13,7 +13,7 @@
 set -e
 
 DEPLOY_DIR="/home/ubuntu/yeoualba"
-FRONTEND_PORT=3004
+FRONTEND_PORT=3500
 BACKEND_PORT=5001
 SERVER_IP="211.198.54.207"
 MODE="${1:-full}"
@@ -30,7 +30,7 @@ pm2 delete yeoualba-frontend 2>/dev/null || true
 pm2 delete yeoualba-backend 2>/dev/null || true
 sleep 2
 
-# 포트 3004, 5001 강제 해제
+# 포트 3500, 5001 강제 해제
 for PORT in $FRONTEND_PORT $BACKEND_PORT; do
   PIDS=$(lsof -t -i:$PORT 2>/dev/null || true)
   if [ -n "$PIDS" ]; then
@@ -128,7 +128,7 @@ with open('$NGINX_CONF','w') as f: f.write(c)
 with open('$NGINX_CONF') as f: c = f.read()
 
 block = '''
-    # ── yeoualba (frontend:3004, backend:5001) ────────────
+    # ── yeoualba (frontend:3500, backend:5001) ────────────
     location /yeoualba/api/ {
         proxy_pass http://127.0.0.1:5001/api/;
         proxy_http_version 1.1;
@@ -141,7 +141,7 @@ block = '''
     location /yeoualba {
         rewrite ^/yeoualba\(/.*\)\?$ \\\$1 break;
         rewrite ^\$ / break;
-        proxy_pass http://127.0.0.1:3004;
+        proxy_pass http://127.0.0.1:3500;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \\\$http_upgrade;
         proxy_set_header Connection \"upgrade\";

@@ -8,22 +8,23 @@ const REGIONS = ['서울', '경기', '인천', '부산', '대구', '대전', '�
 const SUBS: Record<string, string[]> = { '서울': ['강남', '서초', '송파', '강서', '마포', '홍대', '이태원', '잠실', '신림', '건대'], '경기': ['수원', '성남', '고양', '용인', '부천', '안산'], '부산': ['해운대', '서면', '남포동'] };
 
 const VVIP = [
-  { id: 'v1', name: '전국유일 24시간', sub: '수원 영통', desc: '주간 야간 모두 가능! 주간근무 공모', tc: 130000, type: '노래방' },
-  { id: 'v2', name: '2시간240만', sub: '강남 역삼', desc: '수수료없음! 면접비지급 당일지급', tc: 200000, type: '퍼트' },
-  { id: 'v3', name: '파트너', sub: '강남 신논현', desc: '해브스가리 주수보장 편한근무', tc: 160000, type: '라운지' },
-  { id: 'v4', name: '24시 주간조모집', sub: '강남 역삼', desc: '24시간 운영! 주간근무 가능', tc: 150000, type: '바' },
-  { id: 'v5', name: '초보OK 24시환영', sub: '대구 1등', desc: '대구 1등 사무실 터치X', tc: 50000, type: '노래방' },
-  { id: 'v6', name: '강남퍼블릭 최고TC', sub: '강남 역삼', desc: '테이블중 터치봉 편전비', tc: 140000, type: '노래방' },
-  { id: 'v7', name: '라인', sub: '강남 역삼', desc: '1등 라인 보근무가능', tc: 150000, type: '노래방' },
-  { id: 'v8', name: '주간에도 일해요!', sub: '강남 역삼', desc: '24시영업 주간근무가능', tc: 120000, type: '노래방' },
+  { id: 'v1', name: '나이스', label: '전국유일\n24시간', sub: '수원 영통', desc: '주간 야간 영업 주간근무 공모!!', tc: 130000, type: '노래방', color: '#1E3A5F' },
+  { id: 'v2', name: '2시간240만', label: '2시간240만\n곤수보장♡', sub: '강남 역삼', desc: '세이렌 주수5원 면접비지급', tc: 200000, type: '퍼트', color: '#C9A961' },
+  { id: 'v3', name: '첫출근시 10만', label: '파트너', sub: '강남 신논현', desc: '강남 해브스가리카 주수보장', tc: 160000, type: '라운지', color: '#4A7A4A' },
+  { id: 'v4', name: '숙소 출퇴지원', label: '24시\n주간조모집', sub: '강남 역삼', desc: '24시 주간근가 쌍일토', tc: 150000, type: '바', color: '#8B4513' },
+  { id: 'v5', name: '대구달서구\n중구&남구', label: '초보OK\n24시환영', sub: '대구 1등', desc: '대구 1등 사무실 터치X', tc: 50000, type: '노래방', color: '#E91E63' },
+  { id: 'v6', name: '강남 퍼블릭\n최고 TC', label: '손님터치\n피혈현대포', sub: '강남 역삼', desc: '테이블중 터치봉 편전비', tc: 140000, type: '노래방', color: '#1E3A5F' },
+  { id: 'v7', name: '라인', label: '라인\n라인현심상', sub: '강남 역삼', desc: '1등 라인 보근무가능', tc: 150000, type: '노래방', color: '#333' },
+  { id: 'v8', name: '주간조모집', label: '주간에도\n일해요!!', sub: '강남 역삼', desc: '24시영업 주간근무가능', tc: 120000, type: '노래방', color: '#C9A961' },
 ];
 
-const PREMIUM = Array.from({ length: 20 }, (_, i) => ({
+const UGRADE = Array.from({ length: 20 }, (_, i) => ({
   id: `u${i + 1}`,
-  name: ['광주 상무지구', '팔원테이블', '종합', '1시2시30분', '강남알바', '혜정만원', '24시영업', '나나신전', '사무실직장', '충훈등대장', '가라동이지', '부천', '베스트', '나드로봉', '송파1등', '최고대우', '광주충효봉', '계산봉', '포지마의', '전대마충'][i],
-  sub: ['광주', '강남', '송파', '안산', '강남', '강남', '가천', '강남', '서울', '서울', '서울', '부천', '강남', '대구', '송파', '강남', '광주', '강남', '서초', '원주'][i],
+  name: ['광주\n상무지구', '팔원테이블\n순수테이블', '종합바', '1시2시30분', '강남,고대역\n노래방알바', '송파 가락', '24시영업\n가족타이야', '나나신전44', '노래도우미\n업계최고', '서울최강\nM Z사장', '가라동\n이지', '부천', '베스트', '나드로봉', '송파1등\n수강장년러비', '최고대우', '광주충효봉\n충알바', '인천', '송파교이의\n새을삼전', '전대마충\n노래도우미'][i],
+  sub: ['광주', '강남', '송파', '안산', '강남', '송파', '가천', '강남', '누월드', '서울', '서울', '부천', '강남', '대구', '송파', '강남', '광주', '인천', '서초', '원주'][i],
   tc: [120000, 180000, 180000, 160000, 70000, 180000, 150000, 0, 60000, 60000, 150000, 60000, 60000, 140000, 150000, 140000, 120000, 60000, 60000, 70000][i],
   type: '노래방',
+  color: ['#E91E63', '#C9A961', '#1E3A5F', '#4A7A4A', '#E91E63', '#C9A961', '#1E3A5F', '#666', '#E91E63', '#4A7A4A', '#C9A961', '#666', '#E91E63', '#1E3A5F', '#C9A961', '#666', '#E91E63', '#1E3A5F', '#C9A961', '#4A7A4A'][i],
 }));
 
 const BOARDS = [
@@ -34,16 +35,41 @@ const BOARDS = [
   { id: 'event', title: '여우알바 이벤트', posts: ['[이벤트종료] 수만명참여 무료'] },
 ];
 
-function VCard({ d, gold }: { d: { id: string; name: string; sub: string; desc?: string; tc: number; type: string }; gold?: boolean }) {
+/* ── VVIP 카드 (좌: 컬러라벨 + 우: 정보) ── */
+function VvipCard({ d }: { d: typeof VVIP[0] }) {
   return (
-    <Link href={`/jobs/${d.id}/`} className={`card card-hover overflow-hidden ${gold ? 'border-[#C9A961]' : ''}`}>
-      <div className={`px-3 py-3 text-center ${gold ? 'bg-[#FFFDE7]' : 'bg-[#f7f8fa]'}`}>
-        <p className={`text-sm font-bold truncate ${gold ? 'text-[#C9A961]' : 'text-[#222]'}`}>{d.name}</p>
-        <p className="text-xs text-[#999] mt-0.5">{d.sub}</p>
+    <Link href={`/jobs/${d.id}/`} className="flex border border-[#C9A961] rounded overflow-hidden hover:shadow-md transition bg-white">
+      <div className="w-[90px] shrink-0 flex items-center justify-center p-2 text-center" style={{ background: d.color }}>
+        <span className="text-xs font-bold text-[#ffffff] leading-tight whitespace-pre-line">{d.label}</span>
       </div>
-      <div className="px-3 py-2.5">
-        {d.desc && <p className="text-xs text-[#666] truncate">{d.desc}</p>}
+      <div className="flex-1 p-2.5 min-w-0">
+        <div className="flex items-baseline justify-between gap-1">
+          <span className="text-sm font-bold truncate">{d.name}</span>
+          <span className="text-xs text-[#999] shrink-0">{d.sub}</span>
+        </div>
+        <p className="text-xs text-[#666] truncate mt-0.5">{d.desc}</p>
         <div className="flex items-center justify-between mt-1.5">
+          <span className="text-xs font-bold"><span className="text-[#E91E63]">TC</span> {d.tc.toLocaleString()}원</span>
+          <span className="text-xs text-[#999]">{d.type}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ── 우대/프리미엄 카드 (좌: 컬러라벨 + 우: 정보) ── */
+function UCard({ d }: { d: typeof UGRADE[0] }) {
+  return (
+    <Link href={`/jobs/${d.id}/`} className="flex border border-[#e0e0e0] hover:border-[#1E3A5F] transition bg-white">
+      <div className="w-[70px] shrink-0 flex items-center justify-center p-1.5 text-center" style={{ background: d.color }}>
+        <span className="text-xs font-bold text-[#ffffff] leading-tight whitespace-pre-line">{d.name.length > 8 ? d.name.slice(0, 8) : d.name}</span>
+      </div>
+      <div className="flex-1 p-2 min-w-0">
+        <div className="flex items-baseline justify-between gap-1">
+          <span className="text-sm font-bold truncate">{d.name.split('\n')[0]}</span>
+          <span className="text-xs text-[#999] shrink-0">{d.sub}</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
           <span className="text-xs font-bold"><span className="text-[#E91E63]">TC</span> {d.tc > 0 ? d.tc.toLocaleString() + '원' : '-'}</span>
           <span className="text-xs text-[#999]">{d.type}</span>
         </div>
@@ -58,7 +84,7 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-[960px] px-4 py-4">
-      {/* 로그인 + 지역별 */}
+      {/* ── 로그인 + 지역별 ── */}
       <div className="flex gap-4 flex-col md:flex-row">
         <div className="card p-4 md:w-[240px] shrink-0">
           <form onSubmit={e => e.preventDefault()} className="space-y-2">
@@ -90,40 +116,40 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* VVIP */}
+      {/* ── VVIP (2행x4열, 좌컬러+우텍스트) ── */}
       <section className="mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title"><Star className="h-5 w-5 text-[#C9A961]" /> VVIP 채용정보</h2>
           <Link href="/post-job/" className="text-xs text-[#C9A961] font-medium hover:underline flex items-center gap-1">광고등록 <ArrowRight className="h-3 w-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {VVIP.map(d => <VCard key={d.id} d={d} gold />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {VVIP.map(d => <VvipCard key={d.id} d={d} />)}
         </div>
       </section>
 
-      {/* 우대등록 */}
+      {/* ── 우대등록 (5행x4열, 좌컬러+우텍스트) ── */}
       <section className="mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">우대등록 채용정보</h2>
           <Link href="/post-job/" className="text-xs text-[#C9A961] font-medium hover:underline flex items-center gap-1">광고등록 <ArrowRight className="h-3 w-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {PREMIUM.map(d => <VCard key={d.id} d={d} />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[1px] bg-[#e0e0e0] border border-[#e0e0e0]">
+          {UGRADE.map(d => <UCard key={d.id} d={d} />)}
         </div>
       </section>
 
-      {/* 프리미엄 */}
+      {/* ── 프리미엄 (1행x4열) ── */}
       <section className="mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">프리미엄 채용정보</h2>
           <Link href="/post-job/" className="text-xs text-[#C9A961] font-medium hover:underline flex items-center gap-1">광고등록 <ArrowRight className="h-3 w-3" /></Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {PREMIUM.slice(0, 4).map(d => <VCard key={d.id + 'pr'} d={d} />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[1px] bg-[#e0e0e0] border border-[#e0e0e0]">
+          {UGRADE.slice(0, 4).map(d => <UCard key={d.id + 'pr'} d={d} />)}
         </div>
       </section>
 
-      {/* 커뮤니티 */}
+      {/* ── 커뮤니티 ── */}
       <section className="mt-6 mb-4">
         <h2 className="section-title mb-4">커뮤니티</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

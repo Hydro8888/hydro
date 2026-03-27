@@ -3,8 +3,7 @@ module.exports = {
     {
       name: 'freeai',
       cwd: '/home/ubuntu/freeai/apps/web',
-      script: '../../node_modules/.bin/next',
-      args: 'start -p 3010 -H 0.0.0.0',
+      script: '.next/standalone/apps/web/server.js',
       env: {
         NODE_ENV: 'production',
         PORT: 3010,

@@ -107,6 +107,11 @@ echo "=== [5/9] 프로덕션 빌드 ==="
 cd ${DEPLOY_DIR}
 pnpm build
 
+# standalone 빌드에 static 파일 복사
+echo "static 파일 복사 중..."
+cp -r ${DEPLOY_DIR}/apps/web/public ${DEPLOY_DIR}/apps/web/.next/standalone/apps/web/public 2>/dev/null || true
+cp -r ${DEPLOY_DIR}/apps/web/.next/static ${DEPLOY_DIR}/apps/web/.next/standalone/apps/web/.next/static
+
 echo ""
 echo "=== [6/9] PM2 프로세스 시작/재시작 ==="
 cd ${DEPLOY_DIR}

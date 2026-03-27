@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <QueryProvider>
           <Header />
-          <main className="min-h-screen pt-[104px] md:pt-[88px] pb-20 md:pb-6">{children}</main>
+          <main className="min-h-screen pt-[85px] md:pt-[95px] pb-20 md:pb-6">{children}</main>
           <BottomNav />
           {/* Footer (desktop) */}
           <footer className="hidden md:block border-t border-[#1E3A5F]/20 bg-[#0A1420] py-6">

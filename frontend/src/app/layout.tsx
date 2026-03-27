@@ -14,20 +14,16 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#e91e8c',
+  themeColor: '#0a1628',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className="dark">
-      <body className="min-h-screen bg-background text-foreground">
+      <body className="min-h-screen">
         <QueryProvider>
           <Header />
-          <main className="pb-safe min-h-screen pt-14">
+          <main className="pb-safe min-h-screen pt-16">
             {children}
           </main>
           <BottomNav />

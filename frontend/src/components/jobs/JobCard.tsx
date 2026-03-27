@@ -10,7 +10,7 @@ interface JobCardProps {
   companyName?: string;
   isUrgent?: boolean;
   isVerified?: boolean;
-  images?: string[];
+  rank?: number;
 }
 
 function formatPay(amount: number, type: string) {
@@ -19,34 +19,33 @@ function formatPay(amount: number, type: string) {
   return `${formatted}원/${typeLabel}`;
 }
 
-export function JobCard({ id, title, region, jobType, payAmount, payType, companyName, isUrgent, isVerified }: JobCardProps) {
+export function JobCard({ id, title, region, jobType, payAmount, payType, companyName, isUrgent, isVerified, rank }: JobCardProps) {
   return (
     <Link
-      href={`/jobs/${id}`}
-      className="group block rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+      href={`/jobs/${id}/`}
+      className="glass group flex items-center gap-4 p-4 transition-all hover:border-[var(--border-active)] hover:bg-[var(--bg-card-hover)]"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="mb-2 flex items-center gap-2">
-            {isUrgent && (
-              <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-xs font-medium text-destructive">
-                급구
-              </span>
-            )}
-            {isVerified && (
-              <span className="rounded-full bg-success/20 px-2 py-0.5 text-xs font-medium text-success">
-                인증업소
-              </span>
-            )}
-          </div>
-          <h3 className="font-semibold group-hover:text-primary-light">{title}</h3>
-          {companyName && <p className="mt-0.5 text-xs text-muted-foreground">{companyName}</p>}
-          <p className="mt-1 text-sm text-muted-foreground">{region}</p>
+      {rank && (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-card)] text-sm font-bold text-[var(--text-secondary)]">
+          {rank}
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          {isUrgent && (
+            <span className="shrink-0 rounded-md bg-[var(--danger)]/20 px-1.5 py-0.5 text-[10px] font-medium text-[var(--danger)]">급구</span>
+          )}
+          {isVerified && (
+            <span className="shrink-0 rounded-md bg-[var(--accent-green)]/20 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-green)]">인증</span>
+          )}
+          <h3 className="truncate text-sm font-medium group-hover:text-[var(--accent-blue-light)]">{title}</h3>
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{jobType}</span>
+        {companyName && <p className="mt-0.5 text-xs text-[var(--text-muted)]">{companyName}</p>}
+        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{region}</p>
       </div>
-      <div className="mt-3">
-        <span className="text-lg font-bold text-accent">{formatPay(payAmount, payType)}</span>
+      <div className="shrink-0 text-right">
+        <span className="text-sm font-bold text-[var(--accent-gold)]">{formatPay(payAmount, payType)}</span>
+        <span className="block text-[10px] text-[var(--text-muted)]">{jobType}</span>
       </div>
     </Link>
   );

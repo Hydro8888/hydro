@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'freeai',
-      cwd: './apps/web',
-      script: 'node_modules/.bin/next',
+      cwd: '/home/ubuntu/freeai/apps/web',
+      script: '../../node_modules/.bin/next',
       args: 'start -p 3010 -H 0.0.0.0',
       env: {
         NODE_ENV: 'production',

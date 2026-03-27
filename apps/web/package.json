@@ -1,0 +1,47 @@
+{
+  "name": "@ai-portal/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@clerk/nextjs": "^6.12.0",
+    "ai": "^4.1.0",
+    "@ai-sdk/react": "^1.2.0",
+    "@ai-sdk/openai": "^1.2.0",
+    "@ai-sdk/anthropic": "^1.2.0",
+    "@ai-sdk/google": "^1.2.0",
+    "zustand": "^4.5.0",
+    "@tanstack/react-query": "^5.62.0",
+    "tailwindcss": "^3.4.0",
+    "@tailwindcss/typography": "^0.5.0",
+    "framer-motion": "^11.15.0",
+    "react-markdown": "^9.0.0",
+    "rehype-highlight": "^7.0.0",
+    "stripe": "^17.5.0",
+    "@stripe/stripe-js": "^5.5.0",
+    "zod": "^3.23.0",
+    "ioredis": "^5.4.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.6.0",
+    "lucide-react": "^0.468.0",
+    "@ai-portal/shared": "workspace:*",
+    "@ai-portal/db": "workspace:*",
+    "@ai-portal/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0"
+  }
+}

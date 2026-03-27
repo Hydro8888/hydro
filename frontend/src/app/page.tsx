@@ -68,7 +68,7 @@ const BOARDS = [
 ];
 
 /* ── 카드 컴포넌트 ── */
-function VCard({ d, gold }: { d: typeof VVIP[0]; gold?: boolean }) {
+function VCard({ d, gold }: { d: { id: string; name: string; sub: string; desc?: string; tc: number; type: string }; gold?: boolean }) {
   return (
     <Link href={`/jobs/${d.id}/`} className={`card-sm group overflow-hidden ${gold ? 'border-[#C9A961]/30' : ''}`}>
       <div className={`h-16 flex items-center justify-center text-xs font-bold ${gold ? 'bg-gradient-to-r from-[#C9A961]/15 to-[#1E3A5F]/10 text-[#C9A961]' : 'bg-[#112240] text-[#94A3B8]'}`}>
@@ -76,7 +76,7 @@ function VCard({ d, gold }: { d: typeof VVIP[0]; gold?: boolean }) {
       </div>
       <div className="p-2.5">
         <p className="text-[10px] text-[#64748B]">{d.sub}</p>
-        <p className="mt-0.5 truncate text-[11px] text-[#94A3B8]">{d.desc}</p>
+        {d.desc && <p className="mt-0.5 truncate text-[11px] text-[#94A3B8]">{d.desc}</p>}
         <div className="mt-1.5 flex items-center justify-between">
           <span className="text-[11px] font-bold text-[#C9A961]">TC {d.tc > 0 ? d.tc.toLocaleString() + '원' : '-'}</span>
           <span className="text-[9px] text-[#64748B]">{d.type}</span>

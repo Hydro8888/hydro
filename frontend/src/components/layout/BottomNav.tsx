@@ -6,9 +6,9 @@ import { Home, Briefcase, Sparkles, MessageCircle, User } from 'lucide-react';
 
 const NAV = [
   { href: '/', label: '홈', Icon: Home },
-  { href: '/jobs/', label: '알바', Icon: Briefcase },
-  { href: '/recommend/', label: '맞춤', Icon: Sparkles },
-  { href: '/community/', label: '톡', Icon: MessageCircle },
+  { href: '/jobs/', label: '채용', Icon: Briefcase },
+  { href: '/recommend/', label: 'AI매칭', Icon: Sparkles },
+  { href: '/community/', label: '커뮤니티', Icon: MessageCircle },
   { href: '/my/', label: '마이', Icon: User },
 ];
 
@@ -21,10 +21,10 @@ export function BottomNav() {
           const on = p === href || p === href.slice(0, -1) || (href !== '/' && p.startsWith(href));
           return (
             <Link key={href} href={href} className="flex flex-col items-center gap-0.5 py-1.5 px-3">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${on ? 'bg-gradient-to-br from-[#e85d8a] to-[#c44dbb] shadow-md shadow-[#e85d8a]/25' : ''}`}>
-                <Icon className={`h-[18px] w-[18px] ${on ? 'text-white' : 'text-[#6a5a7a]'}`} />
+              <div className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${on ? 'bg-[#1E3A5F] shadow-md shadow-[#1E3A5F]/30' : ''}`}>
+                <Icon className={`h-[18px] w-[18px] ${on ? 'text-white' : 'text-[#64748B]'}`} />
               </div>
-              <span className={`text-[10px] ${on ? 'font-semibold text-[#e85d8a]' : 'text-[#6a5a7a]'}`}>{label}</span>
+              <span className={`text-[10px] ${on ? 'font-semibold text-[#C9A961]' : 'text-[#64748B]'}`}>{label}</span>
             </Link>
           );
         })}

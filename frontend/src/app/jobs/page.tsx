@@ -22,15 +22,15 @@ export default function JobsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">알바찾기</h1>
+        <h1 className="text-xl font-bold">채용정보</h1>
         <JobFilter selectedRegion={region} selectedJobType={jobType} onRegionChange={setRegion} onJobTypeChange={setJobType} />
       </div>
       <div className="flex gap-5">
         <Sidebar selectedRegion={region} selectedJobType={jobType} onRegionChange={setRegion} onJobTypeChange={setJobType} />
         <div className="flex-1">
-          <p className="mb-3 text-sm text-[#9a8aa8]">총 <span className="font-semibold text-white">{filtered.length}</span>건</p>
+          <p className="mb-3 text-sm text-[#94A3B8]">총 <span className="font-semibold text-white">{filtered.length}</span>건</p>
           <div className="grid gap-2 sm:grid-cols-2">{filtered.map(j => <JobCard key={j.id} {...j} />)}</div>
-          {!filtered.length && <p className="py-16 text-center text-[#6a5a7a]">조건에 맞는 공고가 없습니다.</p>}
+          {!filtered.length && <p className="py-16 text-center text-[#64748B]">조건에 맞는 공고가 없습니다.</p>}
         </div>
       </div>
     </div>

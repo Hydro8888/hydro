@@ -5,16 +5,13 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { QueryProvider } from '@/providers/QueryProvider';
 
 export const metadata: Metadata = {
-  title: 'YeouAlba - 여우알바 | 안전한 여성 고소득 알바',
-  description: '안전하고 스마트한 여우알바, 오늘 바로 시작하세요.',
+  title: 'YeouAlba - 여우알바 | 여성 전문 구인구직',
+  description: '안전하고 신뢰할 수 있는 여성 전문 구인구직 플랫폼, 여우알바',
   manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  themeColor: '#120b18',
+  width: 'device-width', initialScale: 1, maximumScale: 1, themeColor: '#0D1B2A',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

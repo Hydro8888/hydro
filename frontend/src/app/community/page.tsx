@@ -20,19 +20,17 @@ export default function CommunityPage() {
     <div className="mx-auto max-w-3xl px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">커뮤니티</h1>
-        <button className="btn-primary flex items-center gap-1.5 px-4 py-2 text-sm"><PenSquare className="h-4 w-4" /> 글쓰기</button>
+        <button className="btn btn-navy flex items-center gap-1.5 px-4 py-2 text-sm"><PenSquare className="h-4 w-4" /> 글쓰기</button>
       </div>
       <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
-        {CATS.map(c => (
-          <button key={c.id} onClick={() => setCat(c.id)} className={`shrink-0 rounded-lg px-3.5 py-2 text-sm transition ${cat === c.id ? 'bg-[#e85d8a] text-white' : 'bg-[#1e142a] text-[#9a8aa8] hover:text-white'}`}>{c.l}</button>
-        ))}
+        {CATS.map(c => <button key={c.id} onClick={() => setCat(c.id)} className={`shrink-0 rounded-lg px-3.5 py-2 text-sm transition ${cat === c.id ? 'bg-[#1E3A5F] text-white' : 'bg-[#112240] text-[#94A3B8] hover:text-white'}`}>{c.l}</button>)}
       </div>
       <div className="space-y-2">
         {list.map(p => (
-          <Link key={p.id} href={`/community/${p.id}/`} className="card-sm block px-4 py-3 transition hover:border-[#e85d8a]/30">
-            <span className="tag mb-1 bg-[#1e142a] text-[#9a8aa8]">{CATS.find(c => c.id === p.cat)?.l}</span>
+          <Link key={p.id} href={`/community/${p.id}/`} className="card-sm block px-4 py-3 transition hover:border-[#1E3A5F]/60">
+            <span className="tag mb-1 bg-[#1E3A5F]/20 text-[#94A3B8]">{CATS.find(c => c.id === p.cat)?.l}</span>
             <h3 className="text-sm font-medium">{p.title}</h3>
-            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[#6a5a7a]">
+            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[#64748B]">
               <span>{p.nick}</span><span>{p.time}</span>
               <span className="flex items-center gap-0.5"><MessageCircle className="h-3 w-3" />{p.comments}</span>
               <span className="flex items-center gap-0.5"><Eye className="h-3 w-3" />{p.views}</span>

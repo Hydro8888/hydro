@@ -3,15 +3,15 @@ module.exports = {
     {
       name: 'yeoualba-frontend',
       cwd: '/home/ubuntu/yeoualba/frontend',
-      script: './node_modules/.bin/next',
-      args: 'start -p 3004',
+      script: 'server.js',
+      wait_ready: true,
+      listen_timeout: 15000,
+      kill_timeout: 5000,
+      max_restarts: 10,
+      min_uptime: 5000,
       env: {
         PORT: 3004,
         NODE_ENV: 'production',
-        HOSTNAME: '0.0.0.0',
-        NEXT_PUBLIC_BASE_PATH: '/yeoualba',
-        NEXT_PUBLIC_API_URL: 'http://211.198.54.207/yeoualba/api',
-        NEXT_PUBLIC_SITE_NAME: 'YeouAlba',
       },
     },
     {
@@ -19,6 +19,8 @@ module.exports = {
       cwd: '/home/ubuntu/yeoualba/backend',
       script: 'node',
       args: 'dist/index.js',
+      kill_timeout: 5000,
+      max_restarts: 10,
       env: {
         PORT: 5001,
         NODE_ENV: 'production',

@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Briefcase, Sparkles, MessageCircle, User } from 'lucide-react';
+import { Home, Briefcase, MessageCircle, PenSquare, User } from 'lucide-react';
 
 const NAV = [
   { href: '/', label: '홈', Icon: Home },
   { href: '/jobs/', label: '채용', Icon: Briefcase },
-  { href: '/recommend/', label: 'AI매칭', Icon: Sparkles },
   { href: '/community/', label: '커뮤니티', Icon: MessageCircle },
+  { href: '/post-job/', label: '광고등록', Icon: PenSquare },
   { href: '/my/', label: '마이', Icon: User },
 ];
 

@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  JOBSEEKER
+  EMPLOYER
+  ADMIN
+}
+
+enum JobStatus {
+  ACTIVE
+  CLOSED
+  HIDDEN
+  REPORTED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum PostCategory {
+  TALK
+  BUDDY
+  ANONYMOUS
+  REVIEW
+  EVENT
+  NOTICE
+}
+
+model User {
+  id               String    @id @default(cuid())
+  username         String    @unique
+  password         String?
+  nickname         String
+  phone            String?   @unique
+  email            String?   @unique
+  birthDate        DateTime?
+  role             UserRole  @default(JOBSEEKER)
+  isAdultVerified  Boolean   @default(false)
+  adultVerifiedAt  DateTime?
+  profileImage     String?
+  preferredRegions String[]
+  preferredJobTypes String[]
+  preferredMinPay  Int?
+  socialProvider   String?
+  socialId         String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  company       Company?
+  applications  Application[]
+  savedJobs     SavedJob[]
+  posts         Post[]
+  comments      Comment[]
+  notifications Notification[]
+  sosContacts   SOSContact[]
+
+  @@index([role])
+  @@index([isAdultVerified])
+}
+
+model Company {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  name           String
+  businessNumber String?
+  region         String
+  address        String
+  phone          String
+  description    String?
+  images         String[]
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([region])
+}
+
+model Job {
+  id           String    @id @default(cuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id])
+  title        String
+  description  String
+  region       String
+  address      String
+  jobType      String
+  payType      String
+  payAmount    Int
+  workingHours String?
+  benefits     String[]
+  requirements String?
+  images       String[]
+  status       JobStatus @default(ACTIVE)
+  viewCount    Int       @default(0)
+  isUrgent     Boolean   @default(false)
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  applications Application[]
+  savedBy      SavedJob[]
+
+  @@index([region, jobType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Application {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  jobId     String
+  job       Job               @relation(fields: [jobId], references: [id])
+  status    ApplicationStatus @default(PENDING)
+  message   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([userId, jobId])
+}
+
+model SavedJob {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+}
+
+model Post {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  category    PostCategory
+  title       String
+  content     String
+  images      String[]
+  isAnonymous Boolean      @default(false)
+  viewCount   Int          @default(0)
+  likeCount   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  comments Comment[]
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  content     String
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model SOSContact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  targetType  String
+  targetId    String
+  reason      String
+  description String?
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+}

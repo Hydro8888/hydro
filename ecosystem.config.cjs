@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'ai-portal',
+      name: 'freeai',
       cwd: './apps/web',
       script: 'node_modules/.bin/next',
       args: 'start -p 3010 -H 0.0.0.0',

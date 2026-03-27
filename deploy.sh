@@ -4,14 +4,14 @@ set -e
 #=============================================================================
 # AI Portal Pro - 서버 로컬 배포 스크립트
 # 서버에서 직접 실행: sudo bash deploy.sh
-# 접속: http://211.198.54.207/ai-portal/
+# 접속: http://211.198.54.207/freeai/
 # 포트: 3010 (PM2 관리)
 #=============================================================================
 
 SERVER_IP="211.198.54.207"
-DEPLOY_DIR="/home/ubuntu/ai-portal"
+DEPLOY_DIR="/home/ubuntu/freeai"
 APP_PORT="3010"
-APP_NAME="ai-portal"
+APP_NAME="freeai"
 BRANCH="claude/ai-portal-dev-plan-yI3Gd"
 REPO_SSH="git@github.com:Hydro8888/hydro.git"
 NGINX_CONTAINER="jobworld-nginx"
@@ -28,7 +28,7 @@ fi
 
 echo "============================================"
 echo "  AI Portal Pro 로컬 배포 시작"
-echo "  경로: /ai-portal/"
+echo "  경로: /freeai/"
 echo "  포트: ${APP_PORT}"
 echo "============================================"
 
@@ -125,7 +125,7 @@ echo "=== [7/9] 앱 시작 대기 (5초) ==="
 sleep 5
 
 # 앱 상태 확인
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/ai-portal/ | grep -q "200\|301\|302\|304"; then
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/freeai/ | grep -q "200\|301\|302\|304"; then
   echo "앱이 포트 ${APP_PORT}에서 정상 실행 중!"
 else
   echo "경고: 앱 응답 확인 실패. PM2 로그 확인: pm2 logs ${APP_NAME}"
@@ -167,8 +167,8 @@ if [ -z "${NGINX_CONF}" ]; then
   echo "경고: nginx 설정 파일을 찾을 수 없습니다. 수동 설정이 필요합니다."
   echo "Docker 컨테이너 내부 nginx 설정에 아래 location 블록을 추가하세요:"
   echo ""
-  echo '  location /ai-portal/ {'
-  echo "      proxy_pass http://172.17.0.1:${APP_PORT}/ai-portal/;"
+  echo '  location /freeai/ {'
+  echo "      proxy_pass http://172.17.0.1:${APP_PORT}/freeai/;"
   echo '      proxy_http_version 1.1;'
   echo '      proxy_set_header Upgrade $http_upgrade;'
   echo "      proxy_set_header Connection 'upgrade';"
@@ -181,18 +181,18 @@ if [ -z "${NGINX_CONF}" ]; then
 else
   echo "nginx 설정 파일: ${NGINX_CONF}"
 
-  # ai-portal location 블록이 이미 있는지 확인
-  if sudo docker exec ${NGINX_CONTAINER} grep -q "location /ai-portal/" ${NGINX_CONF} 2>/dev/null; then
-    echo "ai-portal location 블록이 이미 존재합니다."
+  # freeai location 블록이 이미 있는지 확인
+  if sudo docker exec ${NGINX_CONTAINER} grep -q "location /freeai/" ${NGINX_CONF} 2>/dev/null; then
+    echo "freeai location 블록이 이미 존재합니다."
   else
-    echo "ai-portal location 블록 추가 중..."
+    echo "freeai location 블록 추가 중..."
 
     # 임시 nginx 설정 파일 생성
-    cat > /tmp/ai-portal-nginx.conf << 'NGINX_BLOCK'
+    cat > /tmp/freeai-nginx.conf << 'NGINX_BLOCK'
 
     # AI Portal Pro
-    location /ai-portal/ {
-        proxy_pass http://172.17.0.1:3010/ai-portal/;
+    location /freeai/ {
+        proxy_pass http://172.17.0.1:3010/freeai/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -205,8 +205,8 @@ else
         proxy_send_timeout 300s;
     }
 
-    location /ai-portal/_next/ {
-        proxy_pass http://172.17.0.1:3010/ai-portal/_next/;
+    location /freeai/_next/ {
+        proxy_pass http://172.17.0.1:3010/freeai/_next/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
@@ -219,7 +219,7 @@ NGINX_BLOCK
     sudo docker exec ${NGINX_CONTAINER} cat ${NGINX_CONF} > /tmp/nginx-original.conf
 
     # 마지막 닫는 중괄호 } 앞에 location 블록 삽입
-    sudo sed -i "/^}$/r /tmp/ai-portal-nginx.conf" /tmp/nginx-original.conf
+    sudo sed -i "/^}$/r /tmp/freeai-nginx.conf" /tmp/nginx-original.conf
 
     # 수정된 설정을 컨테이너에 복사
     sudo docker cp /tmp/nginx-original.conf ${NGINX_CONTAINER}:${NGINX_CONF}
@@ -234,7 +234,7 @@ NGINX_BLOCK
     fi
 
     # 임시 파일 정리
-    rm -f /tmp/ai-portal-nginx.conf /tmp/nginx-original.conf
+    rm -f /tmp/freeai-nginx.conf /tmp/nginx-original.conf
   fi
 fi
 
@@ -245,7 +245,7 @@ echo "============================================"
 echo ""
 echo "  PM2 상태:    pm2 status"
 echo "  PM2 로그:    pm2 logs ${APP_NAME}"
-echo "  로컬 접속:   http://localhost:${APP_PORT}/ai-portal/"
-echo "  외부 접속:   http://${SERVER_IP}/ai-portal/"
+echo "  로컬 접속:   http://localhost:${APP_PORT}/freeai/"
+echo "  외부 접속:   http://${SERVER_IP}/freeai/"
 echo ""
 pm2 status

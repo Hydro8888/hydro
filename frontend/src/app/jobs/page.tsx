@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { MapPin, List } from 'lucide-react';
 import { JobCard } from '@/components/jobs/JobCard';
 import { JobFilter } from '@/components/jobs/JobFilter';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -19,12 +17,7 @@ const MOCK = [
 export default function JobsPage() {
   const [region, setRegion] = useState('');
   const [jobType, setJobType] = useState('');
-
-  const filtered = MOCK.filter((j) => {
-    if (region && j.region !== region) return false;
-    if (jobType && j.jobType !== jobType) return false;
-    return true;
-  });
+  const filtered = MOCK.filter(j => (!region || j.region === region) && (!jobType || j.jobType === jobType));
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
@@ -35,13 +28,9 @@ export default function JobsPage() {
       <div className="flex gap-5">
         <Sidebar selectedRegion={region} selectedJobType={jobType} onRegionChange={setRegion} onJobTypeChange={setJobType} />
         <div className="flex-1">
-          <p className="mb-3 text-sm text-[#7a8ba8]">총 <span className="font-medium text-white">{filtered.length}</span>건</p>
-          <div className="space-y-2">
-            {filtered.map((job, i) => (
-              <JobCard key={job.id} {...job} rank={i + 1} />
-            ))}
-          </div>
-          {filtered.length === 0 && <div className="py-16 text-center text-[#4a5d7a]">조건에 맞는 공고가 없습니다.</div>}
+          <p className="mb-3 text-sm text-[#9a8aa8]">총 <span className="font-semibold text-white">{filtered.length}</span>건</p>
+          <div className="grid gap-2 sm:grid-cols-2">{filtered.map(j => <JobCard key={j.id} {...j} />)}</div>
+          {!filtered.length && <p className="py-16 text-center text-[#6a5a7a]">조건에 맞는 공고가 없습니다.</p>}
         </div>
       </div>
     </div>

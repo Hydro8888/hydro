@@ -2,69 +2,53 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Bell, Search, Menu, X } from 'lucide-react';
+import { Search, Menu, X } from 'lucide-react';
 
 export function Header() {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [search, setSearch] = useState(false);
+  const [menu, setMenu] = useState(false);
 
   return (
-    <header className="glass-header fixed left-0 right-0 top-0 z-50">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#4a7dff] to-[#7c5cfc] text-sm font-bold text-white">Y</div>
-          <span className="text-lg font-bold tracking-tight">
-            <span className="text-[#4a7dff]">여우</span>
-            <span className="text-[#f0c040]">알바</span>
-          </span>
+    <header className="hdr fixed inset-x-0 top-0 z-50">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="text-lg">🦊</span>
+          <span className="text-lg font-bold tracking-tight"><span className="text-[#e85d8a]">여우</span><span className="text-[#d4a76a]">알바</span></span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {[{ href: '/jobs/', label: '알바찾기' }, { href: '/recommend/', label: '맞춤알바' }, { href: '/community/', label: '커뮤니티' }].map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-lg px-3.5 py-2 text-sm text-[#7a8ba8] transition hover:bg-[#111d35] hover:text-[#dce4f0]">
-              {item.label}
-            </Link>
+        <nav className="hidden gap-5 md:flex">
+          {[{ h: '/jobs/', l: '알바찾기' }, { h: '/recommend/', l: '맞춤알바' }, { h: '/community/', l: '커뮤니티' }].map(i => (
+            <Link key={i.h} href={i.h} className="text-sm text-[#9a8aa8] transition hover:text-[#f0e8f0]">{i.l}</Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setSearchOpen(!searchOpen)} className="flex h-9 w-9 items-center justify-center rounded-lg text-[#7a8ba8] transition hover:bg-[#111d35] hover:text-white">
+        <div className="flex items-center gap-1">
+          <button onClick={() => setSearch(!search)} className="h-9 w-9 rounded-lg flex items-center justify-center text-[#9a8aa8] hover:bg-[#1e142a] hover:text-white">
             <Search className="h-[18px] w-[18px]" />
           </button>
-          <Link href="/my/" className="hidden h-9 w-9 items-center justify-center rounded-lg text-[#7a8ba8] transition hover:bg-[#111d35] hover:text-white md:flex">
-            <Bell className="h-[18px] w-[18px]" />
-          </Link>
-          <Link href="/login/" className="hidden rounded-lg bg-gradient-to-r from-[#4a7dff] to-[#7c5cfc] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 md:block">
-            로그인
-          </Link>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="flex h-9 w-9 items-center justify-center rounded-lg text-[#7a8ba8] transition hover:bg-[#111d35] md:hidden">
-            {menuOpen ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
+          <Link href="/login/" className="btn-primary hidden px-4 py-1.5 text-sm md:block">로그인</Link>
+          <button onClick={() => setMenu(!menu)} className="h-9 w-9 rounded-lg flex items-center justify-center text-[#9a8aa8] hover:bg-[#1e142a] md:hidden">
+            {menu ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
           </button>
         </div>
       </div>
 
-      {searchOpen && (
-        <div className="border-t border-[#1e3050] px-4 py-3">
-          <div className="mx-auto max-w-md">
-            <div className="glass-sm flex items-center gap-2 px-3 py-2">
-              <Search className="h-4 w-4 text-[#4a5d7a]" />
-              <input type="text" placeholder="지역, 업종, 키워드 검색..." className="w-full bg-transparent text-sm text-[#dce4f0] outline-none placeholder:text-[#4a5d7a]" autoFocus />
-            </div>
+      {search && (
+        <div className="border-t border-[#2a1e3a] px-4 py-2.5">
+          <div className="card-sm mx-auto flex max-w-md items-center gap-2 px-3 py-2">
+            <Search className="h-4 w-4 text-[#6a5a7a]" />
+            <input type="text" placeholder="지역, 업종, 키워드..." className="w-full bg-transparent text-sm outline-none placeholder:text-[#6a5a7a]" autoFocus />
           </div>
         </div>
       )}
 
-      {menuOpen && (
-        <div className="border-t border-[#1e3050] px-4 py-3 md:hidden">
+      {menu && (
+        <div className="border-t border-[#2a1e3a] p-4 md:hidden">
           <nav className="flex flex-col gap-1">
-            {[{ href: '/jobs/', label: '알바찾기' }, { href: '/recommend/', label: '맞춤알바' }, { href: '/community/', label: '커뮤니티' }].map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-lg px-3 py-2.5 text-sm text-[#7a8ba8] hover:bg-[#111d35] hover:text-white" onClick={() => setMenuOpen(false)}>
-                {item.label}
-              </Link>
+            {[{ h: '/jobs/', l: '알바찾기' }, { h: '/recommend/', l: '맞춤알바' }, { h: '/community/', l: '커뮤니티' }].map(i => (
+              <Link key={i.h} href={i.h} className="rounded-lg px-3 py-2.5 text-sm text-[#9a8aa8] hover:bg-[#1e142a] hover:text-white" onClick={() => setMenu(false)}>{i.l}</Link>
             ))}
-            <Link href="/login/" className="mt-2 rounded-lg bg-gradient-to-r from-[#4a7dff] to-[#7c5cfc] py-2.5 text-center text-sm font-medium text-white" onClick={() => setMenuOpen(false)}>
-              로그인
-            </Link>
+            <Link href="/login/" className="btn-primary mt-2 py-2.5 text-center text-sm" onClick={() => setMenu(false)}>로그인</Link>
           </nav>
         </div>
       )}

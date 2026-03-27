@@ -1,42 +1,56 @@
 @import "tailwindcss";
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { color-scheme: dark; }
 
 body {
-  background: linear-gradient(160deg, #070d1a 0%, #0e1a30 40%, #0a1225 100%);
-  background-attachment: fixed;
-  color: #dce4f0;
+  background: #120b18;
+  color: #f0e8f0;
   font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Glass utility */
-.glass {
-  background: rgba(14, 26, 48, 0.70);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(30, 48, 80, 0.6);
+.card {
+  background: rgba(30, 20, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(90, 60, 120, 0.2);
   border-radius: 16px;
 }
 
-.glass-sm {
-  background: rgba(14, 26, 48, 0.70);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(30, 48, 80, 0.6);
+.card-sm {
+  background: rgba(30, 20, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(90, 60, 120, 0.2);
   border-radius: 12px;
 }
 
-.glass-header {
-  background: rgba(7, 13, 26, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(30, 48, 80, 0.5);
+.hdr {
+  background: rgba(18, 11, 24, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(90, 60, 120, 0.15);
 }
 
-/* Scrollbar */
+.btn-primary {
+  background: linear-gradient(135deg, #e85d8a, #c44dbb);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 20px rgba(232, 93, 138, 0.3); }
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(60, 90, 140, 0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(90, 60, 120, 0.3); border-radius: 4px; }

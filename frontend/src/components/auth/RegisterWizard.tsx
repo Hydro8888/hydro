@@ -4,285 +4,104 @@ import { useState } from 'react';
 import { Check, ChevronRight, Shield } from 'lucide-react';
 
 type Step = 1 | 2 | 3;
-
-const TERMS = [
-  { id: 'service', label: '이용약관 동의 (필수)', required: true },
-  { id: 'privacy', label: '개인정보처리방침 동의 (필수)', required: true },
-  { id: 'youth', label: '청소년보호정책 동의 (필수)', required: true },
-  { id: 'location', label: '위치정보 이용 동의 (필수)', required: true },
-];
-
+const TERMS = [{ id: 'svc', l: '이용약관 동의 (필수)' }, { id: 'prv', l: '개인정보처리방침 동의 (필수)' }, { id: 'yth', l: '청소년보호정책 동의 (필수)' }, { id: 'loc', l: '위치정보 이용 동의 (필수)' }];
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '대전', '광주', '울산', '제주'];
-const JOB_TYPES = ['룸', '바', '노래방', '클럽', '라운지', '퍼브', '마사지', '기타'];
+const TYPES = ['룸', '바', '노래방', '클럽', '라운지', '퍼브', '마사지', '기타'];
+
+const inp = "w-full rounded-xl border border-[#2a1e3a] bg-[#1e142a] px-4 py-2.5 text-sm outline-none placeholder:text-[#6a5a7a] focus:border-[#e85d8a]";
+const pill = (on: boolean) => `rounded-lg px-3 py-1.5 text-xs transition ${on ? 'bg-[#e85d8a] text-white' : 'bg-[#1e142a] text-[#9a8aa8]'}`;
 
 export function RegisterWizard() {
   const [step, setStep] = useState<Step>(1);
-  const [agreedTerms, setAgreedTerms] = useState<Set<string>>(new Set());
-  const [formData, setFormData] = useState({
-    username: '', password: '', passwordConfirm: '', nickname: '',
-    phone: '', email: '',
-  });
-  const [isAdultVerified, setIsAdultVerified] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
+  const [agreed, setAgreed] = useState<Set<string>>(new Set());
+  const [form, setForm] = useState({ username: '', password: '', passwordConfirm: '', nickname: '', email: '' });
+  const [adult, setAdult] = useState(false);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>([]);
 
-  const allTermsAgreed = TERMS.every((t) => agreedTerms.has(t.id));
-
-  const toggleAllTerms = () => {
-    if (allTermsAgreed) {
-      setAgreedTerms(new Set());
-    } else {
-      setAgreedTerms(new Set(TERMS.map((t) => t.id)));
-    }
-  };
-
-  const toggleTerm = (id: string) => {
-    const next = new Set(agreedTerms);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setAgreedTerms(next);
-  };
-
-  const toggleRegion = (r: string) => {
-    setSelectedRegions((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
-  };
-
-  const toggleJobType = (t: string) => {
-    setSelectedJobTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
-  };
-
-  const handleSubmit = () => {
-    // TODO: API call
-    console.log('Register:', { ...formData, selectedRegions, selectedJobTypes });
-    alert('가입이 완료되었습니다! 환영합니다 🦊');
-  };
+  const allOk = TERMS.every(t => agreed.has(t.id));
+  const toggleAll = () => setAgreed(allOk ? new Set() : new Set(TERMS.map(t => t.id)));
+  const toggle = (id: string) => { const n = new Set(agreed); n.has(id) ? n.delete(id) : n.add(id); setAgreed(n); };
+  const tglR = (r: string) => setRegions(p => p.includes(r) ? p.filter(x => x !== r) : [...p, r]);
+  const tglT = (t: string) => setTypes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card">
-      {/* Step indicator */}
-      <div className="flex border-b border-border">
-        {[1, 2, 3].map((s) => (
-          <div
-            key={s}
-            className={`flex flex-1 items-center justify-center gap-2 py-4 text-sm font-medium ${
-              step === s ? 'border-b-2 border-primary text-primary' :
-              step > s ? 'text-success' : 'text-muted-foreground'
-            }`}
-          >
-            {step > s ? <Check className="h-4 w-4" /> : null}
-            {s === 1 ? '약관동의' : s === 2 ? '정보입력' : '프로필'}
+    <div className="card overflow-hidden">
+      {/* Steps */}
+      <div className="flex border-b border-[#2a1e3a]">
+        {[1, 2, 3].map(s => (
+          <div key={s} className={`flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium ${step === s ? 'border-b-2 border-[#e85d8a] text-[#e85d8a]' : step > s ? 'text-[#4ade80]' : 'text-[#6a5a7a]'}`}>
+            {step > s && <Check className="h-3.5 w-3.5" />}
+            {s === 1 ? '약관' : s === 2 ? '정보' : '프로필'}
           </div>
         ))}
       </div>
 
-      <div className="p-6">
-        {/* STEP 1: Terms */}
+      <div className="p-5">
         {step === 1 && (
           <div>
-            <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-center text-sm text-destructive">
-              ⚠️ 본 서비스는 19세 이상만 이용 가능합니다
-            </div>
-
-            <label className="mb-4 flex cursor-pointer items-center gap-3 rounded-lg bg-muted p-3">
-              <input
-                type="checkbox"
-                checked={allTermsAgreed}
-                onChange={toggleAllTerms}
-                className="h-4 w-4 accent-primary"
-              />
+            <div className="mb-4 rounded-xl bg-[#ff6b6b]/10 p-3 text-center text-sm text-[#ff6b6b]">본 서비스는 19세 이상만 이용 가능합니다</div>
+            <label className="mb-3 flex cursor-pointer items-center gap-3 rounded-xl bg-[#1e142a] p-3">
+              <input type="checkbox" checked={allOk} onChange={toggleAll} className="h-4 w-4 accent-[#e85d8a]" />
               <span className="font-medium">전체 동의</span>
             </label>
-
-            <div className="space-y-2">
-              {TERMS.map((term) => (
-                <label key={term.id} className="flex cursor-pointer items-center gap-3 rounded-lg p-3 hover:bg-muted/50">
-                  <input
-                    type="checkbox"
-                    checked={agreedTerms.has(term.id)}
-                    onChange={() => toggleTerm(term.id)}
-                    className="h-4 w-4 accent-primary"
-                  />
-                  <span className="text-sm">{term.label}</span>
+            <div className="space-y-1">
+              {TERMS.map(t => (
+                <label key={t.id} className="flex cursor-pointer items-center gap-3 rounded-xl p-3 hover:bg-[#1e142a]/50">
+                  <input type="checkbox" checked={agreed.has(t.id)} onChange={() => toggle(t.id)} className="h-4 w-4 accent-[#e85d8a]" />
+                  <span className="text-sm">{t.l}</span>
                 </label>
               ))}
             </div>
-
-            <button
-              onClick={() => setStep(2)}
-              disabled={!allTermsAgreed}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-semibold text-white transition-all hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              다음 <ChevronRight className="h-4 w-4" />
-            </button>
-
-            <button className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground">
-              19세 미만이에요 (나가기)
-            </button>
+            <button onClick={() => setStep(2)} disabled={!allOk} className="btn-primary mt-5 flex w-full items-center justify-center gap-1 py-2.5 text-sm disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
           </div>
         )}
 
-        {/* STEP 2: Info + Verification */}
         {step === 2 && (
           <div>
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">아이디</label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="영문+숫자 4~12자"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">비밀번호</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="8자 이상, 특수문자 포함"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">비밀번호 확인</label>
-                <input
-                  type="password"
-                  value={formData.passwordConfirm}
-                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                  placeholder="비밀번호를 다시 입력하세요"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">닉네임</label>
-                <input
-                  type="text"
-                  value={formData.nickname}
-                  onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                  placeholder="프로필에 표시될 닉네임"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">이메일 (선택)</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="비밀번호 찾기에 사용됩니다"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm outline-none focus:border-primary"
-                />
-              </div>
+            <div className="space-y-3">
+              <div><label className="mb-1 block text-xs text-[#9a8aa8]">아이디</label><input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="영문+숫자 4~12자" className={inp} /></div>
+              <div><label className="mb-1 block text-xs text-[#9a8aa8]">비밀번호</label><input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="8자 이상, 특수문자 포함" className={inp} /></div>
+              <div><label className="mb-1 block text-xs text-[#9a8aa8]">비밀번호 확인</label><input type="password" value={form.passwordConfirm} onChange={e => setForm({ ...form, passwordConfirm: e.target.value })} placeholder="비밀번호 확인" className={inp} /></div>
+              <div><label className="mb-1 block text-xs text-[#9a8aa8]">닉네임</label><input type="text" value={form.nickname} onChange={e => setForm({ ...form, nickname: e.target.value })} placeholder="프로필 닉네임" className={inp} /></div>
+              <div><label className="mb-1 block text-xs text-[#9a8aa8]">이메일 (선택)</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="비밀번호 찾기용" className={inp} /></div>
             </div>
-
-            {/* Adult Verification */}
-            <div className="mt-6 rounded-xl border border-accent/30 bg-accent/5 p-4">
-              <h3 className="mb-2 flex items-center gap-2 font-semibold">
-                <Shield className="h-5 w-5 text-accent" />
-                성인인증 (필수)
-              </h3>
-              <p className="mb-3 text-xs text-muted-foreground">
-                본인인증을 통해 19세 이상임을 확인합니다.
-              </p>
-              {isAdultVerified ? (
-                <div className="flex items-center gap-2 text-sm text-success">
-                  <Check className="h-4 w-4" /> 성인 확인 완료
-                </div>
+            <div className="mt-5 rounded-xl border border-[#d4a76a]/30 bg-[#d4a76a]/5 p-4">
+              <h3 className="mb-2 flex items-center gap-2 font-semibold text-sm"><Shield className="h-4 w-4 text-[#d4a76a]" /> 성인인증 (필수)</h3>
+              <p className="mb-3 text-xs text-[#6a5a7a]">본인인증을 통해 19세 이상임을 확인합니다.</p>
+              {adult ? (
+                <p className="flex items-center gap-1.5 text-sm text-[#4ade80]"><Check className="h-4 w-4" /> 인증 완료</p>
               ) : (
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => setIsAdultVerified(true)}
-                    className="flex-1 rounded-lg border border-accent bg-accent/10 py-2.5 text-sm font-medium text-accent transition-all hover:bg-accent/20"
-                  >
-                    휴대폰 인증
-                  </button>
-                  <button
-                    onClick={() => setIsAdultVerified(true)}
-                    className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-all hover:border-accent hover:text-accent"
-                  >
-                    아이핀 인증
-                  </button>
+                  <button onClick={() => setAdult(true)} className="flex-1 rounded-lg border border-[#d4a76a] bg-[#d4a76a]/10 py-2 text-sm text-[#d4a76a] hover:bg-[#d4a76a]/20">휴대폰 인증</button>
+                  <button onClick={() => setAdult(true)} className="flex-1 rounded-lg border border-[#2a1e3a] py-2 text-sm text-[#9a8aa8] hover:text-[#d4a76a]">아이핀 인증</button>
                 </div>
               )}
             </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setStep(1)}
-                className="rounded-full border border-border px-6 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                이전
-              </button>
-              <button
-                onClick={() => setStep(3)}
-                disabled={!formData.username || !formData.password || !formData.nickname || !isAdultVerified}
-                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary py-3 font-semibold text-white transition-all hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                다음 <ChevronRight className="h-4 w-4" />
-              </button>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setStep(1)} className="rounded-xl border border-[#2a1e3a] px-5 py-2.5 text-sm text-[#9a8aa8]">이전</button>
+              <button onClick={() => setStep(3)} disabled={!form.username || !form.password || !form.nickname || !adult} className="btn-primary flex flex-1 items-center justify-center gap-1 py-2.5 text-sm disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Profile */}
         {step === 3 && (
           <div>
-            <div className="mb-6 text-center">
-              <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-muted text-3xl">
-                🦊
-              </div>
-              <button className="text-sm text-primary hover:text-primary-light">프로필 사진 업로드</button>
+            <div className="mb-5 text-center">
+              <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e85d8a]/20 to-[#c44dbb]/20 text-3xl">🦊</div>
+              <button className="text-sm text-[#e85d8a]">프로필 사진 업로드</button>
             </div>
-
-            <div className="mb-6">
-              <h3 className="mb-3 text-sm font-medium">희망 지역 (선택)</h3>
-              <div className="flex flex-wrap gap-2">
-                {REGIONS.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => toggleRegion(r)}
-                    className={`rounded-full px-3 py-1.5 text-xs transition-all ${
-                      selectedRegions.includes(r) ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
+            <div className="mb-4">
+              <h3 className="mb-2 text-sm font-medium">희망 지역</h3>
+              <div className="flex flex-wrap gap-1.5">{REGIONS.map(r => <button key={r} onClick={() => tglR(r)} className={pill(regions.includes(r))}>{r}</button>)}</div>
             </div>
-
-            <div className="mb-6">
-              <h3 className="mb-3 text-sm font-medium">희망 업종 (선택)</h3>
-              <div className="flex flex-wrap gap-2">
-                {JOB_TYPES.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => toggleJobType(t)}
-                    className={`rounded-full px-3 py-1.5 text-xs transition-all ${
-                      selectedJobTypes.includes(t) ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+            <div className="mb-5">
+              <h3 className="mb-2 text-sm font-medium">희망 업종</h3>
+              <div className="flex flex-wrap gap-1.5">{TYPES.map(t => <button key={t} onClick={() => tglT(t)} className={pill(types.includes(t))}>{t}</button>)}</div>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setStep(2)}
-                className="rounded-full border border-border px-6 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                이전
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="flex-1 rounded-full bg-gradient-to-r from-primary to-accent py-3 font-semibold text-white transition-all hover:shadow-lg hover:shadow-primary/25"
-              >
-                가입 완료
-              </button>
+            <div className="flex gap-2">
+              <button onClick={() => setStep(2)} className="rounded-xl border border-[#2a1e3a] px-5 py-2.5 text-sm text-[#9a8aa8]">이전</button>
+              <button onClick={() => alert('가입 완료!')} className="flex-1 rounded-xl bg-gradient-to-r from-[#e85d8a] to-[#d4a76a] py-2.5 text-sm font-semibold text-white">가입 완료</button>
             </div>
           </div>
         )}

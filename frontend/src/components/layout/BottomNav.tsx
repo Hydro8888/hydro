@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Briefcase, Sparkles, MessageCircle, User } from 'lucide-react';
 
-const NAV_ITEMS = [
+const NAV = [
   { href: '/', label: '홈', icon: Home },
-  { href: '/jobs/', label: '알바찾기', icon: Briefcase },
+  { href: '/jobs/', label: '알바', icon: Briefcase },
   { href: '/recommend/', label: '맞춤', icon: Sparkles },
-  { href: '/community/', label: '커뮤니티', icon: MessageCircle },
+  { href: '/community/', label: '톡', icon: MessageCircle },
   { href: '/my/', label: '마이', icon: User },
 ];
 
@@ -16,31 +16,23 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong md:hidden">
-      <div className="flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href ||
-            pathname === item.href.slice(0, -1) ||
-            (item.href !== '/' && pathname.startsWith(item.href));
+    <nav className="glass-header fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <div className="mx-auto flex max-w-md items-center justify-around py-1.5">
+        {NAV.map((item) => {
+          const active = pathname === item.href || pathname === item.href.slice(0, -1) || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 px-3 py-1">
-              <div
-                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] shadow-lg shadow-[var(--accent-blue)]/30 -translate-y-1'
-                    : 'text-[var(--text-muted)]'
-                }`}
-                style={isActive ? { transform: 'rotate(45deg) translateY(-4px)' } : {}}
-              >
-                <Icon
-                  className={`h-5 w-5 ${isActive ? 'text-white' : ''}`}
-                  style={isActive ? { transform: 'rotate(-45deg)' } : {}}
-                />
-              </div>
-              <span className={`text-[10px] ${isActive ? 'font-semibold text-[var(--accent-blue-light)]' : 'text-[var(--text-muted)]'}`}>
-                {item.label}
-              </span>
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-0.5 px-2 py-1">
+              {active ? (
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#4a7dff] to-[#7c5cfc] shadow-lg shadow-[#4a7dff]/30" style={{ transform: 'rotate(45deg)' }}>
+                  <Icon className="h-[18px] w-[18px] text-white" style={{ transform: 'rotate(-45deg)' }} />
+                </div>
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center">
+                  <Icon className="h-5 w-5 text-[#4a5d7a]" />
+                </div>
+              )}
+              <span className={`text-[10px] ${active ? 'font-semibold text-[#6b9aff]' : 'text-[#4a5d7a]'}`}>{item.label}</span>
             </Link>
           );
         })}

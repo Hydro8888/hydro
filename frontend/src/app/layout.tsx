@@ -6,7 +6,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 
 export const metadata: Metadata = {
   title: 'YeouAlba - 여우알바 | 안전한 여성 고소득 알바',
-  description: '안전하고 스마트한 여우알바, 오늘 바로 시작하세요. 전국 유흥알바 정보를 한눈에.',
+  description: '안전하고 스마트한 여우알바, 오늘 바로 시작하세요.',
   manifest: '/manifest.json',
 };
 
@@ -14,18 +14,16 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#0a1628',
+  themeColor: '#070d1a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className="dark">
-      <body className="min-h-screen">
+    <html lang="ko">
+      <body>
         <QueryProvider>
           <Header />
-          <main className="pb-safe min-h-screen pt-16">
-            {children}
-          </main>
+          <main className="min-h-screen pt-16 pb-24 md:pb-8">{children}</main>
           <BottomNav />
         </QueryProvider>
       </body>

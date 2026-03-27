@@ -3,174 +3,85 @@
 import Link from 'next/link';
 import { ArrowLeft, Heart, Share2, Flag, MapPin, Clock, Banknote, Building2, Phone, CheckCircle } from 'lucide-react';
 
-// Mock data for a single job detail
-const MOCK_JOB = {
-  id: '1',
+const JOB = {
   title: '강남 프리미엄 라운지 스탭',
   description: '강남 최고급 라운지에서 함께할 스탭을 모집합니다.\n\n친절하고 밝은 성격의 분을 찾고 있으며, 경력 무관으로 초보자도 환영합니다.\n\n편안한 근무 환경과 높은 수익을 보장합니다.',
-  region: '서울 강남',
-  address: '서울특별시 강남구 논현동 123-45',
-  jobType: '라운지',
-  payType: 'daily',
-  payAmount: 500000,
-  workingHours: 'PM 8:00 ~ AM 3:00',
+  region: '서울 강남', address: '서울특별시 강남구 논현동', jobType: '라운지',
+  payType: 'daily', payAmount: 500000, workingHours: 'PM 8:00 ~ AM 3:00',
   benefits: ['교통비 지원', '식사 제공', '숙박 가능', '당일 지급'],
-  requirements: '19세 이상 여성, 단정한 외모',
-  images: [],
-  isUrgent: true,
-  viewCount: 1234,
-  company: {
-    name: '강남 프리미엄 라운지',
-    region: '서울 강남',
-    address: '서울특별시 강남구 논현동 123-45',
-    phone: '010-1234-5678',
-    isVerified: true,
-  },
+  requirements: '19세 이상 여성, 단정한 외모', isUrgent: true, viewCount: 1234,
+  company: { name: '강남 프리미엄 라운지', address: '서울특별시 강남구 논현동 123-45', phone: '010-1234-5678', isVerified: true },
 };
 
-function formatPay(amount: number, type: string) {
-  const formatted = new Intl.NumberFormat('ko-KR').format(amount);
-  const typeLabel = type === 'daily' ? '일' : type === 'hourly' ? '시' : '월';
-  return `${formatted}원/${typeLabel}`;
-}
-
 export default function JobDetailPage() {
+  const pay = new Intl.NumberFormat('ko-KR').format(JOB.payAmount) + '원/일';
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      {/* Back button */}
-      <Link href="/jobs" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> 목록으로
+    <div className="mx-auto max-w-3xl px-4 py-4">
+      <Link href="/jobs/" className="mb-4 inline-flex items-center gap-1 text-sm text-[#7a8ba8] hover:text-white">
+        <ArrowLeft className="h-4 w-4" /> 목록
       </Link>
 
-      {/* Image placeholder */}
-      <div className="mb-6 h-48 overflow-hidden rounded-xl bg-gradient-to-br from-card to-muted md:h-64">
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          업소 이미지
-        </div>
+      <div className="glass mb-4 h-40 overflow-hidden md:h-56">
+        <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#111d35] to-[#0e1a30] text-[#4a5d7a]">업소 이미지</div>
       </div>
 
-      {/* Title & badges */}
-      <div className="mb-4">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          {MOCK_JOB.isUrgent && (
-            <span className="rounded-full bg-destructive/20 px-2.5 py-0.5 text-xs font-medium text-destructive">급구</span>
-          )}
-          {MOCK_JOB.company.isVerified && (
-            <span className="flex items-center gap-1 rounded-full bg-success/20 px-2.5 py-0.5 text-xs font-medium text-success">
-              <CheckCircle className="h-3 w-3" /> 인증업소
-            </span>
-          )}
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{MOCK_JOB.jobType}</span>
-        </div>
-        <h1 className="text-2xl font-bold">{MOCK_JOB.title}</h1>
-        <p className="mt-1 text-muted-foreground">{MOCK_JOB.company.name}</p>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {JOB.isUrgent && <span className="rounded-lg bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">급구</span>}
+        {JOB.company.isVerified && <span className="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400"><CheckCircle className="h-3 w-3" />인증</span>}
+        <span className="rounded-lg bg-[#111d35] px-2 py-0.5 text-xs text-[#7a8ba8]">{JOB.jobType}</span>
+      </div>
+      <h1 className="text-xl font-bold">{JOB.title}</h1>
+      <p className="mt-1 text-sm text-[#7a8ba8]">{JOB.company.name}</p>
+
+      <div className="glass mt-4 bg-gradient-to-r from-[#f0c040]/5 to-[#4a7dff]/5 p-4">
+        <p className="text-xs text-[#7a8ba8]">급여</p>
+        <p className="text-2xl font-bold text-[#f0c040]">{pay}</p>
       </div>
 
-      {/* Pay highlight */}
-      <div className="mb-6 rounded-xl bg-gradient-to-r from-accent/10 to-primary/10 p-5">
-        <p className="text-sm text-muted-foreground">급여</p>
-        <p className="text-3xl font-bold text-accent">{formatPay(MOCK_JOB.payAmount, MOCK_JOB.payType)}</p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {[
+          { icon: MapPin, label: '위치', value: JOB.region },
+          { icon: Clock, label: '근무시간', value: JOB.workingHours },
+          { icon: Banknote, label: '급여형태', value: '일급' },
+          { icon: Building2, label: '업종', value: JOB.jobType },
+        ].map((item) => (
+          <div key={item.label} className="glass-sm p-3">
+            <div className="flex items-center gap-1.5 text-[#4a5d7a]"><item.icon className="h-3.5 w-3.5" /><span className="text-[10px]">{item.label}</span></div>
+            <p className="mt-1 text-sm font-medium">{item.value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Info grid */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="h-4 w-4" />
-            <span className="text-xs">위치</span>
-          </div>
-          <p className="mt-1 text-sm font-medium">{MOCK_JOB.region}</p>
-        </div>
-        <div className="rounded-lg bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span className="text-xs">근무시간</span>
-          </div>
-          <p className="mt-1 text-sm font-medium">{MOCK_JOB.workingHours}</p>
-        </div>
-        <div className="rounded-lg bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Banknote className="h-4 w-4" />
-            <span className="text-xs">급여형태</span>
-          </div>
-          <p className="mt-1 text-sm font-medium">{MOCK_JOB.payType === 'daily' ? '일급' : MOCK_JOB.payType === 'hourly' ? '시급' : '월급'}</p>
-        </div>
-        <div className="rounded-lg bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            <span className="text-xs">업종</span>
-          </div>
-          <p className="mt-1 text-sm font-medium">{MOCK_JOB.jobType}</p>
-        </div>
-      </div>
-
-      {/* Benefits */}
-      {MOCK_JOB.benefits.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-3 text-lg font-semibold">혜택</h2>
-          <div className="flex flex-wrap gap-2">
-            {MOCK_JOB.benefits.map((b) => (
-              <span key={b} className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-sm text-accent">
-                {b}
-              </span>
-            ))}
+      {JOB.benefits.length > 0 && (
+        <div className="mt-4">
+          <h2 className="mb-2 text-sm font-semibold">혜택</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {JOB.benefits.map((b) => <span key={b} className="rounded-lg border border-[#f0c040]/20 bg-[#f0c040]/5 px-3 py-1 text-xs text-[#f0c040]">{b}</span>)}
           </div>
         </div>
       )}
 
-      {/* Description */}
-      <div className="mb-6">
-        <h2 className="mb-3 text-lg font-semibold">상세 내용</h2>
-        <div className="whitespace-pre-wrap rounded-xl bg-card p-5 text-sm leading-relaxed text-muted-foreground">
-          {MOCK_JOB.description}
+      <div className="mt-4">
+        <h2 className="mb-2 text-sm font-semibold">상세 내용</h2>
+        <div className="glass-sm whitespace-pre-wrap p-4 text-sm leading-relaxed text-[#7a8ba8]">{JOB.description}</div>
+      </div>
+
+      <div className="glass mt-4 p-4">
+        <h2 className="mb-2 text-sm font-semibold">업소 정보</h2>
+        <div className="space-y-1.5 text-sm text-[#7a8ba8]">
+          <p className="flex items-center gap-2"><Building2 className="h-4 w-4 text-[#4a5d7a]" />{JOB.company.name}</p>
+          <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-[#4a5d7a]" />{JOB.company.address}</p>
+          <p className="flex items-center gap-2"><Phone className="h-4 w-4 text-[#4a5d7a]" />{JOB.company.phone}</p>
         </div>
       </div>
 
-      {/* Requirements */}
-      {MOCK_JOB.requirements && (
-        <div className="mb-6">
-          <h2 className="mb-3 text-lg font-semibold">자격 요건</h2>
-          <p className="text-sm text-muted-foreground">{MOCK_JOB.requirements}</p>
-        </div>
-      )}
-
-      {/* Company info */}
-      <div className="mb-6 rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-3 text-lg font-semibold">업소 정보</h2>
-        <div className="space-y-2 text-sm">
-          <p className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            {MOCK_JOB.company.name}
-          </p>
-          <p className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            {MOCK_JOB.company.address}
-          </p>
-          <p className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            {MOCK_JOB.company.phone}
-          </p>
-        </div>
+      <div className="sticky bottom-20 mt-4 flex gap-2 rounded-2xl border border-[#1e3050] bg-[#070d1a]/90 p-3 backdrop-blur-lg md:bottom-4">
+        <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1e3050] text-[#7a8ba8] hover:border-[#4a7dff] hover:text-[#4a7dff]"><Heart className="h-4 w-4" /></button>
+        <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1e3050] text-[#7a8ba8] hover:border-[#f0c040] hover:text-[#f0c040]"><Share2 className="h-4 w-4" /></button>
+        <button className="flex-1 rounded-xl bg-gradient-to-r from-[#4a7dff] to-[#7c5cfc] py-2.5 text-center text-sm font-semibold text-white">지원하기</button>
+        <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1e3050] text-[#7a8ba8] hover:border-red-400 hover:text-red-400"><Flag className="h-4 w-4" /></button>
       </div>
-
-      {/* Action buttons */}
-      <div className="sticky bottom-16 flex gap-3 rounded-xl border border-border bg-background/90 p-4 backdrop-blur-md md:bottom-4">
-        <button className="rounded-full border border-border p-3 text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-          <Heart className="h-5 w-5" />
-        </button>
-        <button className="rounded-full border border-border p-3 text-muted-foreground transition-colors hover:border-accent hover:text-accent">
-          <Share2 className="h-5 w-5" />
-        </button>
-        <button className="flex-1 rounded-full bg-primary py-3 text-center font-semibold text-white transition-all hover:bg-primary-light">
-          지원하기
-        </button>
-        <button className="rounded-full border border-border p-3 text-muted-foreground transition-colors hover:border-destructive hover:text-destructive">
-          <Flag className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* View count */}
-      <p className="mt-4 text-center text-xs text-muted-foreground">조회수 {MOCK_JOB.viewCount.toLocaleString()}</p>
     </div>
   );
 }

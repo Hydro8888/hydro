@@ -1,105 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --bg-primary: #0a1628;
-  --bg-secondary: #111d35;
-  --bg-card: rgba(20, 35, 65, 0.7);
-  --bg-card-hover: rgba(30, 50, 85, 0.8);
-  --bg-glass: rgba(15, 30, 60, 0.6);
-  --border-glass: rgba(80, 120, 200, 0.2);
-  --border-active: rgba(100, 150, 255, 0.4);
-  --text-primary: #e8edf5;
-  --text-secondary: #8899bb;
-  --text-muted: #5a6d8e;
-  --accent-blue: #4a7dff;
-  --accent-blue-light: #6b9aff;
-  --accent-purple: #7c5cfc;
-  --accent-gold: #f0c040;
-  --accent-pink: #ff6b9d;
-  --accent-green: #4ade80;
-  --danger: #ef4444;
-  --glass-blur: 20px;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  color-scheme: dark;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: dark; }
 
 body {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, #0d1f3c 100%);
+  background: linear-gradient(160deg, #070d1a 0%, #0e1a30 40%, #0a1225 100%);
   background-attachment: fixed;
-  color: var(--text-primary);
+  color: #dce4f0;
   font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Glass card */
+/* Glass utility */
 .glass {
-  background: var(--bg-glass);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--border-glass);
+  background: rgba(14, 26, 48, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(30, 48, 80, 0.6);
   border-radius: 16px;
 }
 
-.glass-strong {
-  background: rgba(15, 30, 60, 0.85);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid var(--border-glass);
-}
-
-/* Diamond shape */
-.diamond {
-  transform: rotate(45deg);
+.glass-sm {
+  background: rgba(14, 26, 48, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(30, 48, 80, 0.6);
   border-radius: 12px;
 }
-.diamond > * {
-  transform: rotate(-45deg);
-}
 
-/* Gradient text */
-.text-gradient {
-  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.text-gradient-gold {
-  background: linear-gradient(135deg, var(--accent-gold) 0%, #ffdb70 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Glow effects */
-.glow-blue {
-  box-shadow: 0 0 20px rgba(74, 125, 255, 0.3);
-}
-
-.glow-gold {
-  box-shadow: 0 0 20px rgba(240, 192, 64, 0.3);
+.glass-header {
+  background: rgba(7, 13, 26, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(30, 48, 80, 0.5);
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-glass); border-radius: 4px; }
-
-/* Bottom nav safe area */
-.pb-safe {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
-}
-
-/* Rank badge styles */
-.rank-1 { background: linear-gradient(135deg, #f0c040, #ffdb70); }
-.rank-2 { background: linear-gradient(135deg, #a8b4c8, #c8d4e8); }
-.rank-3 { background: linear-gradient(135deg, #cd7f32, #e8a060); }
+::-webkit-scrollbar-thumb { background: rgba(60, 90, 140, 0.3); border-radius: 4px; }

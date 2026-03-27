@@ -1,0 +1,41 @@
+module.exports = {
+  apps: [
+    {
+      name: 'yeoualba-frontend',
+      cwd: '/home/ubuntu/yeoualba/frontend',
+      script: 'node',
+      args: 'server.js',
+      env: {
+        PORT: 3004,
+        NODE_ENV: 'production',
+        HOSTNAME: '0.0.0.0',
+        NEXT_PUBLIC_BASE_PATH: '/yeoualba',
+        NEXT_PUBLIC_API_URL: 'http://211.198.54.207/yeoualba/api',
+        NEXT_PUBLIC_SITE_NAME: 'YeouAlba',
+      },
+    },
+    {
+      name: 'yeoualba-backend',
+      cwd: '/home/ubuntu/yeoualba/backend',
+      script: 'node',
+      args: 'dist/index.js',
+      env: {
+        PORT: 5001,
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://yeoualba:yeoualba_prod_2026@localhost:5432/yeoualba',
+        REDIS_URL: 'redis://localhost:6379',
+        JWT_SECRET: 'yeoualba-jwt-secret-change-this-to-random-64-chars-in-production',
+        JWT_EXPIRES_IN: '7d',
+        JWT_REFRESH_SECRET: 'yeoualba-refresh-secret-change-this-to-random-64-chars',
+        JWT_REFRESH_EXPIRES_IN: '30d',
+        CORS_ORIGIN: 'http://211.198.54.207',
+        MINIO_ENDPOINT: 'localhost',
+        MINIO_PORT: '9000',
+        MINIO_ROOT_USER: 'minio_admin',
+        MINIO_ROOT_PASSWORD: 'minio_secret_2026',
+        MINIO_BUCKET: 'yeoualba-uploads',
+        MINIO_USE_SSL: 'false',
+      },
+    },
+  ],
+};

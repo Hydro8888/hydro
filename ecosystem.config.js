@@ -3,9 +3,8 @@ module.exports = {
     {
       name: 'yeoualba-frontend',
       cwd: '/home/ubuntu/yeoualba/frontend',
-      script: 'server.js',
-      wait_ready: true,
-      listen_timeout: 15000,
+      script: './node_modules/.bin/next',
+      args: 'start -p 3500',
       kill_timeout: 5000,
       max_restarts: 10,
       min_uptime: 5000,

@@ -18,25 +18,25 @@ const POST = {
 export default function PostDetailPage() {
   const [comment, setComment] = useState('');
   return (
-    <div className="mx-auto max-w-3xl px-4 py-4">
-      <Link href="/community/" className="mb-3 inline-flex items-center gap-1 text-sm text-[#94A3B8] hover:text-white"><ArrowLeft className="h-4 w-4" /> 목록</Link>
-      <article className="card p-5">
-        <h1 className="mb-2 text-lg font-bold">{POST.title}</h1>
-        <div className="mb-4 flex items-center gap-3 text-sm text-[#94A3B8]"><span>{POST.nick}</span><span>{POST.time}</span><span className="flex items-center gap-1"><Eye className="h-3 w-3" />{POST.views}</span></div>
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-[#94A3B8]">{POST.content}</div>
-        <div className="mt-5 flex gap-4 border-t border-[#1E3A5F]/20 pt-4">
-          <button className="flex items-center gap-1 text-sm text-[#94A3B8] hover:text-[#C9A961]"><Heart className="h-4 w-4" /> {POST.likes}</button>
-          <button className="flex items-center gap-1 text-sm text-[#94A3B8] hover:text-[#F59E0B]"><Flag className="h-4 w-4" /> 신고</button>
+    <div className="mx-auto max-w-[700px] px-3 py-4">
+      <Link href="/community/" className="inline-flex items-center gap-1 text-[12px] text-[#888] hover:text-[#333] mb-3"><ArrowLeft className="h-3.5 w-3.5" /> 목록으로</Link>
+      <article className="card p-4">
+        <h1 className="text-[18px] font-bold mb-1">{POST.title}</h1>
+        <div className="flex items-center gap-3 text-[12px] text-[#999] mb-3"><span>{POST.nick}</span><span>{POST.time}</span><span className="flex items-center gap-0.5"><Eye className="h-3 w-3" />{POST.views}</span></div>
+        <div className="whitespace-pre-wrap text-[13px] text-[#555] leading-relaxed">{POST.content}</div>
+        <div className="mt-4 pt-3 border-t border-[#eee] flex gap-4">
+          <button className="flex items-center gap-1 text-[12px] text-[#999] hover:text-[#E91E63]"><Heart className="h-4 w-4" /> {POST.likes}</button>
+          <button className="flex items-center gap-1 text-[12px] text-[#999] hover:text-[#E91E63]"><Flag className="h-4 w-4" /> 신고</button>
         </div>
       </article>
-      <section className="mt-5">
-        <h2 className="mb-3 flex items-center gap-1.5 font-semibold"><MessageCircle className="h-4 w-4 text-[#C9A961]" /> 댓글 {POST.comments.length}</h2>
-        <div className="space-y-2">{POST.comments.map(c => (
-          <div key={c.id} className="card-sm p-3"><div className="mb-1 flex items-center gap-2 text-sm"><span className="font-medium">{c.nick}</span><span className="text-[10px] text-[#64748B]">{c.time}</span></div><p className="text-sm text-[#94A3B8]">{c.text}</p></div>
+      <section className="mt-4">
+        <h2 className="flex items-center gap-1 text-[14px] font-bold mb-2"><MessageCircle className="h-4 w-4 text-[#C9A961]" /> 댓글 {POST.comments.length}</h2>
+        <div className="space-y-1.5">{POST.comments.map(c => (
+          <div key={c.id} className="card p-3"><div className="flex items-center gap-2 text-[12px] mb-0.5"><span className="font-bold">{c.nick}</span><span className="text-[10px] text-[#ccc]">{c.time}</span></div><p className="text-[12px] text-[#555]">{c.text}</p></div>
         ))}</div>
-        <div className="mt-3 flex gap-2">
-          <input value={comment} onChange={e => setComment(e.target.value)} placeholder="댓글을 입력하세요..." className="card-sm flex-1 px-3.5 py-2.5 text-sm outline-none placeholder:text-[#64748B]" />
-          <button disabled={!comment.trim()} className="btn btn-navy px-5 py-2.5 text-sm disabled:opacity-40">등록</button>
+        <div className="mt-2 flex gap-1.5">
+          <input value={comment} onChange={e => setComment(e.target.value)} placeholder="댓글을 입력하세요..." className="flex-1 border border-[#ddd] rounded px-3 py-2 text-[12px] outline-none focus:border-[#1E3A5F]" />
+          <button disabled={!comment.trim()} className="btn btn-navy px-4 py-2 disabled:opacity-40">등록</button>
         </div>
       </section>
     </div>

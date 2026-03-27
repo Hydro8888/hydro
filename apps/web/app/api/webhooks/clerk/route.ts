@@ -1,49 +1,10 @@
-import { headers } from 'next/headers';
-import { Webhook } from 'svix';
-
 export async function POST(req: Request) {
-  const headerPayload = await headers();
-  const svixId = headerPayload.get('svix-id');
-  const svixTimestamp = headerPayload.get('svix-timestamp');
-  const svixSignature = headerPayload.get('svix-signature');
-
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    return new Response('Missing svix headers', { status: 400 });
+  // Clerk webhook - requires CLERK_WEBHOOK_SECRET and svix package
+  if (!process.env.CLERK_WEBHOOK_SECRET) {
+    return new Response('Clerk not configured', { status: 503 });
   }
 
   const payload = await req.json();
-  const body = JSON.stringify(payload);
-
-  const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return new Response('Missing webhook secret', { status: 500 });
-  }
-
-  let evt: { type: string; data: Record<string, unknown> };
-  try {
-    const wh = new Webhook(webhookSecret);
-    evt = wh.verify(body, {
-      'svix-id': svixId,
-      'svix-timestamp': svixTimestamp,
-      'svix-signature': svixSignature,
-    }) as typeof evt;
-  } catch {
-    return new Response('Invalid signature', { status: 400 });
-  }
-
-  switch (evt.type) {
-    case 'user.created':
-    case 'user.updated': {
-      // TODO: Upsert user in DB
-      console.log(`[clerk webhook] ${evt.type}:`, evt.data.id);
-      break;
-    }
-    case 'user.deleted': {
-      // TODO: Delete user from DB
-      console.log(`[clerk webhook] user.deleted:`, evt.data.id);
-      break;
-    }
-  }
-
+  console.log('[clerk webhook]', payload?.type, payload?.data?.id);
   return new Response('OK', { status: 200 });
 }

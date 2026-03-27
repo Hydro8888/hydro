@@ -1,14 +1,9 @@
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth';
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // TODO: Fetch messages from DB with pagination
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
   return Response.json({ messages: [], conversationId: params.id });
 }

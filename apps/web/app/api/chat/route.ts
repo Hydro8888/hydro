@@ -1,7 +1,7 @@
 import { streamText } from 'ai';
-import { auth } from '@clerk/nextjs/server';
 import { getModel } from '@ai-portal/providers';
 import { getModelConfig } from '@ai-portal/shared';
+import { getAuthUserId } from '@/lib/auth';
 import { z } from 'zod';
 
 const chatRequestSchema = z.object({
@@ -16,8 +16,10 @@ const chatRequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  let userId: string;
+  try {
+    userId = await getAuthUserId();
+  } catch {
     return new Response('Unauthorized', { status: 401 });
   }
 

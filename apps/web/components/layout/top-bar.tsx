@@ -1,7 +1,6 @@
 'use client';
 
-import { UserButton } from '@clerk/nextjs';
-import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun } from 'lucide-react';
+import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, User } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 
@@ -58,8 +57,8 @@ export function TopBar() {
             <PanelRightOpen className="w-4 h-4" />
           )}
         </button>
-        <div className="ml-2">
-          <UserButton afterSignOutUrl="/" />
+        <div className="ml-2 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+          <User className="w-4 h-4 text-primary-500" />
         </div>
       </div>
     </header>

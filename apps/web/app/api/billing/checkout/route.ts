@@ -1,5 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
-import { stripe } from '@/lib/stripe';
+import { getAuthUserId } from '@/lib/auth';
 import { z } from 'zod';
 
 const checkoutSchema = z.object({
@@ -7,10 +6,8 @@ const checkoutSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
+  let userId: string;
+  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
 
   const body = await req.json();
   const parsed = checkoutSchema.safeParse(body);
@@ -21,16 +18,24 @@ export async function POST(req: Request) {
     });
   }
 
+  // Stripe integration - requires STRIPE_SECRET_KEY
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return new Response(JSON.stringify({ error: 'Stripe not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
+    const { stripe } = await import('@/lib/stripe');
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: parsed.data.priceId, quantity: 1 }],
-      success_url: `${req.headers.get('origin')}/billing?success=true`,
-      cancel_url: `${req.headers.get('origin')}/billing?canceled=true`,
-      metadata: { clerkUserId: userId },
+      success_url: `${req.headers.get('origin')}/ai-portal/billing?success=true`,
+      cancel_url: `${req.headers.get('origin')}/ai-portal/billing?canceled=true`,
+      metadata: { userId },
     });
-
     return Response.json({ url: session.url });
   } catch (error) {
     console.error('[billing/checkout] Error:', error);

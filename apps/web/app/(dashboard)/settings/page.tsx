@@ -1,7 +1,5 @@
 'use client';
 
-import { UserProfile } from '@clerk/nextjs';
-
 export default function SettingsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto overflow-y-auto h-full">
@@ -11,9 +9,14 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
-        <section>
-          <h2 className="text-lg font-semibold mb-4">계정</h2>
-          <UserProfile />
+        <section className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl">
+          <h2 className="text-lg font-semibold mb-2">모델 기본값</h2>
+          <p className="text-sm text-gray-500">기본 AI 모델 및 응답 설정을 관리합니다.</p>
+        </section>
+
+        <section className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl">
+          <h2 className="text-lg font-semibold mb-2">API 키 관리</h2>
+          <p className="text-sm text-gray-500">BYOK(Bring Your Own Key) 설정을 관리합니다.</p>
         </section>
       </div>
     </div>

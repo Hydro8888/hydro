@@ -12,16 +12,10 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
-            href="/sign-in"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400"
-          >
-            로그인
-          </Link>
-          <Link
-            href="/sign-up"
+            href="/chat"
             className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
           >
-            무료 시작하기
+            시작하기
           </Link>
         </div>
       </header>
@@ -39,10 +33,10 @@ export default function LandingPage() {
         </p>
         <div className="flex items-center justify-center gap-4">
           <Link
-            href="/sign-up"
+            href="/chat"
             className="px-8 py-3 bg-primary-500 text-white rounded-xl text-lg font-medium hover:bg-primary-600 transition-colors shadow-lg shadow-primary-500/25"
           >
-            무료로 시작하기
+            AI 채팅 시작하기
           </Link>
           <Link
             href="/billing"

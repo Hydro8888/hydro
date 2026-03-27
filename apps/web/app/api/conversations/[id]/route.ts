@@ -1,15 +1,10 @@
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth';
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // TODO: Fetch conversation and messages from DB
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
   return Response.json({
     conversation: { id: params.id, title: 'Conversation', messages: [] },
   });
@@ -19,28 +14,15 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
   const body = await req.json();
-
-  // TODO: Update conversation in DB
-  return Response.json({
-    conversation: { id: params.id, ...body },
-  });
+  return Response.json({ conversation: { id: params.id, ...body } });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // TODO: Delete conversation from DB
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
   return new Response(null, { status: 204 });
 }

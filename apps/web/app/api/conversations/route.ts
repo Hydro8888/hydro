@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth';
 import { z } from 'zod';
 
 const createConversationSchema = z.object({
@@ -8,20 +8,12 @@ const createConversationSchema = z.object({
 });
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // TODO: Query conversations from DB
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
   return Response.json({ conversations: [] });
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
+  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
 
   const body = await req.json();
   const parsed = createConversationSchema.safeParse(body);
@@ -32,7 +24,6 @@ export async function POST(req: Request) {
     });
   }
 
-  // TODO: Create conversation in DB
   const conversation = {
     id: crypto.randomUUID(),
     title: parsed.data.title ?? 'New Conversation',

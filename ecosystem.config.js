@@ -3,8 +3,8 @@ module.exports = {
     {
       name: 'yeoualba-frontend',
       cwd: '/home/ubuntu/yeoualba/frontend',
-      script: 'node',
-      args: 'server.js',
+      script: 'npx',
+      args: 'next start -p 3004 -H 0.0.0.0',
       env: {
         PORT: 3004,
         NODE_ENV: 'production',

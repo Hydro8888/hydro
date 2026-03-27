@@ -68,9 +68,9 @@ export function Header() {
       <div className="bg-[#1E3A5F]">
         <div className="mx-auto max-w-[960px] px-3 flex items-center justify-around py-2">
           {ICONS.map(({ href, icon: I, label }) => (
-            <Link key={href} href={href} className="flex flex-col items-center gap-0.5 text-white/90 hover:text-white">
-              <I className="h-5 w-5 md:h-6 md:w-6" />
-              <span className="text-[10px] md:text-[11px] font-medium">{label}</span>
+            <Link key={href} href={href} className="flex flex-col items-center gap-0.5 hover:opacity-80">
+              <I className="h-5 w-5 md:h-6 md:w-6 text-[#ffffff]" />
+              <span className="text-[10px] md:text-[11px] font-medium text-[#ffffff]">{label}</span>
             </Link>
           ))}
         </div>

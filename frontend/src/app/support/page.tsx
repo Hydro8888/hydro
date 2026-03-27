@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { HelpCircle, FileText, MessageSquare, Phone, Mail, ChevronRight } from 'lucide-react';
 
 const FAQ = [
@@ -18,29 +17,29 @@ const MENUS = [
 
 export default function SupportPage() {
   return (
-    <div className="mx-auto max-w-[700px] px-3 py-4">
-      <h1 className="text-[18px] font-bold mb-3">고객센터</h1>
-      <div className="card p-4 mb-4 text-center border-[#E91E63]">
-        <p className="text-[12px] text-[#888]">여우알바 고객센터</p>
-        <p className="text-[22px] font-bold text-[#E91E63] mt-1">010-0000-0000</p>
-        <p className="text-[11px] text-[#999] mt-0.5">상담시간: 평일 10:00 ~ 18:00 (주말·공휴일 휴무)</p>
-        <div className="mt-2 flex justify-center gap-3 text-[11px] text-[#888]">
-          <span className="flex items-center gap-0.5"><Phone className="h-3 w-3" /> 전화문의</span>
-          <span className="flex items-center gap-0.5"><Mail className="h-3 w-3" /> help@yeoualba.com</span>
+    <div className="mx-auto max-w-[640px] px-4 py-5">
+      <h1 className="text-xl font-bold mb-4">고객센터</h1>
+      <div className="card p-5 mb-5 text-center border-[#E91E63]">
+        <p className="text-sm text-[#999]">여우알바 고객센터</p>
+        <p className="text-2xl font-bold text-[#222] mt-1">010-0000-0000</p>
+        <p className="text-xs text-[#999] mt-1">상담시간: 평일 10:00 ~ 18:00 (주말·공휴일 휴무)</p>
+        <div className="mt-3 flex justify-center gap-4 text-xs text-[#999]">
+          <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> 전화문의</span>
+          <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> help@yeoualba.com</span>
         </div>
       </div>
-      <div className="card mb-4 overflow-hidden">
+      <div className="card mb-5 overflow-hidden">
         {MENUS.map((m, i) => { const I = m.icon; return (
-          <button key={i} className={`flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#f9f9f9] ${i < MENUS.length - 1 ? 'border-b border-[#eee]' : ''}`}>
-            <I className="h-4 w-4 text-[#999]" /><div className="flex-1"><p className="text-[13px] font-medium">{m.label}</p><p className="text-[10px] text-[#ccc]">{m.desc}</p></div><ChevronRight className="h-4 w-4 text-[#ccc]" />
+          <button key={i} className={`flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-[#f7f8fa] ${i < MENUS.length - 1 ? 'border-b border-[#f0f0f0]' : ''}`}>
+            <I className="h-4 w-4 text-[#999]" /><div className="flex-1"><p className="text-sm font-medium">{m.label}</p><p className="text-xs text-[#999]">{m.desc}</p></div><ChevronRight className="h-4 w-4 text-[#999]" />
           </button>
         ); })}
       </div>
-      <h2 className="text-[14px] font-bold mb-2">자주 묻는 질문</h2>
-      <div className="space-y-1.5">{FAQ.map((f, i) => (
+      <h2 className="text-lg font-bold mb-3">자주 묻는 질문</h2>
+      <div className="space-y-2">{FAQ.map((f, i) => (
         <details key={i} className="card group">
-          <summary className="px-3 py-2.5 text-[13px] font-medium cursor-pointer list-none flex items-center justify-between">Q. {f.q}<ChevronRight className="h-4 w-4 text-[#ccc] group-open:rotate-90 transition" /></summary>
-          <div className="border-t border-[#eee] px-3 py-2.5 text-[12px] text-[#555]">A. {f.a}</div>
+          <summary className="px-4 py-3 text-sm font-medium cursor-pointer list-none flex items-center justify-between">Q. {f.q}<ChevronRight className="h-4 w-4 text-[#999] group-open:rotate-90 transition" /></summary>
+          <div className="border-t border-[#f0f0f0] px-4 py-3 text-sm text-[#666]">A. {f.a}</div>
         </details>
       ))}</div>
     </div>

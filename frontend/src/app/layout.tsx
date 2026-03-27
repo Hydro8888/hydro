@@ -23,14 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Header />
           <main className="min-h-screen pb-16 md:pb-0">{children}</main>
           <BottomNav />
-          <footer className="hidden md:block border-t border-[#ddd] bg-[#f9f9f9] py-4 text-[11px] text-[#888]">
+          <footer className="hidden md:block border-t border-[#e0e0e0] bg-white py-5 text-xs text-[#999]">
             <div className="mx-auto max-w-[960px] px-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex gap-4">
-                <Link href="/support/">회사소개</Link>
-                <Link href="/support/">개인정보보호정책</Link>
-                <Link href="/support/">이용약관</Link>
-                <Link href="/support/">고객센터</Link>
-                <Link href="/post-job/">제휴 및 광고문의</Link>
+                {['회사소개', '개인정보보호정책', '이용약관', '고객센터', '광고문의'].map(t => (
+                  <Link key={t} href="/support/" className="hover:text-[#222]">{t}</Link>
+                ))}
               </div>
               <p>© 2026 여우알바(YeouAlba). All rights reserved.</p>
             </div>

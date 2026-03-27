@@ -8,9 +8,6 @@ const TERMS = [{ id: 's', l: '이용약관 동의 (필수)' }, { id: 'p', l: '�
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '대전', '광주', '울산', '제주'];
 const TYPES = ['룸', '바', '노래방', '클럽', '라운지', '퍼브', '마사지', '기타'];
 
-const inp = "w-full border border-[#ddd] rounded px-3 py-2 text-[13px] outline-none focus:border-[#1E3A5F]";
-const pill = (on: boolean) => `border rounded px-2.5 py-1 text-[11px] cursor-pointer ${on ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]' : 'bg-white text-[#555] border-[#ddd]'}`;
-
 export function RegisterWizard() {
   const [step, setStep] = useState<Step>(1);
   const [agreed, setAgreed] = useState<Set<string>>(new Set());
@@ -25,50 +22,48 @@ export function RegisterWizard() {
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex border-b border-[#eee]">
+      <div className="flex border-b border-[#e0e0e0]">
         {[1, 2, 3].map(s => (
-          <div key={s} className={`flex flex-1 items-center justify-center gap-1 py-2.5 text-[12px] font-medium ${step === s ? 'border-b-2 border-[#C9A961] text-[#C9A961]' : step > s ? 'text-[#28a745]' : 'text-[#ccc]'}`}>
-            {step > s && <Check className="h-3 w-3" />}{s === 1 ? '약관' : s === 2 ? '정보' : '프로필'}
+          <div key={s} className={`flex flex-1 items-center justify-center gap-1.5 py-3 text-sm font-medium ${step === s ? 'border-b-2 border-[#C9A961] text-[#C9A961]' : step > s ? 'text-[#2E7D32]' : 'text-[#999]'}`}>
+            {step > s && <Check className="h-3.5 w-3.5" />}{s === 1 ? '약관' : s === 2 ? '정보' : '프로필'}
           </div>
         ))}
       </div>
-      <div className="p-4">
+      <div className="p-5">
         {step === 1 && (<div>
-          <div className="bg-[#FFF3CD] border border-[#FFEEBA] rounded p-2.5 text-center text-[12px] text-[#856404] mb-3">본 서비스는 19세 이상만 이용 가능합니다</div>
-          <label className="flex items-center gap-2 bg-[#f9f9f9] rounded p-2.5 mb-2 cursor-pointer"><input type="checkbox" checked={allOk} onChange={toggleAll} className="accent-[#1E3A5F]" /><span className="text-[13px] font-bold">전체 동의</span></label>
-          {TERMS.map(t => <label key={t.id} className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#f9f9f9] rounded"><input type="checkbox" checked={agreed.has(t.id)} onChange={() => toggle(t.id)} className="accent-[#1E3A5F]" /><span className="text-[12px]">{t.l}</span></label>)}
-          <button onClick={() => setStep(2)} disabled={!allOk} className="btn btn-navy w-full mt-4 py-2 flex items-center justify-center gap-1 disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
+          <div className="tag tag-urgent mb-4 block w-full text-center py-2.5 text-sm rounded-lg">본 서비스는 19세 이상만 이용 가능합니다</div>
+          <label className="flex items-center gap-2.5 bg-[#f7f8fa] rounded-lg p-3 mb-3 cursor-pointer"><input type="checkbox" checked={allOk} onChange={toggleAll} className="accent-[#1E3A5F] h-4 w-4" /><span className="text-sm font-bold">전체 동의</span></label>
+          {TERMS.map(t => <label key={t.id} className="flex items-center gap-2.5 p-2.5 cursor-pointer hover:bg-[#f7f8fa] rounded-lg"><input type="checkbox" checked={agreed.has(t.id)} onChange={() => toggle(t.id)} className="accent-[#1E3A5F] h-4 w-4" /><span className="text-sm">{t.l}</span></label>)}
+          <button onClick={() => setStep(2)} disabled={!allOk} className="btn btn-navy w-full mt-5 py-2.5 disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
         </div>)}
         {step === 2 && (<div>
-          <div className="space-y-2.5">
-            <div><label className="text-[11px] text-[#888] mb-1 block">아이디</label><input type="text" value={form.username} onChange={e => setForm({...form, username: e.target.value})} placeholder="영문+숫자 4~12자" className={inp} /></div>
-            <div><label className="text-[11px] text-[#888] mb-1 block">비밀번호</label><input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="8자 이상" className={inp} /></div>
-            <div><label className="text-[11px] text-[#888] mb-1 block">비밀번호 확인</label><input type="password" value={form.passwordConfirm} onChange={e => setForm({...form, passwordConfirm: e.target.value})} className={inp} /></div>
-            <div><label className="text-[11px] text-[#888] mb-1 block">닉네임</label><input type="text" value={form.nickname} onChange={e => setForm({...form, nickname: e.target.value})} className={inp} /></div>
-            <div><label className="text-[11px] text-[#888] mb-1 block">이메일 (선택)</label><input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className={inp} /></div>
+          <div className="space-y-3">
+            {[{ l: '아이디', k: 'username', ph: '영문+숫자 4~12자' }, { l: '비밀번호', k: 'password', ph: '8자 이상', type: 'password' }, { l: '비밀번호 확인', k: 'passwordConfirm', ph: '', type: 'password' }, { l: '닉네임', k: 'nickname', ph: '프로필 닉네임' }, { l: '이메일 (선택)', k: 'email', ph: 'example@email.com', type: 'email' }].map(f => (
+              <div key={f.k}><label className="text-xs text-[#999] mb-1.5 block">{f.l}</label><input type={f.type || 'text'} value={(form as any)[f.k]} onChange={e => setForm({...form, [f.k]: e.target.value})} placeholder={f.ph} className="input" /></div>
+            ))}
           </div>
-          <div className="mt-3 border border-[#C9A961] bg-[#FFFDE7] rounded p-3">
-            <h3 className="flex items-center gap-1.5 text-[13px] font-bold mb-1.5"><Shield className="h-4 w-4 text-[#C9A961]" /> 성인인증 (필수)</h3>
-            <p className="text-[11px] text-[#999] mb-2">본인인증을 통해 19세 이상임을 확인합니다.</p>
-            {adult ? <p className="flex items-center gap-1 text-[12px] text-[#28a745]"><Check className="h-4 w-4" /> 인증 완료</p> : (
-              <div className="flex gap-2"><button onClick={() => setAdult(true)} className="flex-1 btn border border-[#C9A961] text-[#C9A961] bg-white py-2 hover:bg-[#FFFDE7]">휴대폰 인증</button><button onClick={() => setAdult(true)} className="flex-1 btn border border-[#ddd] text-[#888] bg-white py-2">아이핀 인증</button></div>
+          <div className="mt-4 border border-[#C9A961] bg-[#FFFDE7] rounded-lg p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-bold mb-2"><Shield className="h-4 w-4 text-[#C9A961]" /> 성인인증 (필수)</h3>
+            <p className="text-xs text-[#999] mb-3">본인인증을 통해 19세 이상임을 확인합니다.</p>
+            {adult ? <p className="flex items-center gap-1.5 text-sm text-[#2E7D32] font-medium"><Check className="h-4 w-4" /> 인증 완료</p> : (
+              <div className="flex gap-2"><button onClick={() => setAdult(true)} className="btn flex-1 py-2.5 border border-[#C9A961] text-[#C9A961] bg-white hover:bg-[#FFFDE7]">휴대폰 인증</button><button onClick={() => setAdult(true)} className="btn btn-outline flex-1 py-2.5">아이핀 인증</button></div>
             )}
           </div>
-          <div className="mt-4 flex gap-2">
-            <button onClick={() => setStep(1)} className="btn border border-[#ddd] text-[#888] px-4 py-2 bg-white">이전</button>
-            <button onClick={() => setStep(3)} disabled={!form.username || !form.password || !form.nickname || !adult} className="btn btn-navy flex-1 py-2 flex items-center justify-center gap-1 disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
+          <div className="mt-5 flex gap-2">
+            <button onClick={() => setStep(1)} className="btn btn-outline px-5 py-2.5">이전</button>
+            <button onClick={() => setStep(3)} disabled={!form.username || !form.password || !form.nickname || !adult} className="btn btn-navy flex-1 py-2.5 disabled:opacity-40">다음 <ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>)}
         {step === 3 && (<div>
-          <div className="text-center mb-4">
-            <div className="mx-auto w-[60px] h-[60px] bg-[#1E3A5F] rounded-full flex items-center justify-center text-2xl mb-1">🦊</div>
-            <button className="text-[12px] text-[#E91E63]">프로필 사진 업로드</button>
+          <div className="text-center mb-5">
+            <div className="mx-auto w-16 h-16 bg-[#1E3A5F] rounded-full flex items-center justify-center text-3xl mb-2">🦊</div>
+            <button className="text-sm text-[#E91E63] font-medium">프로필 사진 업로드</button>
           </div>
-          <div className="mb-3"><p className="text-[12px] font-bold mb-1.5">희망 지역</p><div className="flex flex-wrap gap-1">{REGIONS.map(r => <button key={r} onClick={() => setRegions(p => p.includes(r) ? p.filter(x=>x!==r) : [...p,r])} className={pill(regions.includes(r))}>{r}</button>)}</div></div>
-          <div className="mb-4"><p className="text-[12px] font-bold mb-1.5">희망 업종</p><div className="flex flex-wrap gap-1">{TYPES.map(t => <button key={t} onClick={() => setTypes(p => p.includes(t) ? p.filter(x=>x!==t) : [...p,t])} className={pill(types.includes(t))}>{t}</button>)}</div></div>
+          <div className="mb-4"><p className="text-sm font-bold mb-2">희망 지역</p><div className="flex flex-wrap gap-1.5">{REGIONS.map(r => <button key={r} onClick={() => setRegions(p => p.includes(r) ? p.filter(x=>x!==r) : [...p,r])} className={`pill ${regions.includes(r) ? 'pill-active' : ''}`}>{r}</button>)}</div></div>
+          <div className="mb-5"><p className="text-sm font-bold mb-2">희망 업종</p><div className="flex flex-wrap gap-1.5">{TYPES.map(t => <button key={t} onClick={() => setTypes(p => p.includes(t) ? p.filter(x=>x!==t) : [...p,t])} className={`pill ${types.includes(t) ? 'pill-active' : ''}`}>{t}</button>)}</div></div>
           <div className="flex gap-2">
-            <button onClick={() => setStep(2)} className="btn border border-[#ddd] text-[#888] px-4 py-2 bg-white">이전</button>
-            <button onClick={() => alert('가입 완료!')} className="btn btn-gold flex-1 py-2">가입 완료</button>
+            <button onClick={() => setStep(2)} className="btn btn-outline px-5 py-2.5">이전</button>
+            <button onClick={() => alert('가입 완료!')} className="btn btn-gold flex-1 py-2.5">가입 완료</button>
           </div>
         </div>)}
       </div>

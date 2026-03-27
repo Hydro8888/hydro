@@ -9,23 +9,23 @@ const T = [
 
 export default function TalentPage() {
   return (
-    <div className="mx-auto max-w-[700px] px-3 py-4">
-      <h1 className="text-[18px] font-bold mb-1">인재정보</h1>
-      <p className="text-[12px] text-[#888] mb-4">구직자 프로필을 확인하고 스카우트하세요</p>
-      <div className="space-y-2">
+    <div className="mx-auto max-w-[640px] px-4 py-5">
+      <h1 className="text-xl font-bold mb-1">인재정보</h1>
+      <p className="text-sm text-[#999] mb-5">구직자 프로필을 확인하고 스카우트하세요</p>
+      <div className="space-y-3">
         {T.map(t => (
-          <div key={t.id} className="card flex gap-3 p-3">
-            <div className="w-[50px] h-[50px] shrink-0 bg-[#1E3A5F] rounded-full flex items-center justify-center text-xl">🦊</div>
+          <div key={t.id} className="card flex gap-4 p-4">
+            <div className="w-12 h-12 shrink-0 bg-[#1E3A5F] rounded-full flex items-center justify-center text-xl">🦊</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between">
-                <div><h3 className="text-[14px] font-bold">{t.nick}</h3><p className="text-[11px] text-[#999]">{t.age} · 경력 {t.exp}</p></div>
-                <button className="btn btn-navy px-2.5 py-1 text-[11px]">스카우트</button>
+                <div><h3 className="text-base font-bold">{t.nick}</h3><p className="text-xs text-[#999]">{t.age} · 경력 {t.exp}</p></div>
+                <button className="btn btn-navy px-3 py-1.5 text-xs">스카우트</button>
               </div>
-              <p className="mt-1 text-[12px] text-[#555]">{t.intro}</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-[#888]">
-                <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{t.region}</span>
-                <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{t.avail}</span>
-                {t.types.map(tp => <span key={tp} className="tag bg-[#f0f0f0] text-[#666] border border-[#e0e0e0]">{tp}</span>)}
+              <p className="mt-1.5 text-sm text-[#666]">{t.intro}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#999]">
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{t.region}</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{t.avail}</span>
+                {t.types.map(tp => <span key={tp} className="tag tag-type">{tp}</span>)}
               </div>
             </div>
           </div>

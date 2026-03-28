@@ -58,7 +58,16 @@ echo "PM2: $(pm2 -v)"
 echo ""
 echo "=== [2/9] 소스 코드 클론/업데이트 ==="
 # sudo 실행 시 원래 사용자의 SSH 키를 사용
-GIT_SSH_CMD="ssh -i ${REAL_HOME}/.ssh/id_rsa -o StrictHostKeyChecking=no"
+# SSH 키 자동 탐색 (id_ed25519 우선, 없으면 id_rsa)
+if [ -f "${REAL_HOME}/.ssh/id_ed25519" ]; then
+  SSH_KEY="${REAL_HOME}/.ssh/id_ed25519"
+elif [ -f "${REAL_HOME}/.ssh/id_rsa" ]; then
+  SSH_KEY="${REAL_HOME}/.ssh/id_rsa"
+else
+  echo "오류: SSH 키를 찾을 수 없습니다 (${REAL_HOME}/.ssh/)"
+  exit 1
+fi
+GIT_SSH_CMD="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no"
 if [ -d "${DEPLOY_DIR}/.git" ]; then
   echo "기존 디렉토리 존재 - git pull..."
   cd ${DEPLOY_DIR}

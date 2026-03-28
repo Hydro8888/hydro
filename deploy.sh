@@ -14,6 +14,8 @@ APP_PORT="3010"
 APP_NAME="freeai"
 BRANCH="claude/ai-portal-dev-plan-yI3Gd"
 REPO_SSH="git@github.com:Hydro8888/hydro.git"
+REAL_USER="${SUDO_USER:-$(whoami)}"
+REAL_HOME=$(eval echo "~${REAL_USER}")
 NGINX_CONTAINER="jobworld-nginx"
 
 # xAI API Key (환경 변수에서 가져오거나 실행 시 입력)
@@ -55,15 +57,17 @@ echo "PM2: $(pm2 -v)"
 
 echo ""
 echo "=== [2/9] 소스 코드 클론/업데이트 ==="
+# sudo 실행 시 원래 사용자의 SSH 키를 사용
+GIT_SSH_CMD="ssh -i ${REAL_HOME}/.ssh/id_rsa -o StrictHostKeyChecking=no"
 if [ -d "${DEPLOY_DIR}/.git" ]; then
   echo "기존 디렉토리 존재 - git pull..."
   cd ${DEPLOY_DIR}
-  git fetch origin
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git fetch origin
   git checkout ${BRANCH}
-  git pull origin ${BRANCH}
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git pull origin ${BRANCH}
 else
   echo "새로 클론..."
-  git clone ${REPO_SSH} ${DEPLOY_DIR}
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git clone ${REPO_SSH} ${DEPLOY_DIR}
   cd ${DEPLOY_DIR}
   git checkout ${BRANCH}
 fi

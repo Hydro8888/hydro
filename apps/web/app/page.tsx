@@ -8,7 +8,7 @@ export default function LandingPage() {
           <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">AI</span>
           </div>
-          <span className="font-bold text-xl">Portal Pro</span>
+          <span className="font-bold text-xl">Free.ai.kr</span>
         </div>
         <div className="flex items-center gap-4">
           <Link
@@ -38,12 +38,7 @@ export default function LandingPage() {
           >
             AI 채팅 시작하기
           </Link>
-          <Link
-            href="/billing"
-            className="px-8 py-3 border border-gray-300 rounded-xl text-lg font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
-          >
-            요금제 보기
-          </Link>
+          {/* 요금제 보기 버튼 숨김 */}
         </div>
 
         <div className="mt-20 flex items-center justify-center gap-6 flex-wrap">

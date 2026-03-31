@@ -1,6 +1,6 @@
 /**
  * scraper.ts
- * Fetches the full article text from the original URL.
+ * Fetches the full article text AND image from the original URL.
  * Uses simple HTTP fetch + HTML parsing (no headless browser).
  */
 
@@ -28,17 +28,54 @@ function stripHtml(html: string): string {
     .replace(/[ \t]+/g, ' ')
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l.length > 30) // Only keep meaningful lines
+    .filter(l => l.length > 30)
     .join('\n')
     .trim();
 }
 
 /**
+ * Extract og:image or twitter:image from HTML meta tags.
+ */
+function extractOgImage(html: string): string {
+  // og:image
+  const ogMatch = html.match(/<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+  if (ogMatch?.[1]) return ogMatch[1];
+
+  // twitter:image
+  const twMatch = html.match(/<meta\s[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+  if (twMatch?.[1]) return twMatch[1];
+
+  // generic image meta
+  const imgMeta = html.match(/<meta\s[^>]*name=["']image["'][^>]*content=["']([^"']+)["']/i);
+  if (imgMeta?.[1]) return imgMeta[1];
+
+  // First large image in article
+  const imgTag = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*(?:width=["'](\d+)["'])?/gi);
+  if (imgTag) {
+    for (const tag of imgTag) {
+      const srcMatch = tag.match(/src=["']([^"']+)["']/i);
+      const widthMatch = tag.match(/width=["'](\d+)["']/i);
+      if (srcMatch?.[1]) {
+        const src = srcMatch[1];
+        // Skip tiny images (icons, logos, tracking pixels)
+        if (widthMatch && parseInt(widthMatch[1]) < 200) continue;
+        if (src.includes('logo') || src.includes('icon') || src.includes('avatar')) continue;
+        if (src.includes('1x1') || src.includes('pixel') || src.includes('tracking')) continue;
+        if (src.endsWith('.gif') && !src.includes('giphy')) continue;
+        return src;
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
  * Extract article body from HTML page.
- * Looks for common article content containers.
  */
 function extractArticleContent(html: string): string {
-  // Try to find the main article content using common selectors
   const patterns = [
     /<article[^>]*>([\s\S]*?)<\/article>/gi,
     /<div[^>]*class="[^"]*article[_-]?(?:body|content|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
@@ -55,7 +92,7 @@ function extractArticleContent(html: string): string {
     if (match && match[1]) {
       const text = stripHtml(match[1]);
       if (text.length > 100) {
-        return text.slice(0, 5000); // Limit to 5000 chars
+        return text.slice(0, 5000);
       }
     }
   }
@@ -66,7 +103,7 @@ function extractArticleContent(html: string): string {
   let pMatch;
   while ((pMatch = pRegex.exec(html)) !== null) {
     const text = stripHtml(pMatch[1]).trim();
-    if (text.length > 40) { // Only meaningful paragraphs
+    if (text.length > 40) {
       paragraphs.push(text);
     }
   }
@@ -78,19 +115,23 @@ function extractArticleContent(html: string): string {
   return '';
 }
 
+interface ScrapedPage {
+  content: string;
+  imageUrl: string;
+}
+
 /**
- * Fetch full article content from the original URL.
- * Returns the extracted text or empty string on failure.
+ * Fetch article page and extract both content and image.
  */
-async function fetchArticleContent(url: string): Promise<string> {
+async function fetchArticlePage(url: string): Promise<ScrapedPage> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LiveNewsBot/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -98,46 +139,57 @@ async function fetchArticleContent(url: string): Promise<string> {
 
     clearTimeout(timeout);
 
-    if (!res.ok) return '';
+    if (!res.ok) return { content: '', imageUrl: '' };
 
     const html = await res.text();
-    return extractArticleContent(html);
+    return {
+      content: extractArticleContent(html),
+      imageUrl: extractOgImage(html),
+    };
   } catch {
-    return '';
+    return { content: '', imageUrl: '' };
   }
 }
 
 /**
- * Scrape full article content for articles that lack contentOriginal.
- * Processes articles sequentially with delays to be polite.
+ * Scrape full article content AND images for articles.
+ * Updates contentOriginal and imageUrl on each article.
  */
 export async function scrapeArticleContents(
   articles: NormalizedArticle[],
 ): Promise<NormalizedArticle[]> {
   const needsScraping = articles.filter(
-    (a) => !a.contentOriginal || a.contentOriginal.length < 100
+    (a) => !a.contentOriginal || a.contentOriginal.length < 100 || !a.imageUrl
   );
 
   if (needsScraping.length === 0) {
-    console.log('[scraper] All articles already have content');
+    console.log('[scraper] All articles already have content and images');
     return articles;
   }
 
-  console.log(`[scraper] Scraping content for ${needsScraping.length}/${articles.length} articles...`);
+  console.log(`[scraper] Scraping ${needsScraping.length}/${articles.length} articles...`);
 
-  let scraped = 0;
+  let scrapedContent = 0;
+  let scrapedImages = 0;
+
   for (const article of needsScraping) {
-    const content = await fetchArticleContent(article.originalUrl);
-    if (content && content.length > 100) {
+    const { content, imageUrl } = await fetchArticlePage(article.originalUrl);
+
+    if (content && content.length > 100 && (!article.contentOriginal || article.contentOriginal.length < 100)) {
       article.contentOriginal = content;
-      scraped++;
-      console.log(`[scraper] Got ${content.length} chars from ${article.originalUrl.slice(0, 60)}...`);
+      scrapedContent++;
     }
 
-    // Polite delay between requests (1 second)
+    if (imageUrl && !article.imageUrl) {
+      article.imageUrl = imageUrl;
+      scrapedImages++;
+      console.log(`[scraper] Got image from ${article.originalUrl.slice(0, 50)}...`);
+    }
+
+    // Polite delay
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  console.log(`[scraper] Scraped ${scraped}/${needsScraping.length} articles successfully`);
+  console.log(`[scraper] Done: ${scrapedContent} content, ${scrapedImages} images scraped`);
   return articles;
 }

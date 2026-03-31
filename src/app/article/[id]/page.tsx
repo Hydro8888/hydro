@@ -190,31 +190,15 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           </details>
         )}
 
-        {/* Original Source Info Box */}
-        <div className="mb-8 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            <h3 className="font-bold text-gray-700">원문 정보</h3>
-          </div>
-          <div className="space-y-2 text-sm text-gray-600">
-            <p><span className="font-medium text-gray-700">소스:</span> {article.source.sourceName}</p>
-            <p><span className="font-medium text-gray-700">원문 제목:</span> {article.titleOriginal}</p>
-            <p><span className="font-medium text-gray-700">발행일:</span> {formatDate(article.publishedAt)}</p>
-            {article.author && <p><span className="font-medium text-gray-700">저자:</span> {article.author}</p>}
-            <p className="pt-2">
-              <a
-                href={article.originalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:text-blue-700 font-medium inline-flex items-center gap-1 transition-colors"
-              >
-                원문 기사 바로가기
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-              </a>
-            </p>
-          </div>
+        {/* Original Source Info - 컴팩트 한줄 */}
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 border-t border-gray-100 pt-4">
+          <span>소스: <span className="text-gray-600">{article.source.sourceName}</span></span>
+          <span>원문: <span className="text-gray-600 italic">{article.titleOriginal.length > 60 ? article.titleOriginal.slice(0, 60) + '...' : article.titleOriginal}</span></span>
+          {article.author && <span>저자: <span className="text-gray-600">{article.author}</span></span>}
+          <span>{formatDate(article.publishedAt)}</span>
+          <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+            원문 바로가기 &rarr;
+          </a>
         </div>
 
         {/* Tags */}
@@ -232,31 +216,31 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 mb-10">
+        {/* Action Buttons - 작은 보조 버튼 */}
+        <div className="flex flex-wrap gap-2 mb-10">
           <a
             href={article.originalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+            className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
             원문 보기
           </a>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-white border-2 border-gray-200 text-gray-700 px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             목록으로
           </Link>
           <a
             href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.titleKo || article.titleOriginal)}&url=${encodeURIComponent(article.originalUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-white border-2 border-gray-200 text-gray-700 px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
             공유
           </a>
         </div>

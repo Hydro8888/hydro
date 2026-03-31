@@ -17,19 +17,23 @@ async function getArticles(page: number) {
   const take = 20;
   const skip = (page - 1) * take;
 
-  return getCached(`world:${page}`, 60, async () => {
-    const [articles, total] = await Promise.all([
-      prisma.article.findMany({
-        where: { country: 'global', isActive: true },
-        include: { source: true },
-        orderBy: { publishedAt: 'desc' },
-        take,
-        skip,
-      }),
-      prisma.article.count({ where: { country: 'global', isActive: true } }),
-    ]);
-    return { articles, total, totalPages: Math.ceil(total / take) };
-  });
+  try {
+    return await getCached(`world:${page}`, 60, async () => {
+      const [articles, total] = await Promise.all([
+        prisma.article.findMany({
+          where: { country: 'global', isActive: true },
+          include: { source: true },
+          orderBy: { publishedAt: 'desc' },
+          take,
+          skip,
+        }),
+        prisma.article.count({ where: { country: 'global', isActive: true } }),
+      ]);
+      return { articles, total, totalPages: Math.ceil(total / take) };
+    });
+  } catch {
+    return { articles: [], total: 0, totalPages: 0 };
+  }
 }
 
 export default async function WorldPage({

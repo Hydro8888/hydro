@@ -14,14 +14,18 @@ async function getRankingArticles(country: string) {
   const where: Record<string, unknown> = { isActive: true };
   if (country && country !== 'all') where.country = country;
 
-  return getCached(`ranking:${country}`, 120, () =>
-    prisma.article.findMany({
-      where,
-      include: { source: true },
-      orderBy: { viewCount: 'desc' },
-      take: 30,
-    })
-  );
+  try {
+    return await getCached(`ranking:${country}`, 120, () =>
+      prisma.article.findMany({
+        where,
+        include: { source: true },
+        orderBy: { viewCount: 'desc' },
+        take: 30,
+      })
+    );
+  } catch {
+    return [];
+  }
 }
 
 export default async function RankingPage({

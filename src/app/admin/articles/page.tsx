@@ -26,14 +26,20 @@ export default function AdminArticlesPage() {
 
   async function loadArticles() {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: '30' });
-    if (filter.country) params.set('country', filter.country);
-    if (filter.category) params.set('category', filter.category);
-    const res = await fetch(`/livenews/api/articles?${params}`);
-    const data = await res.json();
-    setArticles(data.articles || []);
-    setTotal(data.total || 0);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: '30' });
+      if (filter.country) params.set('country', filter.country);
+      if (filter.category) params.set('category', filter.category);
+      const res = await fetch(`/livenews/api/articles?${params}`);
+      const data = await res.json();
+      setArticles(data.articles || []);
+      setTotal(data.total || 0);
+    } catch {
+      setArticles([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggleActive(id: number, isActive: boolean) {

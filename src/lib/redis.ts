@@ -14,8 +14,11 @@ function createRedis(): Redis | null {
         return Math.min(times * 500, 3000);
       },
     });
-    // Suppress unhandled error events
-    client.on('error', () => {});
+    client.on('error', (err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Redis]', err.message);
+      }
+    });
     return client;
   } catch {
     return null;

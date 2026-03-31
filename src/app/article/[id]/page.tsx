@@ -18,23 +18,28 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 async function getArticle(id: number) {
-  const article = await prisma.article.findUnique({
-    where: { id },
-    include: { source: true },
-  });
-  if (!article) return null;
+  try {
+    const article = await prisma.article.findUnique({
+      where: { id },
+      include: { source: true },
+    });
+    if (!article) return null;
 
-  // Increment view count
-  await prisma.article.update({
-    where: { id },
-    data: { viewCount: { increment: 1 } },
-  });
+    // Increment view count (fire-and-forget)
+    prisma.article.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+    }).catch(() => {});
 
-  return article;
+    return article;
+  } catch {
+    return null;
+  }
 }
 
 async function getRelatedArticles(article: { id: number; categoryPrimary: string | null; country: string }) {
-  return prisma.article.findMany({
+  try {
+    return await prisma.article.findMany({
     where: {
       isActive: true,
       id: { not: article.id },
@@ -47,6 +52,9 @@ async function getRelatedArticles(article: { id: number; categoryPrimary: string
     orderBy: { publishedAt: 'desc' },
     take: 5,
   });
+  } catch {
+    return [];
+  }
 }
 
 export default async function ArticleDetailPage({
@@ -141,7 +149,7 @@ export default async function ArticleDetailPage({
         )}
 
         {/* Tags */}
-        {article.tags.length > 0 && (
+        {article.tags?.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-6">
             {article.tags.map((tag) => (
               <Link

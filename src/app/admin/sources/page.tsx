@@ -31,10 +31,15 @@ export default function AdminSourcesPage() {
 
   async function loadSources() {
     setLoading(true);
-    const res = await fetch('/livenews/api/admin/sources');
-    const data = await res.json();
-    setSources(data.sources || []);
-    setLoading(false);
+    try {
+      const res = await fetch('/livenews/api/admin/sources');
+      const data = await res.json();
+      setSources(data.sources || []);
+    } catch {
+      setSources([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {

@@ -71,8 +71,10 @@ export async function categorizeArticle(title: string): Promise<{ primary: strin
     const text = res.choices[0]?.message?.content?.trim() || '';
     const match = text.match(/\{[^}]+\}/);
     if (match) {
-      const parsed = JSON.parse(match[0]);
-      return { primary: parsed.primary || 'general', secondary: parsed.secondary || '' };
+      try {
+        const parsed = JSON.parse(match[0]);
+        return { primary: parsed.primary || 'general', secondary: parsed.secondary || '' };
+      } catch { /* malformed JSON from AI */ }
     }
   } catch (e) {
     console.error('Categorize error:', e);
@@ -112,10 +114,12 @@ JSON 배열로 응답하세요: [{"titleKo":"...","summaryKo":"...","primary":".
     const text = res.choices[0]?.message?.content?.trim() || '';
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed) && parsed.length === articles.length) {
-        return parsed;
-      }
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed) && parsed.length === articles.length) {
+          return parsed;
+        }
+      } catch { /* malformed JSON from AI */ }
     }
   } catch (e) {
     console.error('Batch translate error:', e);

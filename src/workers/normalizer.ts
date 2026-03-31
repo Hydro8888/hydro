@@ -17,6 +17,7 @@ export interface NormalizedArticle {
   sourceId: number;
   originalUrl: string;
   titleOriginal: string;
+  contentOriginal: string | null;
   publishedAt: Date | null;
   language: string;
   country: string;
@@ -25,8 +26,28 @@ export interface NormalizedArticle {
   // AI fields are filled later by the translator
   titleKo?: string;
   summaryKo?: string;
+  contentKo?: string;
   categoryPrimary?: string;
   categorySecondary?: string;
+}
+
+// ---------------------------------------------------------------------------
+// HTML stripping helper
+// ---------------------------------------------------------------------------
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -119,10 +140,20 @@ export function normalizeArticle(
     return null;
   }
 
+  // Extract and clean content text (max 3000 chars for API cost control)
+  let contentOriginal: string | null = null;
+  if (raw.content) {
+    const cleaned = stripHtml(raw.content);
+    if (cleaned.length > 30) { // Only save meaningful content
+      contentOriginal = cleaned.slice(0, 3000);
+    }
+  }
+
   return {
     sourceId: source.id,
     originalUrl,
     titleOriginal,
+    contentOriginal,
     publishedAt: parseDate(raw.pubDate),
     language: source.language,
     country: source.country,

@@ -127,3 +127,39 @@ JSON 배열로 응답하세요: [{"titleKo":"...","summaryKo":"...","primary":".
 
   return articles.map(() => ({ titleKo: '', summaryKo: '', primary: 'general', secondary: '' }));
 }
+
+/**
+ * Translate article content (body) to Korean.
+ * Processes one article at a time to handle long content.
+ */
+export async function translateContent(content: string): Promise<string> {
+  if (!content || !process.env.XAI_API_KEY) return '';
+
+  // Limit content to 2500 chars to manage API costs
+  const trimmed = content.slice(0, 2500);
+
+  try {
+    const res = await client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: `당신은 뉴스 기사 번역 전문가입니다. 주어진 영문 뉴스 기사 본문을 자연스러운 한국어로 번역하세요.
+
+규칙:
+- 뉴스 기사 스타일의 격식체 사용 (예: ~했다, ~이다)
+- 고유명사(인명, 지명, 기관명)는 원문 그대로 유지하거나 널리 알려진 한국어 표기 사용
+- 문단 구분을 유지하세요
+- 번역문만 출력하세요 (설명이나 주석 없이)`,
+        },
+        { role: 'user', content: trimmed },
+      ],
+      max_tokens: 2000,
+      temperature: 0.3,
+    });
+    return res.choices[0]?.message?.content?.trim() || '';
+  } catch (e) {
+    console.error('Content translation error:', e);
+    return '';
+  }
+}

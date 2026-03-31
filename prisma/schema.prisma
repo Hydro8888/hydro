@@ -31,6 +31,8 @@ model Article {
   titleOriginal     String
   titleKo           String?
   summaryKo         String?
+  contentOriginal   String?
+  contentKo         String?
   publishedAt       DateTime?
   fetchedAt         DateTime  @default(now())
   language          String

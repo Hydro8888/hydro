@@ -191,6 +191,8 @@ async function collectSource(source: Source): Promise<CollectionResult> {
         titleOriginal: a.titleOriginal,
         titleKo: a.titleKo || null,
         summaryKo: a.summaryKo || null,
+        contentOriginal: a.contentOriginal || null,
+        contentKo: a.contentKo || null,
         publishedAt: a.publishedAt,
         language: a.language,
         country: a.country,

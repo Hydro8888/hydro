@@ -77,6 +77,7 @@ JSON 배열로 응답하세요: [{"titleKo":"...","summaryKo":"...","primary":".
 export type TranslatableArticle = NormalizedArticle & {
   titleKo?: string;
   summaryKo?: string;
+  contentKo?: string;
   categoryPrimary?: string;
   categorySecondary?: string;
 };
@@ -151,6 +152,51 @@ export async function translateArticles(
     if (i + CHUNK_SIZE < articles.length) {
       await new Promise((r) => setTimeout(r, 300));
     }
+  }
+
+  // Phase 2: Translate content for articles that have contentOriginal
+  const articlesWithContent = results.filter((a) => a.contentOriginal && a.contentOriginal.length > 50);
+  if (articlesWithContent.length > 0 && client) {
+    console.log(`[translator] Translating content for ${articlesWithContent.length} articles...`);
+
+    for (const article of articlesWithContent) {
+      try {
+        const trimmed = (article.contentOriginal || '').slice(0, 2500);
+        const res = await client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: `당신은 뉴스 기사 번역 전문가입니다. 주어진 영문 뉴스 기사 본문을 자연스러운 한국어로 번역하세요.
+
+규칙:
+- 뉴스 기사 스타일의 격식체 사용 (예: ~했다, ~이다)
+- 고유명사(인명, 지명, 기관명)는 원문 그대로 유지하거나 널리 알려진 한국어 표기 사용
+- 문단 구분을 유지하세요
+- 번역문만 출력하세요`,
+            },
+            { role: 'user', content: trimmed },
+          ],
+          max_tokens: 2000,
+          temperature: 0.3,
+        });
+        article.contentKo = res.choices[0]?.message?.content?.trim() || '';
+
+        // Also improve summaryKo using actual content
+        if (article.contentKo && article.contentKo.length > 50) {
+          article.summaryKo = article.contentKo.slice(0, 200) + (article.contentKo.length > 200 ? '...' : '');
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[translator] Content translation failed for "${article.titleOriginal.slice(0, 40)}": ${msg}`);
+        article.contentKo = '';
+      }
+
+      // Pause between translations
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    console.log(`[translator] Content translation complete`);
   }
 
   return results;

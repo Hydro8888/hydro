@@ -143,25 +143,51 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           </div>
         )}
 
-        {/* Korean Summary / Translation - Main Content Area */}
-        {article.summaryKo && (
+        {/* Korean Translation - Full Content */}
+        {(article.contentKo || article.summaryKo) && (
           <div className="mb-8">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 md:p-8 border border-blue-100">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                   </svg>
                 </div>
                 <h2 className="text-lg font-bold text-gray-800">한국어 번역</h2>
+                <span className="text-xs text-gray-400 bg-white px-2 py-0.5 rounded-full">AI 번역</span>
               </div>
               <div className="prose prose-lg max-w-none">
-                <p className="text-gray-700 leading-relaxed text-base md:text-lg whitespace-pre-line">
-                  {article.summaryKo}
-                </p>
+                {article.contentKo ? (
+                  <div className="text-gray-700 leading-relaxed text-base md:text-lg space-y-4">
+                    {article.contentKo.split('\n').filter(Boolean).map((paragraph, i) => (
+                      <p key={i}>{paragraph}</p>
+                    ))}
+                  </div>
+                ) : article.summaryKo ? (
+                  <p className="text-gray-700 leading-relaxed text-base md:text-lg">
+                    {article.summaryKo}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Original Content (collapsible) */}
+        {article.contentOriginal && (
+          <details className="mb-8 group">
+            <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2 py-2">
+              <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              원문 내용 보기 (English)
+            </summary>
+            <div className="mt-3 bg-gray-50 rounded-xl p-5 border border-gray-200 text-sm text-gray-600 leading-relaxed">
+              {article.contentOriginal.split('\n').filter(Boolean).map((p, i) => (
+                <p key={i} className="mb-3">{p}</p>
+              ))}
+            </div>
+          </details>
         )}
 
         {/* Original Source Info Box */}

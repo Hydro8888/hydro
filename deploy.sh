@@ -6,6 +6,14 @@ set -e
 # 서버에 SSH 접속한 상태에서 직접 실행
 # 사용법: sudo bash deploy.sh
 # ====================================================
+#
+# 서버 구조:
+#   인터넷 → Docker nginx (jobworld-nginx, 포트 80) → 호스트 앱
+#   Docker nginx는 172.17.0.1 (docker0 bridge)로 호스트 앱에 접근
+#   앱은 반드시 0.0.0.0에 바인딩해야 Docker에서 접근 가능
+#   iptables DOCKER-USER 체인에 포트 허용 필수
+#
+# ====================================================
 
 # 색상 정의
 RED='\033[0;31m'
@@ -26,35 +34,32 @@ DEPLOY_PATH="/home/ubuntu/livenews"
 REPO_URL="git@github.com:Hydro8888/hydro.git"
 BRANCH="claude/global-news-platform-9p7Oo"
 NGINX_CONTAINER="jobworld-nginx"
+DOCKER_HOST_IP="172.17.0.1"  # Docker bridge에서 호스트로 접근하는 IP
 
 # ---- 1. 포트 현황 확인 ----
-echo -e "${YELLOW}[1/10] 현재 포트 사용 현황 확인...${NC}"
+echo -e "${YELLOW}[1/11] 현재 포트 사용 현황 확인...${NC}"
 echo "---------------------------------------"
 echo "현재 사용 중인 주요 포트:"
 ss -tlnp 2>/dev/null | grep -E ':(3000|3001|3002|3003|4000|5000|8000|8080)' || echo "  (주요 포트 사용 없음)"
 echo ""
+echo "Docker 컨테이너 현황:"
+docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" 2>/dev/null || echo "  Docker 미실행"
+echo ""
 
 # 포트 4000 사용 확인
 if ss -tlnp 2>/dev/null | grep -q ":${APP_PORT} "; then
-    echo -e "${RED}경고: 포트 ${APP_PORT}이 이미 사용 중입니다!${NC}"
-    echo "다른 포트를 사용하거나, 기존 프로세스를 중지하세요."
-    read -p "계속 진행하시겠습니까? (y/n): " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "배포 중단."
-        exit 1
-    fi
+    echo -e "${YELLOW}경고: 포트 ${APP_PORT}이 이미 사용 중입니다. 기존 프로세스를 정리합니다.${NC}"
 fi
 echo -e "${GREEN}포트 ${APP_PORT} 사용 예정${NC}"
 echo ""
 
 # ---- 2. PM2 현황 확인 ----
-echo -e "${YELLOW}[2/10] PM2 프로세스 현황...${NC}"
+echo -e "${YELLOW}[2/11] PM2 프로세스 현황...${NC}"
 pm2 list 2>/dev/null || echo "PM2 미설치 또는 실행 없음"
 echo ""
 
 # ---- 3. 기존 앱 정리 ----
-echo -e "${YELLOW}[3/10] 기존 ${APP_NAME} 프로세스 정리...${NC}"
+echo -e "${YELLOW}[3/11] 기존 ${APP_NAME} 프로세스 정리...${NC}"
 pm2 stop ${APP_NAME} 2>/dev/null || true
 pm2 stop ${APP_NAME}-collector 2>/dev/null || true
 pm2 delete ${APP_NAME} 2>/dev/null || true
@@ -63,13 +68,13 @@ echo -e "${GREEN}완료${NC}"
 echo ""
 
 # ---- 4. 소스코드 배포 ----
-echo -e "${YELLOW}[4/10] 소스코드 배포...${NC}"
+echo -e "${YELLOW}[4/11] 소스코드 배포...${NC}"
 if [ -d "$DEPLOY_PATH" ]; then
     echo "기존 디렉토리 발견. 업데이트 중..."
     cd "$DEPLOY_PATH"
     git fetch origin "$BRANCH"
     git checkout "$BRANCH"
-    git pull origin "$BRANCH"
+    git reset --hard "origin/$BRANCH"
 else
     echo "새로 클론..."
     cd /home/ubuntu
@@ -81,26 +86,25 @@ echo -e "${GREEN}소스코드 배포 완료${NC}"
 echo ""
 
 # ---- 5. Node.js 의존성 설치 ----
-echo -e "${YELLOW}[5/10] Node.js 의존성 설치...${NC}"
+echo -e "${YELLOW}[5/11] Node.js 의존성 설치...${NC}"
 
 # NVM 설정 (있는 경우)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-node -v
-npm -v
+echo "Node: $(node -v), npm: $(npm -v)"
 
 npm install --production=false 2>&1 | tail -3
 echo -e "${GREEN}의존성 설치 완료${NC}"
 echo ""
 
 # ---- 6. 환경변수 설정 ----
-echo -e "${YELLOW}[6/10] 환경변수 설정...${NC}"
+echo -e "${YELLOW}[6/11] 환경변수 설정...${NC}"
 if [ ! -f "$DEPLOY_PATH/.env" ]; then
     # Docker PostgreSQL/Redis 연결 정보 자동 감지
-    POSTGRES_HOST="172.17.0.1"
+    POSTGRES_HOST="${DOCKER_HOST_IP}"
     POSTGRES_PORT="5432"
-    REDIS_HOST="172.17.0.1"
+    REDIS_HOST="${DOCKER_HOST_IP}"
     REDIS_PORT="6379"
 
     # Docker에서 실행 중인 PostgreSQL 포트 확인
@@ -135,18 +139,23 @@ APP_PORT=${APP_PORT}
 NODE_ENV=production
 ENVEOF
     echo -e "${GREEN}.env 파일 생성 완료${NC}"
+    echo -e "${RED}중요: .env의 XAI_API_KEY를 실제 키로 교체하세요!${NC}"
 else
     echo ".env 파일 이미 존재. 유지합니다."
 fi
 echo ""
 
 # ---- 7. 데이터베이스 설정 ----
-echo -e "${YELLOW}[7/10] 데이터베이스 설정...${NC}"
+echo -e "${YELLOW}[7/11] 데이터베이스 설정...${NC}"
 
-# PostgreSQL에 livenews DB 생성 시도
-echo "livenews 데이터베이스 생성 시도..."
-docker exec -i $(docker ps -q --filter "ancestor=postgres" 2>/dev/null | head -1) \
-    psql -U postgres -c "CREATE DATABASE livenews;" 2>/dev/null || echo "DB가 이미 존재하거나 Docker PostgreSQL을 찾을 수 없습니다."
+# Docker PostgreSQL 컨테이너 찾기
+PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -i postgres | head -1)
+if [ -n "$PG_CONTAINER" ]; then
+    echo "PostgreSQL 컨테이너: $PG_CONTAINER"
+    docker exec -i "$PG_CONTAINER" psql -U postgres -c "CREATE DATABASE livenews;" 2>/dev/null || echo "DB가 이미 존재합니다."
+else
+    echo -e "${YELLOW}Docker PostgreSQL 컨테이너를 찾을 수 없습니다. 수동 확인 필요.${NC}"
+fi
 
 # Prisma 마이그레이션
 npx prisma generate
@@ -159,83 +168,176 @@ echo -e "${GREEN}데이터베이스 설정 완료${NC}"
 echo ""
 
 # ---- 8. Next.js 빌드 ----
-echo -e "${YELLOW}[8/10] Next.js 빌드...${NC}"
+echo -e "${YELLOW}[8/11] Next.js 빌드...${NC}"
 npm run build 2>&1 | tail -10
 echo -e "${GREEN}빌드 완료${NC}"
 echo ""
 
 # ---- 9. PM2 시작 ----
-echo -e "${YELLOW}[9/10] PM2 프로세스 시작...${NC}"
+echo -e "${YELLOW}[9/11] PM2 프로세스 시작...${NC}"
+# 주의: Next.js는 0.0.0.0에 바인딩해야 Docker nginx에서 접근 가능
 pm2 start ecosystem.config.js
 pm2 save
 echo -e "${GREEN}PM2 시작 완료${NC}"
 echo ""
 
-# ---- 10. Nginx 설정 ----
-echo -e "${YELLOW}[10/10] Nginx 프록시 설정...${NC}"
-
-# Nginx 타입 자동 감지 (Docker vs systemd)
-NGINX_TYPE="none"
-
-# 1순위: Docker nginx 컨테이너 확인
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "${NGINX_CONTAINER}"; then
-    NGINX_TYPE="docker"
-    echo "Docker nginx 컨테이너 감지: ${NGINX_CONTAINER}"
-# 2순위: systemd nginx 확인
-elif [ -d "/etc/nginx" ] && command -v nginx &>/dev/null; then
-    NGINX_TYPE="systemd"
-    echo "systemd nginx 감지: $(nginx -v 2>&1)"
-else
-    echo -e "${RED}nginx를 찾을 수 없습니다. 수동으로 설정하세요.${NC}"
-fi
-
-if [ "$NGINX_TYPE" = "systemd" ]; then
-    # ===== systemd nginx 설정 =====
-    # 기존 서버 블록의 nginx 설정 파일 찾기
-    NGINX_MAIN_CONF=""
-
-    # sites-enabled 에서 default 또는 기존 설정 파일 찾기
-    if [ -f "/etc/nginx/sites-enabled/default" ]; then
-        NGINX_MAIN_CONF="/etc/nginx/sites-enabled/default"
-    elif [ -f "/etc/nginx/sites-available/default" ]; then
-        NGINX_MAIN_CONF="/etc/nginx/sites-available/default"
-    elif ls /etc/nginx/sites-enabled/*.conf 2>/dev/null | head -1 > /dev/null; then
-        NGINX_MAIN_CONF=$(ls /etc/nginx/sites-enabled/*.conf 2>/dev/null | head -1)
-    elif ls /etc/nginx/conf.d/*.conf 2>/dev/null | head -1 > /dev/null; then
-        NGINX_MAIN_CONF=$(ls /etc/nginx/conf.d/*.conf 2>/dev/null | head -1)
+# 앱이 시작될 때까지 대기
+echo "앱 시작 대기 중..."
+for i in $(seq 1 10); do
+    if curl -s -o /dev/null -w "%{http_code}" "http://0.0.0.0:${APP_PORT}/livenews/" 2>/dev/null | grep -q "200\|304"; then
+        echo -e "${GREEN}앱 시작 확인!${NC}"
+        break
     fi
+    echo "  대기 중... ($i/10)"
+    sleep 2
+done
+echo ""
 
-    echo "기존 nginx 설정 파일: ${NGINX_MAIN_CONF:-미발견}"
+# ---- 10. iptables 방화벽 설정 ----
+echo -e "${YELLOW}[10/11] iptables 방화벽 규칙 추가...${NC}"
+echo "Docker nginx → 호스트 포트 ${APP_PORT} 접근 허용"
 
-    # 이미 livenews 설정이 있는지 확인
-    if grep -rq "livenews" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null; then
-        echo "nginx에 이미 /livenews 설정이 있습니다."
+# DOCKER-USER 체인에 규칙 추가 (Docker 네트워크에서 앱 포트 접근 허용)
+# 이것이 없으면 Docker nginx가 호스트의 포트 4000에 접근 불가!
+iptables -C DOCKER-USER -s 172.17.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || \
+    iptables -I DOCKER-USER -s 172.17.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true
+
+iptables -C DOCKER-USER -s 172.18.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || \
+    iptables -I DOCKER-USER -s 172.18.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true
+
+echo -e "${GREEN}iptables 규칙 추가 완료${NC}"
+
+# UFW도 설정 (재부팅 후에도 유지)
+if command -v ufw &>/dev/null; then
+    ufw allow from 172.17.0.0/16 to any port ${APP_PORT} 2>/dev/null || true
+    ufw allow from 172.18.0.0/16 to any port ${APP_PORT} 2>/dev/null || true
+    echo "UFW 규칙도 추가 완료"
+fi
+echo ""
+
+# ---- 11. Docker nginx 프록시 설정 ----
+echo -e "${YELLOW}[11/11] Docker nginx (${NGINX_CONTAINER}) 프록시 설정...${NC}"
+
+# Docker nginx 컨테이너 확인
+if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${NGINX_CONTAINER}$"; then
+    echo -e "${RED}오류: Docker nginx 컨테이너 '${NGINX_CONTAINER}'를 찾을 수 없습니다!${NC}"
+    echo "실행 중인 컨테이너:"
+    docker ps --format '{{.Names}}' 2>/dev/null
+    echo ""
+    echo -e "${RED}수동으로 nginx 설정을 추가하세요.${NC}"
+else
+    # 현재 default.conf에 livenews 설정이 있는지 확인
+    HAS_LIVENEWS=$(docker exec ${NGINX_CONTAINER} grep -c "livenews" /etc/nginx/conf.d/default.conf 2>/dev/null || echo "0")
+
+    if [ "$HAS_LIVENEWS" != "0" ]; then
+        echo "Docker nginx에 이미 /livenews 설정이 있습니다. 스킵."
     else
-        echo "nginx에 /livenews 프록시 설정 추가..."
+        echo "Docker nginx default.conf에 /livenews location 블록 추가..."
 
-        # conf.d에 별도 설정 파일 생성 (include되는 방식)
-        # 주의: 별도 server 블록이 아닌, 기존 server 블록에 포함되는 snippet 사용
-        # nginx의 include 구조에 따라 conf.d 또는 기존 설정에 location 추가
+        # 현재 설정 백업
+        docker exec ${NGINX_CONTAINER} cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
 
-        # 방법 1: 기존 default 설정에 location 블록 직접 삽입
-        if [ -n "$NGINX_MAIN_CONF" ] && [ -f "$NGINX_MAIN_CONF" ]; then
-            # 백업
-            cp "$NGINX_MAIN_CONF" "${NGINX_MAIN_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+        # 현재 default.conf 내용 확인 (디버그용)
+        echo "현재 default.conf 구조:"
+        docker exec ${NGINX_CONTAINER} head -5 /etc/nginx/conf.d/default.conf
 
-            # 기존 server 블록의 마지막 } 앞에 location 블록 삽입
-            # 다른 서비스들 (/hacker, /jobworld 등)도 이 방식으로 추가됨
-            sed -i '/^[[:space:]]*#.*livenews/d' "$NGINX_MAIN_CONF"
+        # default.conf의 server 블록 마지막 } 앞에 location 블록 삽입
+        # 방법: 임시 파일에 새 설정 작성 후 교체
+        docker exec ${NGINX_CONTAINER} sh -c '
+CONF="/etc/nginx/conf.d/default.conf"
+TEMP="/tmp/default.conf.new"
 
-            # 마지막 닫는 중괄호 } 앞에 livenews location 추가
-            # tac으로 뒤집어서 첫 번째 }를 찾아 그 앞에 삽입
-            LIVENEWS_BLOCK=$(cat << 'LOCATIONEOF'
-
+# Python이 있으면 Python 사용, 없으면 awk 사용
+if command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+conf = open(\"$CONF\").read()
+block = \"\"\"
     # === LiveNews Proxy ===
     location /livenews {
-        proxy_pass http://127.0.0.1:4000;
+        proxy_pass http://'"${DOCKER_HOST_IP}"':'"${APP_PORT}"';
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\\\\\$http_upgrade;
+        proxy_set_header Connection \\\"upgrade\\\";
+        proxy_set_header Host \\\\\\$host;
+        proxy_set_header X-Real-IP \\\\\\$remote_addr;
+        proxy_set_header X-Forwarded-For \\\\\\$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \\\\\\$scheme;
+        proxy_cache_bypass \\\\\\$http_upgrade;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+
+    location /livenews/_next/static {
+        proxy_pass http://'"${DOCKER_HOST_IP}"':'"${APP_PORT}"';
+        proxy_http_version 1.1;
+        proxy_set_header Host \\\\\\$host;
+        expires 30d;
+        add_header Cache-Control \\\"public, immutable\\\";
+    }
+\"\"\"
+idx = conf.rfind(\"}\")
+if idx >= 0:
+    new_conf = conf[:idx] + block + \"\\n\" + conf[idx:]
+    open(\"$CONF\", \"w\").write(new_conf)
+    print(\"OK: location block injected via python3\")
+else:
+    print(\"ERROR: no closing brace found\")
+    exit(1)
+"
+else
+    # awk 방법: 마지막 } 앞에 삽입
+    awk -v block="\\n    # === LiveNews Proxy ===\\n    location /livenews {\\n        proxy_pass http://'"${DOCKER_HOST_IP}"':'"${APP_PORT}"';\\n        proxy_http_version 1.1;\\n        proxy_set_header Host \\$host;\\n        proxy_set_header X-Real-IP \\$remote_addr;\\n        proxy_set_header X-Forwarded-For \\$proxy_add_x_forwarded_for;\\n        proxy_cache_bypass \\$http_upgrade;\\n        proxy_read_timeout 60s;\\n    }\\n\\n    location /livenews/_next/static {\\n        proxy_pass http://'"${DOCKER_HOST_IP}"':'"${APP_PORT}"';\\n        proxy_http_version 1.1;\\n        proxy_set_header Host \\$host;\\n        expires 30d;\\n    }\\n" \
+    "BEGIN{found=0} {lines[NR]=\$0} END{for(i=NR;i>=1;i--){if(lines[i]~/^}/ && !found){found=1;print block;} print lines[i];}}" "$CONF" | tac > "$TEMP"
+    if [ -s "$TEMP" ]; then
+        cp "$TEMP" "$CONF"
+        echo "OK: location block injected via awk"
+    else
+        echo "ERROR: awk injection failed"
+        exit 1
+    fi
+fi
+'
+        # 결과 확인
+        if [ $? -eq 0 ]; then
+            echo "location 블록 삽입 완료. nginx 설정 테스트..."
+            if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
+                docker exec ${NGINX_CONTAINER} nginx -s reload
+                echo -e "${GREEN}Docker nginx 설정 완료 및 리로드!${NC}"
+            else
+                echo -e "${RED}nginx 설정 오류! 백업에서 복원합니다.${NC}"
+                docker exec ${NGINX_CONTAINER} cp /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
+                docker exec ${NGINX_CONTAINER} nginx -s reload
+                echo -e "${RED}수동으로 설정을 확인하세요.${NC}"
+                echo ""
+                echo "수동 설정 방법:"
+                echo "  docker exec -it ${NGINX_CONTAINER} vi /etc/nginx/conf.d/default.conf"
+                echo "  server 블록의 마지막 } 앞에 아래 내용 추가:"
+                echo ""
+                echo "    location /livenews {"
+                echo "        proxy_pass http://${DOCKER_HOST_IP}:${APP_PORT};"
+                echo "        proxy_http_version 1.1;"
+                echo "        proxy_set_header Host \$host;"
+                echo "        proxy_set_header X-Real-IP \$remote_addr;"
+                echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;"
+                echo "        proxy_cache_bypass \$http_upgrade;"
+                echo "        proxy_read_timeout 60s;"
+                echo "    }"
+            fi
+        else
+            echo -e "${RED}location 블록 삽입 실패. 수동 설정이 필요합니다.${NC}"
+            echo ""
+            echo "===== 수동 설정 방법 ====="
+            echo "1. docker exec -it ${NGINX_CONTAINER} sh"
+            echo "2. vi /etc/nginx/conf.d/default.conf"
+            echo "3. server { } 블록의 마지막 } 바로 앞에 아래 추가:"
+            echo ""
+            cat << 'MANUALEOF'
+    # === LiveNews Proxy ===
+    location /livenews {
+        proxy_pass http://172.17.0.1:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -246,163 +348,18 @@ if [ "$NGINX_TYPE" = "systemd" ]; then
     }
 
     location /livenews/_next/static {
-        proxy_pass http://127.0.0.1:4000;
+        proxy_pass http://172.17.0.1:4000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
-LOCATIONEOF
-)
-            # Python으로 안전하게 마지막 } 앞에 삽입
-            python3 -c "
-import sys
-conf = open('$NGINX_MAIN_CONF').read()
-# 마지막 } 앞에 삽입
-last_brace = conf.rfind('}')
-if last_brace >= 0:
-    block = '''
-    # === LiveNews Proxy ===
-    location /livenews {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \\\$http_upgrade;
-        proxy_set_header Connection \"upgrade\";
-        proxy_set_header Host \\\$host;
-        proxy_set_header X-Real-IP \\\$remote_addr;
-        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \\\$scheme;
-        proxy_cache_bypass \\\$http_upgrade;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-    }
-
-    location /livenews/_next/static {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \\\$host;
-        expires 30d;
-        add_header Cache-Control \"public, immutable\";
-    }
-'''
-    new_conf = conf[:last_brace] + block + '\n' + conf[last_brace:]
-    open('$NGINX_MAIN_CONF', 'w').write(new_conf)
-    print('location 블록 삽입 완료')
-else:
-    print('ERROR: 닫는 중괄호를 찾을 수 없습니다')
-    sys.exit(1)
-"
-        else
-            # 방법 2: conf.d에 독립 설정 파일 생성 (기존 설정이 없는 경우)
-            echo "기존 설정 파일 없음. /etc/nginx/conf.d/livenews.conf 생성..."
-            cat > /etc/nginx/conf.d/livenews.conf << NGINXEOF
-# LiveNews Proxy - 기존 server 블록에 포함되어야 합니다
-# 만약 이 파일이 동작하지 않으면, 기본 서버 설정에 아래 location 블록을 직접 추가하세요
-server {
-    listen 80;
-    server_name 211.198.54.207;
-
-    location /livenews {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-    }
-
-    location /livenews/_next/static {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-}
-NGINXEOF
-        fi
-
-        # nginx 설정 테스트 및 리로드
-        echo "nginx 설정 테스트..."
-        if nginx -t 2>&1; then
-            echo "nginx 리로드..."
-            systemctl reload nginx
-            echo -e "${GREEN}systemd nginx 설정 완료${NC}"
-        else
-            echo -e "${RED}nginx 설정 오류! 백업에서 복원합니다.${NC}"
-            if [ -n "$NGINX_MAIN_CONF" ] && ls "${NGINX_MAIN_CONF}.bak."* 2>/dev/null | tail -1 > /dev/null; then
-                LATEST_BAK=$(ls "${NGINX_MAIN_CONF}.bak."* 2>/dev/null | tail -1)
-                cp "$LATEST_BAK" "$NGINX_MAIN_CONF"
-                nginx -t && systemctl reload nginx
-                echo "백업에서 복원 완료"
-            fi
-            echo -e "${RED}수동으로 nginx 설정을 확인하세요.${NC}"
+MANUALEOF
+            echo ""
+            echo "4. nginx -t && nginx -s reload"
+            echo "5. exit"
         fi
     fi
-
-elif [ "$NGINX_TYPE" = "docker" ]; then
-    # ===== Docker nginx 설정 =====
-    NGINX_CONF_CHECK=$(docker exec ${NGINX_CONTAINER} grep -c "livenews" /etc/nginx/conf.d/default.conf 2>/dev/null || echo "0")
-
-    if [ "$NGINX_CONF_CHECK" = "0" ]; then
-        echo "Docker nginx에 /livenews 프록시 설정 추가..."
-        docker exec ${NGINX_CONTAINER} cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
-
-        # Docker 환경에서는 172.17.0.1 (Docker bridge) 사용
-        docker exec ${NGINX_CONTAINER} sh -c "sed -i '/^}/i \\
-    location /livenews { \\
-        proxy_pass http://172.17.0.1:${APP_PORT}; \\
-        proxy_http_version 1.1; \\
-        proxy_set_header Upgrade \\\$http_upgrade; \\
-        proxy_set_header Connection \"upgrade\"; \\
-        proxy_set_header Host \\\$host; \\
-        proxy_set_header X-Real-IP \\\$remote_addr; \\
-        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for; \\
-        proxy_set_header X-Forwarded-Proto \\\$scheme; \\
-        proxy_cache_bypass \\\$http_upgrade; \\
-        proxy_read_timeout 60s; \\
-    } \\
-    \\
-    location /livenews/_next/static { \\
-        proxy_pass http://172.17.0.1:${APP_PORT}; \\
-        proxy_http_version 1.1; \\
-        proxy_set_header Host \\\$host; \\
-        expires 30d; \\
-        add_header Cache-Control \"public, immutable\"; \\
-    }' /etc/nginx/conf.d/default.conf"
-
-        if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
-            docker exec ${NGINX_CONTAINER} nginx -s reload
-            echo -e "${GREEN}Docker nginx 설정 완료${NC}"
-        else
-            echo -e "${RED}Docker nginx 설정 오류! 백업에서 복원합니다.${NC}"
-            docker exec ${NGINX_CONTAINER} cp /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
-            docker exec ${NGINX_CONTAINER} nginx -s reload
-        fi
-    else
-        echo "Docker nginx에 이미 /livenews 설정이 있습니다."
-    fi
-fi
-echo ""
-
-# ---- iptables 규칙 추가 (Docker nginx인 경우만) ----
-if [ "$NGINX_TYPE" = "docker" ]; then
-    echo -e "${YELLOW}iptables 방화벽 규칙 추가 (Docker 환경)...${NC}"
-
-    iptables -C DOCKER-USER -s 172.17.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || \
-        iptables -I DOCKER-USER -s 172.17.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true
-
-    iptables -C DOCKER-USER -s 172.18.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || \
-        iptables -I DOCKER-USER -s 172.18.0.0/16 -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true
-
-    echo -e "${GREEN}iptables 규칙 추가 완료${NC}"
-else
-    echo -e "${YELLOW}systemd nginx 환경 - iptables Docker 규칙 불필요 (localhost 통신)${NC}"
 fi
 echo ""
 
@@ -412,24 +369,48 @@ echo -e "${GREEN}  배포 완료!${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "  앱 이름:    ${APP_NAME}"
-echo "  포트:       ${APP_PORT}"
+echo "  포트:       ${APP_PORT} (0.0.0.0 바인딩)"
 echo "  경로:       ${DEPLOY_PATH}"
 echo "  접속 URL:   http://211.198.54.207/livenews/"
 echo "  관리자:     http://211.198.54.207/livenews/admin"
 echo ""
-echo "  PM2 상태 확인: pm2 status"
-echo "  로그 확인:     pm2 logs ${APP_NAME}"
-echo "  재시작:        pm2 restart ${APP_NAME}"
+echo "  PM2 상태 확인:    pm2 status"
+echo "  로그 확인:        pm2 logs ${APP_NAME}"
+echo "  재시작:           pm2 restart ${APP_NAME}"
+echo "  nginx 설정 확인:  docker exec ${NGINX_CONTAINER} cat /etc/nginx/conf.d/default.conf"
 echo ""
 
-# 상태 확인
-echo -e "${YELLOW}PM2 프로세스 상태:${NC}"
-pm2 list | grep -E "${APP_NAME}|Name"
-
+# ---- 상태 확인 ----
+echo -e "${YELLOW}=== 최종 상태 확인 ===${NC}"
 echo ""
-echo -e "${YELLOW}서비스 접속 테스트:${NC}"
+
+echo "1. PM2 프로세스:"
+pm2 list | grep -E "${APP_NAME}|Name" || true
+echo ""
+
+echo "2. 포트 리스닝 확인:"
+ss -tlnp 2>/dev/null | grep ":${APP_PORT}" || echo "  포트 ${APP_PORT} 리스닝 없음!"
+echo ""
+
+echo "3. 로컬 접속 테스트 (0.0.0.0:${APP_PORT}):"
 sleep 3
-curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" "http://127.0.0.1:${APP_PORT}/livenews/" 2>/dev/null || echo "로컬 접속 테스트 실패 (앱 시작 대기 중일 수 있음)"
-
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://0.0.0.0:${APP_PORT}/livenews/" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+    echo -e "  ${GREEN}성공! HTTP ${HTTP_CODE}${NC}"
+else
+    echo -e "  ${RED}실패: HTTP ${HTTP_CODE}${NC}"
+    echo "  pm2 logs ${APP_NAME} --lines 20 으로 로그를 확인하세요."
+fi
 echo ""
+
+echo "4. Docker nginx 프록시 테스트:"
+PROXY_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://211.198.54.207/livenews/" 2>/dev/null || echo "000")
+if [ "$PROXY_CODE" = "200" ] || [ "$PROXY_CODE" = "304" ]; then
+    echo -e "  ${GREEN}성공! HTTP ${PROXY_CODE}${NC}"
+else
+    echo -e "  ${RED}실패: HTTP ${PROXY_CODE}${NC}"
+    echo "  nginx 설정과 iptables를 확인하세요."
+fi
+echo ""
+
 echo -e "${GREEN}배포가 완료되었습니다!${NC}"

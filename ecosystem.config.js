@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'livenews',
       script: 'node_modules/.bin/next',
-      args: 'start -p 4000',
+      args: 'start -H 0.0.0.0 -p 4000',
       cwd: '/home/ubuntu/livenews',
       instances: 1,
       autorestart: true,
@@ -12,6 +12,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 4000,
+        HOSTNAME: '0.0.0.0',
       },
     },
     {

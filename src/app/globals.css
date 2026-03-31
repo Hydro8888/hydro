@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  .breaking-ticker {
+    animation: ticker 30s linear infinite;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .breaking-ticker:hover {
+    animation-play-state: paused;
+  }
+
+  .news-card {
+    @apply flex gap-4 p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors;
+  }
+
+  .news-card-large {
+    @apply rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow;
+  }
+
+  .category-pill {
+    @apply inline-block px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .country-badge {
+    @apply inline-block px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .nav-link {
+    @apply px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors;
+  }
+
+  .nav-link-active {
+    @apply text-primary border-b-2 border-primary;
+  }
+
+  .tab-item {
+    @apply px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-primary cursor-pointer transition-colors;
+  }
+
+  .tab-item-active {
+    @apply text-primary border-primary;
+  }
+}
+
+@layer utilities {
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

@@ -11,39 +11,51 @@ import CountryTabs from '@/components/CountryTabs';
 import SearchBar from '@/components/SearchBar';
 
 async function getArticles(country?: string) {
-  const where: Record<string, unknown> = { isActive: true };
-  if (country && country !== 'all') where.country = country;
+  try {
+    const where: Record<string, unknown> = { isActive: true };
+    if (country && country !== 'all') where.country = country;
 
-  return getCached(`home:${country || 'all'}`, 60, () =>
-    prisma.article.findMany({
-      where,
-      include: { source: true },
-      orderBy: { publishedAt: 'desc' },
-      take: 30,
-    })
-  );
+    return await getCached(`home:${country || 'all'}`, 60, () =>
+      prisma.article.findMany({
+        where,
+        include: { source: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 30,
+      })
+    );
+  } catch {
+    return [];
+  }
 }
 
 async function getBreakingNews() {
-  return getCached('breaking', 60, () =>
-    prisma.article.findMany({
-      where: { isActive: true },
-      include: { source: true },
-      orderBy: { publishedAt: 'desc' },
-      take: 10,
-    })
-  );
+  try {
+    return await getCached('breaking', 60, () =>
+      prisma.article.findMany({
+        where: { isActive: true },
+        include: { source: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 10,
+      })
+    );
+  } catch {
+    return [];
+  }
 }
 
 async function getCategoryCounts() {
-  return getCached('cat-counts', 120, async () => {
-    const counts = await prisma.article.groupBy({
-      by: ['categoryPrimary'],
-      where: { isActive: true },
-      _count: true,
+  try {
+    return await getCached('cat-counts', 120, async () => {
+      const counts = await prisma.article.groupBy({
+        by: ['categoryPrimary'],
+        where: { isActive: true },
+        _count: true,
+      });
+      return counts.map((c) => ({ category: c.categoryPrimary, count: c._count }));
     });
-    return counts.map((c) => ({ category: c.categoryPrimary, count: c._count }));
-  });
+  } catch {
+    return [];
+  }
 }
 
 export default async function HomePage({

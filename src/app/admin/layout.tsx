@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin" className="font-bold text-lg">
               LiveNews Admin
             </Link>
-            <nav className="flex gap-4">
+            <nav className="flex flex-wrap gap-2 sm:gap-4">
               {adminMenu.map((item) => (
                 <Link
                   key={item.href}

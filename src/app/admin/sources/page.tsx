@@ -160,9 +160,9 @@ export default function AdminSourcesPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-600">소스명</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">타입</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">타입</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">국가</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">언어</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">언어</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">기사 수</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">상태</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">작업</th>
@@ -172,9 +172,9 @@ export default function AdminSourcesPage() {
             {sources.map((source) => (
               <tr key={source.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{source.sourceName}</td>
-                <td className="px-4 py-3"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{source.sourceType}</span></td>
+                <td className="px-4 py-3 hidden sm:table-cell"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{source.sourceType}</span></td>
                 <td className="px-4 py-3">{source.country}</td>
-                <td className="px-4 py-3">{source.language}</td>
+                <td className="px-4 py-3 hidden sm:table-cell">{source.language}</td>
                 <td className="px-4 py-3">{source._count?.articles || 0}</td>
                 <td className="px-4 py-3">
                   <button

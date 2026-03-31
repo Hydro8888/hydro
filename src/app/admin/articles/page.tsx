@@ -70,11 +70,11 @@ export default function AdminArticlesPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">ID</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">제목</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">소스</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">국가</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">카테고리</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">국가</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">카테고리</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">조회</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">상태</th>
             </tr>
@@ -82,15 +82,15 @@ export default function AdminArticlesPage() {
           <tbody className="divide-y divide-gray-100">
             {articles.map((article) => (
               <tr key={article.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-500">{article.id}</td>
+                <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{article.id}</td>
                 <td className="px-4 py-3 max-w-md">
                   <Link href={`/article/${article.id}`} className="hover:text-primary line-clamp-1">
                     {article.titleKo || article.titleOriginal}
                   </Link>
                 </td>
                 <td className="px-4 py-3">{article.source.sourceName}</td>
-                <td className="px-4 py-3">{article.country}</td>
-                <td className="px-4 py-3">{article.categoryPrimary || '-'}</td>
+                <td className="px-4 py-3 hidden sm:table-cell">{article.country}</td>
+                <td className="px-4 py-3 hidden sm:table-cell">{article.categoryPrimary || '-'}</td>
                 <td className="px-4 py-3">{article.viewCount}</td>
                 <td className="px-4 py-3">
                   <button

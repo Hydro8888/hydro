@@ -50,7 +50,7 @@ export default function Pagination({ currentPage, totalPages, basePath }: Pagina
   const hasNext = currentPage < totalPages;
 
   const baseBtn =
-    'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-md border px-2 text-sm font-medium transition-colors';
+    'inline-flex h-10 min-w-[2.5rem] items-center justify-center rounded-md border px-2 text-sm font-medium transition-colors';
   const activeBtn = `${baseBtn} border-blue-600 bg-blue-600 text-white`;
   const normalBtn = `${baseBtn} border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:text-blue-600`;
   const disabledBtn = `${baseBtn} border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed pointer-events-none`;
@@ -99,7 +99,7 @@ export default function Pagination({ currentPage, totalPages, basePath }: Pagina
           return (
             <span
               key={`ellipsis-${idx}`}
-              className="inline-flex h-9 min-w-[2.25rem] items-center justify-center text-sm text-gray-400"
+              className="inline-flex h-10 min-w-[2.5rem] items-center justify-center text-sm text-gray-400"
               aria-hidden="true"
             >
               …

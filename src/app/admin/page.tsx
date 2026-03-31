@@ -126,10 +126,10 @@ export default function AdminDashboard() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">소스</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">상태</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">발견</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">신규</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">발견</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">신규</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">시간</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">에러</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">에러</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -149,12 +149,12 @@ export default function AdminDashboard() {
                       {log.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{log.articlesFound}</td>
-                  <td className="px-4 py-3 font-medium">{log.articlesNew}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">{log.articlesFound}</td>
+                  <td className="px-4 py-3 font-medium hidden sm:table-cell">{log.articlesNew}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(log.startedAt).toLocaleString('ko-KR')}
                   </td>
-                  <td className="px-4 py-3 text-red-500 truncate max-w-xs">
+                  <td className="px-4 py-3 text-red-500 truncate max-w-xs hidden sm:table-cell">
                     {log.errorMessage || '-'}
                   </td>
                 </tr>

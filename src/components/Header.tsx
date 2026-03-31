@@ -56,7 +56,7 @@ export default function Header() {
             <button
               aria-label="검색"
               onClick={() => setSearchOpen((v) => !v)}
-              className="sm:hidden p-2 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+              className="sm:hidden p-3 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -78,7 +78,7 @@ export default function Header() {
             <button
               aria-label="메뉴"
               onClick={() => setMobileOpen((v) => !v)}
-              className="lg:hidden p-2 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-3 rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 transition-colors"
             >
               {mobileOpen ? (
                 <svg

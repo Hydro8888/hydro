@@ -47,7 +47,7 @@ export default function NewsCard({ article }: { article: Article }) {
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
       {/* Image */}
-      <Link href={`/article/${article.id}`} className="relative block h-[180px] w-full overflow-hidden bg-gray-100">
+      <Link href={`/article/${article.id}`} className="relative block h-[160px] sm:h-[180px] w-full overflow-hidden bg-gray-100">
         {article.imageUrl ? (
           <Image
             src={article.imageUrl}

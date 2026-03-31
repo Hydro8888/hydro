@@ -74,7 +74,7 @@ function SearchPage() {
 
       {/* Search Form */}
       <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={query}
@@ -92,7 +92,7 @@ function SearchPage() {
       </form>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 mb-6">
         <div className="flex gap-2 items-center">
           <span className="text-sm text-gray-500">국가:</span>
           <select

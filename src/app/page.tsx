@@ -73,7 +73,7 @@ export default async function HomePage({
   const rest = articles.slice(3);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
       {/* Breaking News Ticker */}
       {breaking.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl py-2.5 px-4 mb-6 overflow-hidden">
@@ -162,7 +162,7 @@ export default async function HomePage({
           {/* Categories */}
           <div className="bg-gray-50 rounded-2xl p-6">
             <h3 className="text-lg font-bold mb-4">카테고리</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {CATEGORIES.slice(0, 12).map((cat) => {
                 const count = catCounts.find((c) => c.category === cat.slug)?.count || 0;
                 return (
@@ -182,7 +182,7 @@ export default async function HomePage({
           {/* Countries */}
           <div className="bg-gray-50 rounded-2xl p-6">
             <h3 className="text-lg font-bold mb-4">국가별 뉴스</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
                 <Link
                   key={c.code}

@@ -95,7 +95,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
   const title = article.titleKo || article.titleOriginal;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-400 mb-6 flex items-center gap-2">
         <Link href="/" className="hover:text-primary transition-colors">홈</Link>
@@ -120,11 +120,11 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
             <img
               src={article.imageUrl}
               alt={title}
-              className="w-full h-auto max-h-[450px] object-cover"
+              className="w-full h-auto max-h-[280px] sm:max-h-[450px] object-cover"
             />
           </div>
         ) : (
-          <div className={`mb-8 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br ${catGradient} p-10 md:p-16 flex items-center justify-center min-h-[200px]`}>
+          <div className={`mb-8 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br ${catGradient} p-6 sm:p-10 md:p-16 flex items-center justify-center min-h-[150px] sm:min-h-[200px]`}>
             <div className="text-center text-white">
               <div className="text-5xl mb-3 opacity-80">
                 {article.categoryPrimary === 'politics' ? '🏛' :
@@ -156,7 +156,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl md:text-3xl font-bold leading-tight text-gray-900 mb-3">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-gray-900 mb-3">
           {title}
         </h1>
 

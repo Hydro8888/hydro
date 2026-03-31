@@ -95,13 +95,13 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
 
 // ---------------------------------------------------------------------------
-// Schedule — every 3 hours, on the hour (00:00, 03:00, 06:00, …)
+// Schedule — every 4 hours, on the hour (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
 // ---------------------------------------------------------------------------
 
-const CRON_SCHEDULE = '0 */3 * * *';
+const CRON_SCHEDULE = '0 */4 * * *';
 
 console.log(`[scheduler] ${timestamp()} — Starting Hydro news collector`);
-console.log(`[scheduler] Cron schedule: "${CRON_SCHEDULE}" (every 3 hours)`);
+console.log(`[scheduler] Cron schedule: "${CRON_SCHEDULE}" (every 4 hours)`);
 
 // Run immediately at startup so there is no cold-start gap
 runCollection().catch((err) => {

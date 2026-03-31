@@ -161,12 +161,35 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
               ))}
             </div>
           ) : article.summaryKo ? (
-            <div className="text-gray-800 leading-[1.9] text-base md:text-[17px] space-y-5">
-              <p>{article.summaryKo}</p>
+            <div className="space-y-6">
+              <div className="text-gray-800 leading-[1.9] text-lg md:text-xl">
+                <p>{article.summaryKo}</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                <p className="text-sm text-gray-600 mb-3">이 기사의 전체 내용은 원문에서 확인하세요.</p>
+                <a
+                  href={article.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  원문 기사 읽기
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              </div>
             </div>
           ) : (
-            <div className="text-gray-500 italic text-base">
-              <p>기사 본문을 수집 중입니다. 원문 링크에서 전체 내용을 확인하세요.</p>
+            <div className="bg-gray-50 rounded-xl p-6 text-center">
+              <p className="text-gray-500 mb-4">기사 본문을 준비 중입니다.</p>
+              <a
+                href={article.originalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                원문에서 기사 읽기
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+              </a>
             </div>
           )}
         </div>

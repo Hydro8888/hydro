@@ -44,12 +44,13 @@ function SearchPage() {
 
   useEffect(() => {
     if (!q) return;
+    const controller = new AbortController();
     setLoading(true);
     const params = new URLSearchParams({ q, page: pageParam });
     if (country) params.set('country', country);
     if (category) params.set('category', category);
 
-    fetch(`/livenews/api/search?${params}`)
+    fetch(`/livenews/api/search?${params}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         setArticles(data.articles || []);
@@ -57,6 +58,7 @@ function SearchPage() {
         setTotalPages(data.totalPages || 0);
       })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [q, country, category, pageParam]);
 
   function handleSearch(e: React.FormEvent) {

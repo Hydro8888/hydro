@@ -17,6 +17,7 @@ interface Log {
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch('/livenews/api/admin/stats')
@@ -24,11 +25,19 @@ export default function AdminLogsPage() {
       .then((data) => {
         setLogs(data.recentLogs || []);
         setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
       });
   }, []);
 
   if (loading) {
     return <div className="text-center py-20"><div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div></div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-20 text-red-500">로그를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.</div>;
   }
 
   const successCount = logs.filter((l) => l.status === 'success').length;

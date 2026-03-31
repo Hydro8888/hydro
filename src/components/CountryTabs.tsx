@@ -33,6 +33,7 @@ export default function CountryTabs({ activeCountry, basePath }: CountryTabsProp
             <li key={c.code}>
               <Link
                 href={href}
+                aria-current={isActive ? 'page' : undefined}
                 className={`relative inline-flex items-center gap-1 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors
                   ${
                     isActive

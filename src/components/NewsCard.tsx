@@ -26,22 +26,10 @@ const categoryColors: Record<string, string> = {
   general: 'bg-slate-600',
 };
 
-const categoryGradients: Record<string, string> = {
-  politics: 'from-red-500 to-rose-700', economy: 'from-blue-500 to-indigo-700',
-  market: 'from-indigo-500 to-purple-700', business: 'from-purple-500 to-violet-700',
-  'ai-tech': 'from-cyan-500 to-blue-700', semiconductor: 'from-teal-500 to-emerald-700',
-  automotive: 'from-orange-500 to-red-700', energy: 'from-yellow-500 to-orange-700',
-  society: 'from-gray-500 to-slate-700', culture: 'from-pink-500 to-rose-700',
-  entertainment: 'from-fuchsia-500 to-pink-700', sports: 'from-green-500 to-emerald-700',
-  science: 'from-violet-500 to-purple-700', health: 'from-rose-500 to-pink-700',
-  world: 'from-emerald-500 to-teal-700', general: 'from-slate-500 to-gray-700',
-};
-
 export default function NewsCard({ article }: { article: Article }) {
   const title = article.titleKo || article.titleOriginal;
   const summary = article.summaryKo;
   const catColor = categoryColors[article.categoryPrimary || 'general'] || 'bg-emerald-600';
-  const catGradient = categoryGradients[article.categoryPrimary || 'general'] || 'from-slate-500 to-gray-700';
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
 
   return (

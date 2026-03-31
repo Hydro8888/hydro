@@ -15,6 +15,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
     }
 
+    if (q.length > 500) {
+      return NextResponse.json({ error: 'Search query too long' }, { status: 400 });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       isActive: true,

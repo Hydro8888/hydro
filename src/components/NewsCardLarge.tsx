@@ -40,6 +40,7 @@ export default function NewsCardLarge({ article }: { article: Article }) {
   const title = article.titleKo || article.titleOriginal;
   const summary = article.summaryKo;
   const catColor = categoryColors[article.categoryPrimary || 'general'] || 'bg-emerald-600';
+  const catGradient = ({'politics':'from-red-500 to-rose-700','economy':'from-blue-500 to-indigo-700','market':'from-indigo-500 to-purple-700','business':'from-purple-500 to-violet-700','ai-tech':'from-cyan-500 to-blue-700','semiconductor':'from-teal-500 to-emerald-700','automotive':'from-orange-500 to-red-700','sports':'from-green-500 to-emerald-700','world':'from-emerald-500 to-teal-700','general':'from-slate-500 to-gray-700'} as Record<string,string>)[article.categoryPrimary || 'general'] || 'from-slate-500 to-gray-700';
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
 
   return (
@@ -56,10 +57,20 @@ export default function NewsCardLarge({ article }: { article: Article }) {
             unoptimized
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-            <svg className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2" />
-            </svg>
+          <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${catGradient}`}>
+            <div className="text-center text-white">
+              <span className="text-4xl opacity-80">
+                {article.categoryPrimary === 'politics' ? '🏛' :
+                 article.categoryPrimary === 'economy' ? '📊' :
+                 article.categoryPrimary === 'market' ? '📈' :
+                 article.categoryPrimary === 'business' ? '💼' :
+                 article.categoryPrimary === 'ai-tech' ? '🤖' :
+                 article.categoryPrimary === 'semiconductor' ? '🔬' :
+                 article.categoryPrimary === 'sports' ? '⚽' :
+                 article.categoryPrimary === 'world' ? '🌍' : '📰'}
+              </span>
+              <p className="text-sm mt-2 opacity-60 font-medium">{article.source.sourceName}</p>
+            </div>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />

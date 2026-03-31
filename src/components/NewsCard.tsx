@@ -18,28 +18,30 @@ interface Article {
 }
 
 const categoryColors: Record<string, string> = {
-  politics: 'bg-red-600',
-  economy: 'bg-blue-600',
-  market: 'bg-indigo-600',
-  business: 'bg-purple-600',
-  'ai-tech': 'bg-cyan-600',
-  semiconductor: 'bg-teal-600',
-  automotive: 'bg-orange-600',
-  energy: 'bg-yellow-600',
-  society: 'bg-gray-600',
-  culture: 'bg-pink-600',
-  entertainment: 'bg-fuchsia-600',
-  sports: 'bg-green-600',
-  science: 'bg-violet-600',
-  health: 'bg-rose-600',
-  world: 'bg-emerald-600',
+  politics: 'bg-red-600', economy: 'bg-blue-600', market: 'bg-indigo-600',
+  business: 'bg-purple-600', 'ai-tech': 'bg-cyan-600', semiconductor: 'bg-teal-600',
+  automotive: 'bg-orange-600', energy: 'bg-yellow-600', society: 'bg-gray-600',
+  culture: 'bg-pink-600', entertainment: 'bg-fuchsia-600', sports: 'bg-green-600',
+  science: 'bg-violet-600', health: 'bg-rose-600', world: 'bg-emerald-600',
   general: 'bg-slate-600',
+};
+
+const categoryGradients: Record<string, string> = {
+  politics: 'from-red-500 to-rose-700', economy: 'from-blue-500 to-indigo-700',
+  market: 'from-indigo-500 to-purple-700', business: 'from-purple-500 to-violet-700',
+  'ai-tech': 'from-cyan-500 to-blue-700', semiconductor: 'from-teal-500 to-emerald-700',
+  automotive: 'from-orange-500 to-red-700', energy: 'from-yellow-500 to-orange-700',
+  society: 'from-gray-500 to-slate-700', culture: 'from-pink-500 to-rose-700',
+  entertainment: 'from-fuchsia-500 to-pink-700', sports: 'from-green-500 to-emerald-700',
+  science: 'from-violet-500 to-purple-700', health: 'from-rose-500 to-pink-700',
+  world: 'from-emerald-500 to-teal-700', general: 'from-slate-500 to-gray-700',
 };
 
 export default function NewsCard({ article }: { article: Article }) {
   const title = article.titleKo || article.titleOriginal;
   const summary = article.summaryKo;
   const catColor = categoryColors[article.categoryPrimary || 'general'] || 'bg-emerald-600';
+  const catGradient = categoryGradients[article.categoryPrimary || 'general'] || 'from-slate-500 to-gray-700';
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
 
   return (
@@ -56,10 +58,20 @@ export default function NewsCard({ article }: { article: Article }) {
             unoptimized
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-            <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2" />
-            </svg>
+          <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${catGradient}`}>
+            <div className="text-center text-white">
+              <span className="text-3xl opacity-80">
+                {article.categoryPrimary === 'politics' ? '🏛' :
+                 article.categoryPrimary === 'economy' ? '📊' :
+                 article.categoryPrimary === 'market' ? '📈' :
+                 article.categoryPrimary === 'business' ? '💼' :
+                 article.categoryPrimary === 'ai-tech' ? '🤖' :
+                 article.categoryPrimary === 'semiconductor' ? '🔬' :
+                 article.categoryPrimary === 'sports' ? '⚽' :
+                 article.categoryPrimary === 'world' ? '🌍' : '📰'}
+              </span>
+              <p className="text-xs mt-1 opacity-60 font-medium">{article.source.sourceName}</p>
+            </div>
           </div>
         )}
       </Link>

@@ -18,6 +18,7 @@ import Redis from 'ioredis';
 import { parseRssFeed } from './rss-parser';
 import { normalizeArticle } from './normalizer';
 import { translateArticles } from './translator';
+import { scrapeArticleContents } from './scraper';
 
 // ---------------------------------------------------------------------------
 // Clients — created once per process lifetime
@@ -160,6 +161,14 @@ async function collectSource(source: Source): Promise<CollectionResult> {
       status: 'partial',
       errorMessage: 'All new items failed normalization',
     };
+  }
+
+  // ── Step 3.5: Scrape full article content from original URLs ────────────
+  try {
+    await scrapeArticleContents(normalized);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`${logBase} Scraping failed (non-fatal): ${message}`);
   }
 
   // ── Step 4: Translate / Categorize ──────────────────────────────────────

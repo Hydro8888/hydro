@@ -137,89 +137,73 @@ echo ""
 
 # ==============================
 # PART 4: Docker nginx 프록시
+# (볼륨 마운트 방식 - 호스트 파일 직접 편집)
 # ==============================
 echo "[PART 4] Docker nginx 프록시..."
 
-if ! docker ps --format '{{.Names}}' | grep -q "^${NGINX_CONTAINER}$"; then
-    echo "  오류: ${NGINX_CONTAINER} 없음!"
-    exit 1
+# nginx 설정 파일을 호스트에서 찾기
+# (jobworld-nginx는 호스트 파일을 볼륨 마운트하므로 docker cp 불가)
+NGINX_CONF=""
+for p in \
+    "/home/ubuntu/hydro/jobworld/nginx/nginx.conf" \
+    "/home/ubuntu/hydro/jobworld/nginx/default.conf" \
+    "/home/ubuntu/hydro/jobworld/nginx/conf.d/default.conf" \
+    "/home/ubuntu/jobworld/nginx/nginx.conf" \
+    "/home/ubuntu/jobworld/nginx/default.conf"; do
+    if [ -f "$p" ]; then
+        NGINX_CONF="$p"
+        break
+    fi
+done
+
+# Docker inspect로도 확인
+if [ -z "$NGINX_CONF" ]; then
+    NGINX_HOST=$(docker inspect ${NGINX_CONTAINER} --format='{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}{{"\n"}}{{end}}{{end}}' 2>/dev/null | grep -i nginx | head -1)
+    [ -f "$NGINX_HOST" ] && NGINX_CONF="$NGINX_HOST"
 fi
 
-# default.conf 가져오기
-docker cp ${NGINX_CONTAINER}:/etc/nginx/conf.d/default.conf /tmp/nginx-default.conf
-cp /tmp/nginx-default.conf /tmp/nginx-default.conf.bak
+# find로 최종 검색
+if [ -z "$NGINX_CONF" ]; then
+    NGINX_CONF=$(find /home/ubuntu -path "*jobworld*nginx*" -name "*.conf" -type f 2>/dev/null | head -1)
+fi
 
-if grep -q "livenews" /tmp/nginx-default.conf; then
-    echo "  이미 /livenews 설정 있음. 리로드만."
-    docker exec ${NGINX_CONTAINER} nginx -s reload 2>/dev/null
+if [ -z "$NGINX_CONF" ] || [ ! -f "$NGINX_CONF" ]; then
+    echo "  nginx 설정 파일을 찾을 수 없습니다!"
+    echo "  수동 검색: find /home/ubuntu -name 'nginx.conf' | grep jobworld"
 else
-    echo "  /livenews 설정 추가..."
+    echo "  설정 파일: $NGINX_CONF"
 
-    # inject-nginx.py와 nginx-livenews.conf 사용
-    if [ -f "${DEPLOY_PATH}/inject-nginx.py" ] && [ -f "${DEPLOY_PATH}/nginx-livenews.conf" ]; then
-        python3 "${DEPLOY_PATH}/inject-nginx.py" /tmp/nginx-default.conf "${DEPLOY_PATH}/nginx-livenews.conf"
+    if grep -q "livenews" "$NGINX_CONF"; then
+        echo "  이미 /livenews 설정 있음. 리로드만."
+        docker exec ${NGINX_CONTAINER} nginx -s reload 2>/dev/null
     else
-        # 파일이 없으면 직접 Python으로 삽입
-        python3 << 'PYEOF'
-import sys
-with open('/tmp/nginx-default.conf', 'r') as f:
-    conf = f.read()
-if 'livenews' in conf:
-    print('SKIP: already configured')
-    sys.exit(0)
-block = """
-    # === LiveNews Proxy ===
-    location /livenews {
-        proxy_pass http://172.17.0.1:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-    }
+        echo "  /livenews 설정 추가..."
+        cp "$NGINX_CONF" "${NGINX_CONF}.bak"
 
-    location /livenews/_next/static {
-        proxy_pass http://172.17.0.1:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-"""
-idx = conf.rfind('}')
-if idx < 0:
-    print('ERROR')
-    sys.exit(1)
-with open('/tmp/nginx-default.conf', 'w') as f:
-    f.write(conf[:idx] + block + '\n' + conf[idx:])
-print('OK')
-PYEOF
-    fi
-
-    if [ $? -eq 0 ]; then
-        docker cp /tmp/nginx-default.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/default.conf
-        if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
-            docker exec ${NGINX_CONTAINER} nginx -s reload
-            echo "  OK: nginx 설정 완료!"
-        else
-            echo "  설정 오류! 복원..."
-            docker cp /tmp/nginx-default.conf.bak ${NGINX_CONTAINER}:/etc/nginx/conf.d/default.conf
-            docker exec ${NGINX_CONTAINER} nginx -s reload
+        # inject-nginx.py 사용 ($ 변수 문제 없음)
+        if [ -f "${DEPLOY_PATH}/inject-nginx.py" ] && [ -f "${DEPLOY_PATH}/nginx-livenews.conf" ]; then
+            python3 "${DEPLOY_PATH}/inject-nginx.py" "$NGINX_CONF" "${DEPLOY_PATH}/nginx-livenews.conf"
         fi
-    else
-        echo "  삽입 실패. 수동 설정 필요:"
-        echo "    docker exec -it ${NGINX_CONTAINER} sh"
-        echo "    vi /etc/nginx/conf.d/default.conf"
-        echo "    (마지막 } 앞에 location /livenews 블록 추가)"
-        echo "    nginx -t && nginx -s reload && exit"
+
+        if [ $? -eq 0 ] && grep -q "livenews" "$NGINX_CONF"; then
+            echo "  삽입 성공!"
+            if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
+                docker exec ${NGINX_CONTAINER} nginx -s reload
+                echo "  OK: nginx 리로드 완료!"
+            else
+                echo "  nginx 오류! 백업 복원..."
+                cp "${NGINX_CONF}.bak" "$NGINX_CONF"
+                docker exec ${NGINX_CONTAINER} nginx -s reload
+            fi
+        else
+            echo "  삽입 실패. 수동 설정:"
+            echo "    vi $NGINX_CONF"
+            echo "    마지막 } 앞에 아래 추가:"
+            cat "${DEPLOY_PATH}/nginx-livenews.conf" 2>/dev/null || echo "    location /livenews { proxy_pass http://172.17.0.1:4000; }"
+            echo "    docker exec ${NGINX_CONTAINER} nginx -t && docker exec ${NGINX_CONTAINER} nginx -s reload"
+        fi
     fi
 fi
-rm -f /tmp/nginx-default.conf /tmp/nginx-default.conf.bak
 echo ""
 
 # ==============================

@@ -173,6 +173,13 @@ if [ -z "$NGINX_CONF" ] || [ ! -f "$NGINX_CONF" ]; then
 else
     echo "  설정 파일: $NGINX_CONF"
 
+    # 이전에 잘못된 파일에 삽입된 설정 정리
+    WRONG_FILE="/home/ubuntu/hydro/jobworld/nginx/nginx-http.conf"
+    if [ -f "$WRONG_FILE" ] && grep -q "livenews" "$WRONG_FILE"; then
+        echo "  잘못된 파일(nginx-http.conf) 정리..."
+        rm -f "$WRONG_FILE"
+    fi
+
     if grep -q "livenews" "$NGINX_CONF"; then
         echo "  이미 /livenews 설정 있음. 리로드만."
         docker exec ${NGINX_CONTAINER} nginx -s reload 2>/dev/null

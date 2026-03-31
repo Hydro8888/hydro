@@ -163,3 +163,26 @@ export async function translateContent(content: string): Promise<string> {
     return '';
   }
 }
+
+/**
+ * Generate an image for a news article using xAI Grok image model.
+ * Returns the image URL or empty string on failure.
+ */
+export async function generateArticleImage(title: string, category?: string): Promise<string> {
+  if (!title || !process.env.XAI_API_KEY) return '';
+
+  try {
+    const res = await client.images.generate({
+      model: 'grok-2-image',
+      prompt: `Professional news article header image for: "${title}". Category: ${category || 'general news'}. Style: photojournalism, realistic, high quality, editorial photo. No text overlays.`,
+      n: 1,
+      size: '1024x1024',
+    });
+
+    const url = res.data?.[0]?.url;
+    return url || '';
+  } catch (e) {
+    console.warn('[ai] Image generation failed:', e instanceof Error ? e.message : String(e));
+    return '';
+  }
+}

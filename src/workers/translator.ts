@@ -199,5 +199,41 @@ export async function translateArticles(
     console.log(`[translator] Content translation complete`);
   }
 
+  // Phase 3: Generate images for articles without imageUrl
+  const articlesWithoutImage = results.filter((a) => !a.imageUrl);
+  if (articlesWithoutImage.length > 0 && client) {
+    console.log(`[translator] Generating images for ${articlesWithoutImage.length} articles without photos...`);
+
+    for (const article of articlesWithoutImage) {
+      try {
+        const res = await client.images.generate({
+          model: 'grok-2-image',
+          prompt: `Professional news article header image for: "${article.titleOriginal}". Category: ${article.categoryPrimary || 'general news'}. Style: photojournalism, realistic, high quality, editorial photo. No text overlays.`,
+          n: 1,
+          size: '1024x1024',
+        });
+
+        const url = res.data?.[0]?.url;
+        if (url) {
+          article.imageUrl = url;
+          console.log(`[translator] Generated image for "${article.titleOriginal.slice(0, 40)}..."`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[translator] Image generation failed: ${msg}`);
+        // Stop trying if the model is not available
+        if (msg.includes('model') || msg.includes('not found') || msg.includes('404')) {
+          console.warn(`[translator] Image generation model not available. Skipping remaining.`);
+          break;
+        }
+      }
+
+      // Pause between generations
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    console.log(`[translator] Image generation complete`);
+  }
+
   return results;
 }

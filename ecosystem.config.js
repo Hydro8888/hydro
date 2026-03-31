@@ -21,6 +21,8 @@ module.exports = {
       cwd: '/home/ubuntu/livenews',
       instances: 1,
       autorestart: true,
+      restart_delay: 60000,
+      max_restarts: 10,
       watch: false,
       max_memory_restart: '300M',
       cron_restart: '0 */6 * * *',

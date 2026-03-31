@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { timeAgo, categoryLabel } from '@/lib/utils';
+import { timeAgo, categoryLabel, getDefaultImage } from '@/lib/utils';
 
 interface Article {
   id: number | string;
@@ -48,32 +48,14 @@ export default function NewsCard({ article }: { article: Article }) {
     <article className="group flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
       {/* Image */}
       <Link href={`/article/${article.id}`} className="relative block h-[160px] sm:h-[180px] w-full overflow-hidden bg-gray-100">
-        {article.imageUrl ? (
-          <Image
-            src={article.imageUrl}
-            alt={title}
-            fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
-            unoptimized
-          />
-        ) : (
-          <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${catGradient}`}>
-            <div className="text-center text-white">
-              <span className="text-3xl opacity-80">
-                {article.categoryPrimary === 'politics' ? '🏛' :
-                 article.categoryPrimary === 'economy' ? '📊' :
-                 article.categoryPrimary === 'market' ? '📈' :
-                 article.categoryPrimary === 'business' ? '💼' :
-                 article.categoryPrimary === 'ai-tech' ? '🤖' :
-                 article.categoryPrimary === 'semiconductor' ? '🔬' :
-                 article.categoryPrimary === 'sports' ? '⚽' :
-                 article.categoryPrimary === 'world' ? '🌍' : '📰'}
-              </span>
-              <p className="text-xs mt-1 opacity-60 font-medium">{article.source.sourceName}</p>
-            </div>
-          </div>
-        )}
+        <Image
+          src={article.imageUrl || getDefaultImage(article.categoryPrimary, article.id)}
+          alt={title}
+          fill
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          unoptimized
+        />
       </Link>
 
       {/* Content */}

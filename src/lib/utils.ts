@@ -60,3 +60,35 @@ export function buildSearchParams(params: Record<string, string | number | undef
   });
   return sp.toString();
 }
+
+/**
+ * Returns a default image URL for articles without photos.
+ * Uses Unsplash source with category-specific keywords.
+ * The article ID is used to get a consistent image per article.
+ */
+const categoryImageKeywords: Record<string, string> = {
+  politics: 'government,politics,capitol',
+  economy: 'economy,finance,money',
+  market: 'stock-market,trading,wall-street',
+  business: 'business,office,corporate',
+  'ai-tech': 'artificial-intelligence,technology,computer',
+  semiconductor: 'microchip,semiconductor,technology',
+  automotive: 'car,automotive,vehicle',
+  energy: 'energy,solar,power',
+  society: 'city,people,community',
+  culture: 'culture,art,museum',
+  entertainment: 'entertainment,movie,celebrity',
+  sports: 'sports,athlete,stadium',
+  science: 'science,laboratory,research',
+  health: 'health,medical,hospital',
+  world: 'globe,world,international',
+  general: 'newspaper,news,media',
+};
+
+export function getDefaultImage(category: string | null, articleId: number | string): string {
+  const cat = category || 'general';
+  const keywords = categoryImageKeywords[cat] || 'news,world';
+  const id = typeof articleId === 'string' ? parseInt(articleId) || 0 : articleId;
+  // Use article ID as sig to get consistent but varied images
+  return `https://source.unsplash.com/800x600/?${keywords}&sig=${id}`;
+}

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/db';
-import { formatDate, countryLabel, categoryLabel, timeAgo } from '@/lib/utils';
+import { formatDate, countryLabel, categoryLabel, timeAgo, getDefaultImage } from '@/lib/utils';
 import NewsCard from '@/components/NewsCard';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -114,32 +114,14 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
       </nav>
 
       <article>
-        {/* Hero Image or Gradient Placeholder */}
-        {article.imageUrl ? (
-          <div className="mb-8 rounded-2xl overflow-hidden shadow-lg">
-            <img
-              src={article.imageUrl}
-              alt={title}
-              className="w-full h-auto max-h-[280px] sm:max-h-[450px] object-cover"
-            />
-          </div>
-        ) : (
-          <div className={`mb-8 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br ${catGradient} p-6 sm:p-10 md:p-16 flex items-center justify-center min-h-[150px] sm:min-h-[200px]`}>
-            <div className="text-center text-white">
-              <div className="text-5xl mb-3 opacity-80">
-                {article.categoryPrimary === 'politics' ? '🏛' :
-                 article.categoryPrimary === 'economy' ? '📊' :
-                 article.categoryPrimary === 'market' ? '📈' :
-                 article.categoryPrimary === 'business' ? '💼' :
-                 article.categoryPrimary === 'ai-tech' ? '🤖' :
-                 article.categoryPrimary === 'semiconductor' ? '🔬' :
-                 article.categoryPrimary === 'sports' ? '⚽' :
-                 article.categoryPrimary === 'world' ? '🌍' : '📰'}
-              </div>
-              <p className="text-sm opacity-70 font-medium">{article.source.sourceName}</p>
-            </div>
-          </div>
-        )}
+        {/* Hero Image */}
+        <div className="mb-8 rounded-2xl overflow-hidden shadow-lg">
+          <img
+            src={article.imageUrl || getDefaultImage(article.categoryPrimary, article.id)}
+            alt={title}
+            className="w-full h-auto max-h-[280px] sm:max-h-[450px] object-cover"
+          />
+        </div>
 
         {/* Category + Meta Row */}
         <div className="flex flex-wrap items-center gap-3 mb-4">

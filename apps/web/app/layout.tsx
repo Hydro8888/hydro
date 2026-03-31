@@ -1,18 +1,7 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
 import { QueryProvider } from '@/components/query-provider';
 import { AuthProvider } from '@/components/auth-provider';
 import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-});
 
 export const metadata: Metadata = {
   title: 'AI Portal Pro - One Dashboard, All Premium AI',
@@ -28,9 +17,7 @@ export default function RootLayout({
   return (
     <AuthProvider>
       <html lang="ko" suppressHydrationWarning>
-        <body
-          className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
-        >
+        <body className="font-sans antialiased">
           <QueryProvider>{children}</QueryProvider>
         </body>
       </html>

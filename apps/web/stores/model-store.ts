@@ -15,7 +15,7 @@ interface ModelStore {
 
 export const useModelStore = create<ModelStore>((set, get) => ({
   mode: 'single',
-  selectedModelIds: ['google/gemini-2.5-pro'],
+  selectedModelIds: ['xai/grok-4'],
 
   setMode: (mode) => {
     const current = get().selectedModelIds;

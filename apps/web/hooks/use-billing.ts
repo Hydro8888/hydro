@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiUrl } from '@/lib/api-url';
 
 export function useBilling() {
   const [loading, setLoading] = useState(false);
@@ -8,7 +9,7 @@ export function useBilling() {
   async function createCheckout(priceId: string) {
     setLoading(true);
     try {
-      const res = await fetch('/api/billing/checkout', {
+      const res = await fetch(apiUrl('/api/billing/checkout'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId }),
@@ -25,7 +26,7 @@ export function useBilling() {
   async function openPortal() {
     setLoading(true);
     try {
-      const res = await fetch('/api/billing/portal', { method: 'POST' });
+      const res = await fetch(apiUrl('/api/billing/portal'), { method: 'POST' });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;

@@ -1,4 +1,5 @@
 import { getAuthUserId } from '@/lib/auth';
+import { memoryStore } from '@/lib/memory-store';
 import { z } from 'zod';
 
 const createConversationSchema = z.object({
@@ -8,12 +9,16 @@ const createConversationSchema = z.object({
 });
 
 export async function GET() {
-  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
-  return Response.json({ conversations: [] });
+  let userId: string;
+  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
+
+  const conversations = memoryStore.getConversations(userId);
+  return Response.json({ conversations });
 }
 
 export async function POST(req: Request) {
-  try { await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
+  let userId: string;
+  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
 
   const body = await req.json();
   const parsed = createConversationSchema.safeParse(body);
@@ -24,13 +29,21 @@ export async function POST(req: Request) {
     });
   }
 
-  const conversation = {
+  const now = new Date().toISOString();
+  const conversation = memoryStore.createConversation({
     id: crypto.randomUUID(),
+    userId,
     title: parsed.data.title ?? 'New Conversation',
     mode: parsed.data.mode ?? 'single',
     modelIds: parsed.data.modelIds ?? [],
-    createdAt: new Date().toISOString(),
-  };
+    messageCount: 0,
+    totalTokens: 0,
+    totalCost: 0,
+    pinned: false,
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   return Response.json({ conversation }, { status: 201 });
 }

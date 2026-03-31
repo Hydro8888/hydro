@@ -1,8 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { apiUrl } from '@/lib/api-url';
 
-interface UsageData {
+export interface UsageData {
   currentPeriod: {
     totalTokens: number;
     totalCost: number;
@@ -19,7 +20,7 @@ export function useUsage() {
   return useQuery<UsageData>({
     queryKey: ['usage'],
     queryFn: async () => {
-      const res = await fetch('/api/usage');
+      const res = await fetch(apiUrl('/api/usage'));
       if (!res.ok) throw new Error('Failed to fetch usage');
       return res.json();
     },

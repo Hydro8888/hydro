@@ -70,14 +70,18 @@ export function ChatInput({
 
           <div className="flex items-center gap-1">
             <button
+              onClick={() => alert('파일 첨부 기능은 준비 중입니다.')}
               className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label="Attach file"
+              title="파일 첨부 (준비 중)"
             >
               <Paperclip className="w-4 h-4 text-gray-400" />
             </button>
             <button
+              onClick={() => alert('음성 입력 기능은 준비 중입니다.')}
               className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label="Voice input"
+              title="음성 입력 (준비 중)"
             >
               <Mic className="w-4 h-4 text-gray-400" />
             </button>

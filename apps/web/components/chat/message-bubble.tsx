@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { getModelConfig } from '@ai-portal/shared';
-import { Copy, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system';
@@ -19,6 +20,8 @@ export function MessageBubble({
   isStreaming,
 }: MessageBubbleProps) {
   const modelConfig = modelId ? getModelConfig(modelId) : undefined;
+  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
 
   return (
     <div
@@ -74,23 +77,33 @@ export function MessageBubble({
         {role === 'assistant' && !isStreaming && content && (
           <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
             <button
-              onClick={() => navigator.clipboard.writeText(content)}
+              onClick={() => {
+                navigator.clipboard.writeText(content);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               aria-label="Copy"
             >
-              <Copy className="w-3.5 h-3.5 text-gray-400" />
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-green-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-gray-400" />
+              )}
             </button>
             <button
+              onClick={() => setFeedback(feedback === 'like' ? null : 'like')}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               aria-label="Like"
             >
-              <ThumbsUp className="w-3.5 h-3.5 text-gray-400" />
+              <ThumbsUp className={cn('w-3.5 h-3.5', feedback === 'like' ? 'text-primary-500' : 'text-gray-400')} />
             </button>
             <button
+              onClick={() => setFeedback(feedback === 'dislike' ? null : 'dislike')}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               aria-label="Dislike"
             >
-              <ThumbsDown className="w-3.5 h-3.5 text-gray-400" />
+              <ThumbsDown className={cn('w-3.5 h-3.5', feedback === 'dislike' ? 'text-red-500' : 'text-gray-400')} />
             </button>
           </div>
         )}

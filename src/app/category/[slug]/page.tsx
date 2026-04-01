@@ -5,6 +5,7 @@ import { getCached } from '@/lib/redis';
 import { CATEGORIES } from '@/lib/constants';
 import { categoryLabel } from '@/lib/utils';
 import NewsCard from '@/components/NewsCard';
+import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
 import Link from 'next/link';
 
@@ -49,6 +50,8 @@ export default async function CategoryPage({
   const page = parseInt(searchParams.page || '1');
   const { articles, total, totalPages } = await getArticles(params.slug, page);
   const label = categoryLabel(params.slug);
+  const headlines = articles.slice(0, 3);
+  const rest = articles.slice(3);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -74,9 +77,15 @@ export default async function CategoryPage({
         ))}
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {articles.map((article) => (
-          <NewsCard key={article.id} article={article} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        {headlines.map((a) => (
+          <NewsCardLarge key={a.id} article={a} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {rest.map((a) => (
+          <NewsCard key={a.id} article={a} />
         ))}
       </div>
 

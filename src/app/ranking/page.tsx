@@ -42,22 +42,9 @@ export default async function RankingPage({
 
       <CountryTabs activeCountry={country} />
 
-      <div className="mt-6">
-        {articles.map((article, index) => (
-          <div key={article.id} className="flex items-start gap-4">
-            <span
-              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                index < 3
-                  ? 'bg-accent text-white'
-                  : 'bg-gray-200 text-gray-600'
-              }`}
-            >
-              {index + 1}
-            </span>
-            <div className="flex-1">
-              <NewsCard article={article} />
-            </div>
-          </div>
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {articles.map((article) => (
+          <NewsCard key={article.id} article={article} />
         ))}
       </div>
 

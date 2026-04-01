@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/db';
 import { getCached } from '@/lib/redis';
 import NewsCard from '@/components/NewsCard';
+import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
 
 export const metadata = {
@@ -40,6 +41,8 @@ export default async function BreakingPage({
 }) {
   const page = parseInt(searchParams.page || '1');
   const { articles, total, totalPages } = await getBreakingArticles(page);
+  const headlines = articles.slice(0, 3);
+  const rest = articles.slice(3);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -49,9 +52,15 @@ export default async function BreakingPage({
         <span className="text-sm text-gray-500">{total}개 기사</span>
       </div>
 
-      <div className="divide-y divide-gray-100">
-        {articles.map((article) => (
-          <NewsCard key={article.id} article={article} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        {headlines.map((a) => (
+          <NewsCardLarge key={a.id} article={a} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {rest.map((a) => (
+          <NewsCard key={a.id} article={a} />
         ))}
       </div>
 

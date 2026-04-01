@@ -149,7 +149,7 @@ async function collectSource(source: Source): Promise<CollectionResult> {
   }
 
   // ── Step 3: Normalize ────────────────────────────────────────────────────
-  const normalized = newRawItems
+  let normalized = newRawItems
     .map((raw) => normalizeArticle(raw, source))
     .filter((a): a is NonNullable<typeof a> => a !== null);
 
@@ -165,7 +165,7 @@ async function collectSource(source: Source): Promise<CollectionResult> {
 
   // ── Step 3.5: Scrape full article content from original URLs ────────────
   try {
-    await scrapeArticleContents(normalized);
+    normalized = await scrapeArticleContents(normalized);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`${logBase} Scraping failed (non-fatal): ${message}`);

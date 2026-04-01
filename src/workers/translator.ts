@@ -155,13 +155,13 @@ export async function translateArticles(
   }
 
   // Phase 2: Translate content for articles that have contentOriginal
-  const articlesWithContent = results.filter((a) => a.contentOriginal && a.contentOriginal.length > 50);
+  const articlesWithContent = results.filter((a) => a.contentOriginal && a.contentOriginal.length > 30);
   if (articlesWithContent.length > 0 && client) {
     console.log(`[translator] Translating content for ${articlesWithContent.length} articles...`);
 
     for (const article of articlesWithContent) {
       try {
-        const trimmed = (article.contentOriginal || '').slice(0, 2500);
+        const trimmed = (article.contentOriginal || '').slice(0, 4500);
         const res = await client.chat.completions.create({
           model,
           messages: [
@@ -172,12 +172,13 @@ export async function translateArticles(
 규칙:
 - 뉴스 기사 스타일의 격식체 사용 (예: ~했다, ~이다)
 - 고유명사(인명, 지명, 기관명)는 원문 그대로 유지하거나 널리 알려진 한국어 표기 사용
-- 문단 구분을 유지하세요
+- 문단 구분을 유지하세요 (빈 줄로 구분)
+- 내용을 빠짐없이 모두 번역하세요
 - 번역문만 출력하세요`,
             },
             { role: 'user', content: trimmed },
           ],
-          max_tokens: 2000,
+          max_tokens: 4000,
           temperature: 0.3,
         });
         article.contentKo = res.choices[0]?.message?.content?.trim() || '';

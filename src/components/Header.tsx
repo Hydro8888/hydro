@@ -21,11 +21,17 @@ export default function Header() {
       {/* Top bar */}
       <div className="mx-auto max-w-screen-xl px-4">
         <div className="flex h-14 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 select-none">
-            <span className="text-2xl font-extrabold tracking-tight text-blue-600">Live</span>
-            <span className="text-2xl font-extrabold tracking-tight text-gray-900">News</span>
-          </Link>
+          {/* Logo + Catchphrase */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-1 select-none">
+              <span className="text-2xl font-extrabold tracking-tight text-blue-600">Live</span>
+              <span className="text-2xl font-extrabold tracking-tight text-gray-900">News</span>
+            </Link>
+            <Link href="/" className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full animate-pulse">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              전세계 뉴스를 한눈에
+            </Link>
+          </div>
 
           {/* Desktop search + hamburger */}
           <div className="flex items-center gap-3">

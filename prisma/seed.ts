@@ -24,13 +24,13 @@ const sources = [
   { sourceName: 'ABC News', sourceType: 'RSS', country: 'us', language: 'en', baseUrl: 'https://abcnews.go.com', feedUrl: 'https://abcnews.go.com/abcnews/topstories' },
 
   // === Japan (7) ===
-  { sourceName: 'NHK World', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www3.nhk.or.jp/nhkworld', feedUrl: 'https://www3.nhk.or.jp/rss/news/cat0.xml' },
+  { sourceName: 'NHK World', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www3.nhk.or.jp/nhkworld', feedUrl: 'https://www3.nhk.or.jp/nhkworld/en/news/list.xml' },
   { sourceName: 'Japan Times', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www.japantimes.co.jp', feedUrl: 'https://www.japantimes.co.jp/feed/' },
-  { sourceName: 'Nikkei Asia', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://asia.nikkei.com', feedUrl: 'https://asia.nikkei.com/rss' },
+  { sourceName: 'Nikkei Asia', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://asia.nikkei.com', feedUrl: 'https://asia.nikkei.com/rss/feed' },
   { sourceName: 'Mainichi', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://mainichi.jp/english', feedUrl: 'https://mainichi.jp/english/rss/etc/mainichi.xml' },
   { sourceName: 'Kyodo News', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://english.kyodonews.net', feedUrl: 'https://english.kyodonews.net/rss/news.xml' },
-  { sourceName: 'Asahi Shimbun', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www.asahi.com/ajw', feedUrl: 'https://www.asahi.com/ajw/rss.html' },
-  { sourceName: 'Jiji Press', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www.nippon.com', feedUrl: 'https://www.nippon.com/en/rss/all.rss' },
+  { sourceName: 'Nippon.com', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://www.nippon.com', feedUrl: 'https://www.nippon.com/en/rss/all.rss' },
+  { sourceName: 'Japan Today', sourceType: 'RSS', country: 'japan', language: 'en', baseUrl: 'https://japantoday.com', feedUrl: 'https://japantoday.com/feed' },
 
   // === China (7) ===
   { sourceName: 'Xinhua', sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'https://english.news.cn', feedUrl: 'https://english.news.cn/rss/mainpage.xml' },
@@ -39,7 +39,7 @@ const sources = [
   { sourceName: "People's Daily", sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'http://en.people.cn', feedUrl: 'http://en.people.cn/rss/90000.xml' },
   { sourceName: 'Global Times', sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'https://www.globaltimes.cn', feedUrl: 'https://www.globaltimes.cn/rss/outbrain.xml' },
   { sourceName: 'SCMP', sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'https://www.scmp.com', feedUrl: 'https://www.scmp.com/rss/91/feed' },
-  { sourceName: 'Caixin Global', sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'https://www.caixinglobal.com', feedUrl: 'https://www.caixinglobal.com/rss.html' },
+  { sourceName: 'Sixth Tone', sourceType: 'RSS', country: 'china', language: 'en', baseUrl: 'https://www.sixthtone.com', feedUrl: 'https://www.sixthtone.com/rss' },
 ];
 
 async function main() {

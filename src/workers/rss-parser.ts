@@ -25,8 +25,9 @@ type CustomItem = {
 const parser = new Parser<Record<string, unknown>, CustomItem>({
   timeout: 30_000,
   headers: {
-    'User-Agent': 'HydroNewsBot/1.0 (+https://github.com/hydro-news)',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
   },
   customFields: {
     item: [

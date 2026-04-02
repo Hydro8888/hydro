@@ -227,7 +227,7 @@ export async function scrapeArticleContents(
   articles: NormalizedArticle[],
 ): Promise<NormalizedArticle[]> {
   const needsScraping = articles.filter(
-    (a) => !a.contentOriginal || a.contentOriginal.length < 100 || !a.imageUrl
+    (a) => !a.contentOriginal || a.contentOriginal.length < 500 || !a.imageUrl
   );
 
   if (needsScraping.length === 0) {
@@ -243,7 +243,7 @@ export async function scrapeArticleContents(
   for (const article of needsScraping) {
     const { content, imageUrl } = await fetchArticlePage(article.originalUrl);
 
-    if (content && content.length > 50 && (!article.contentOriginal || article.contentOriginal.length < 100)) {
+    if (content && content.length > 100 && content.length > (article.contentOriginal?.length || 0)) {
       article.contentOriginal = content;
       scrapedContent++;
     }

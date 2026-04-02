@@ -145,7 +145,7 @@ export function normalizeArticle(
   if (raw.content) {
     const cleaned = stripHtml(raw.content);
     if (cleaned.length > 30) { // Only save meaningful content
-      contentOriginal = cleaned.slice(0, 3000);
+      contentOriginal = cleaned.slice(0, 500);
     }
   }
 

@@ -28,7 +28,7 @@ function stripHtml(html: string): string {
     .replace(/[ \t]+/g, ' ')
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l.length > 20)
+    .filter(l => l.length > 15)
     .join('\n')
     .trim();
 }
@@ -40,37 +40,39 @@ function stripHtml(html: string): string {
 function extractFromJsonLd(html: string): string {
   const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
+  let bestContent = '';
   while ((match = jsonLdRegex.exec(html)) !== null) {
     try {
       const data = JSON.parse(match[1]);
-      // Handle single object or array
       const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
-        // Check for NewsArticle, Article, etc.
-        if (item['@type'] && /Article|NewsArticle|ReportageNewsArticle|BlogPosting/i.test(item['@type'])) {
-          // articleBody is the full text
-          if (item.articleBody && item.articleBody.length > 100) {
-            return item.articleBody.slice(0, 8000);
-          }
-          // description as fallback
-          if (item.description && item.description.length > 100) {
-            return item.description;
+
+      const checkNode = (node: Record<string, unknown>) => {
+        if (!node || typeof node !== 'object') return;
+        const type = String(node['@type'] || '');
+        if (!/Article|NewsArticle|ReportageNewsArticle|BlogPosting|WebPage|Report/i.test(type)) return;
+
+        // Try multiple content fields in priority order
+        const fields = ['articleBody', 'text', 'description', 'abstract'];
+        for (const field of fields) {
+          const val = node[field];
+          if (typeof val === 'string' && val.length > bestContent.length && val.length > 50) {
+            bestContent = val.slice(0, 8000);
           }
         }
-        // Check @graph structure (used by many CMSes)
+      };
+
+      for (const item of items) {
+        checkNode(item as Record<string, unknown>);
+        // Check @graph structure
         if (item['@graph'] && Array.isArray(item['@graph'])) {
           for (const node of item['@graph']) {
-            if (node['@type'] && /Article|NewsArticle/i.test(node['@type'])) {
-              if (node.articleBody && node.articleBody.length > 100) {
-                return node.articleBody.slice(0, 8000);
-              }
-            }
+            checkNode(node as Record<string, unknown>);
           }
         }
       }
     } catch { /* Invalid JSON, skip */ }
   }
-  return '';
+  return bestContent;
 }
 
 /**
@@ -114,7 +116,7 @@ function extractOgImage(html: string): string {
 function extractArticleContent(html: string): string {
   // Strategy 1: JSON-LD structured data (most reliable)
   const jsonLdContent = extractFromJsonLd(html);
-  if (jsonLdContent.length > 100) {
+  if (jsonLdContent.length > 50) {
     console.log(`[scraper] Got content from JSON-LD (${jsonLdContent.length} chars)`);
     return jsonLdContent;
   }
@@ -158,12 +160,12 @@ function extractArticleContent(html: string): string {
   let pMatch;
   while ((pMatch = pRegex.exec(html)) !== null) {
     const text = stripHtml(pMatch[1]).trim();
-    if (text.length > 20) {
+    if (text.length > 15) {
       paragraphs.push(text);
     }
   }
 
-  if (paragraphs.length >= 2) {
+  if (paragraphs.length >= 1) {
     const joined = paragraphs.join('\n');
     console.log(`[scraper] Got content from <p> tags (${joined.length} chars, ${paragraphs.length} paragraphs)`);
     return joined.slice(0, 8000);
@@ -172,7 +174,7 @@ function extractArticleContent(html: string): string {
   // Strategy 4: og:description meta tag as absolute last resort
   const descMatch = html.match(/<meta\s[^>]*(?:property=["']og:description["']|name=["']description["'])[^>]*content=["']([^"']+)["']/i)
     || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*(?:property=["']og:description["']|name=["']description["'])/i);
-  if (descMatch?.[1] && descMatch[1].length > 50) {
+  if (descMatch?.[1] && descMatch[1].length > 30) {
     console.log(`[scraper] Got content from meta description (${descMatch[1].length} chars)`);
     return descMatch[1];
   }

@@ -38,20 +38,20 @@ echo ""
 echo "=== [1/9] Node.js / pnpm / PM2 확인 ==="
 if ! command -v node &> /dev/null; then
   echo "Node.js 설치 중..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt-get install -y nodejs
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y nodejs
 fi
 echo "Node: $(node -v)"
 
 if ! command -v pnpm &> /dev/null; then
   echo "pnpm 설치 중..."
-  sudo npm install -g pnpm@9
+  npm install -g pnpm@9
 fi
 echo "pnpm: $(pnpm -v)"
 
 if ! command -v pm2 &> /dev/null; then
   echo "PM2 설치 중..."
-  sudo npm install -g pm2
+  npm install -g pm2
 fi
 echo "PM2: $(pm2 -v)"
 
@@ -120,10 +120,19 @@ echo "=== [5/9] 프로덕션 빌드 ==="
 cd ${DEPLOY_DIR}
 pnpm build
 
-# standalone 빌드에 static 파일 복사
+# standalone 빌드에 static 파일 복사 (CSS/JS 포함 — 필수!)
 echo "static 파일 복사 중..."
-cp -r ${DEPLOY_DIR}/apps/web/public ${DEPLOY_DIR}/apps/web/.next/standalone/apps/web/public 2>/dev/null || true
-cp -r ${DEPLOY_DIR}/apps/web/.next/static ${DEPLOY_DIR}/apps/web/.next/standalone/apps/web/.next/static
+STANDALONE_DIR="${DEPLOY_DIR}/apps/web/.next/standalone/apps/web"
+mkdir -p "${STANDALONE_DIR}/.next"
+mkdir -p "${STANDALONE_DIR}/public"
+cp -r ${DEPLOY_DIR}/apps/web/.next/static "${STANDALONE_DIR}/.next/static"
+CSS_COUNT=$(find "${STANDALONE_DIR}/.next/static" -name '*.css' 2>/dev/null | wc -l)
+JS_COUNT=$(find "${STANDALONE_DIR}/.next/static" -name '*.js' 2>/dev/null | wc -l)
+echo "✓ .next/static 복사 완료 (CSS: ${CSS_COUNT}개, JS: ${JS_COUNT}개)"
+if [ "${CSS_COUNT}" -eq 0 ]; then
+  echo "⚠ 경고: CSS 파일이 없습니다! 빌드가 올바른지 확인하세요."
+fi
+cp -r ${DEPLOY_DIR}/apps/web/public/* "${STANDALONE_DIR}/public/" 2>/dev/null && echo "✓ public 파일 복사 완료" || echo "⚠ public 폴더가 비어있음 (무시 가능)"
 
 echo ""
 echo "=== [6/9] PM2 프로세스 시작/재시작 ==="
@@ -152,15 +161,15 @@ fi
 echo ""
 echo "=== [8/9] iptables 방화벽 규칙 추가 ==="
 # Docker에서 호스트 포트 접근 허용
-if ! sudo iptables -C DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
-  sudo iptables -I DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT
+if ! iptables -C DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
+  iptables -I DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT
   echo "iptables 규칙 추가: 172.17.0.0/16 → ${APP_PORT}"
 else
   echo "iptables 규칙 이미 존재: 172.17.0.0/16 → ${APP_PORT}"
 fi
 
-if ! sudo iptables -C DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
-  sudo iptables -I DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT
+if ! iptables -C DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
+  iptables -I DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT
   echo "iptables 규칙 추가: 172.18.0.0/16 → ${APP_PORT}"
 else
   echo "iptables 규칙 이미 존재: 172.18.0.0/16 → ${APP_PORT}"
@@ -175,7 +184,7 @@ for conf_path in \
   "/etc/nginx/conf.d/default.conf" \
   "/etc/nginx/nginx.conf" \
   "/etc/nginx/sites-enabled/default"; do
-  if sudo docker exec ${NGINX_CONTAINER} test -f ${conf_path} 2>/dev/null; then
+  if docker exec ${NGINX_CONTAINER} test -f ${conf_path} 2>/dev/null; then
     NGINX_CONF=${conf_path}
     break
   fi
@@ -200,7 +209,7 @@ else
   echo "nginx 설정 파일: ${NGINX_CONF}"
 
   # freeai location 블록이 이미 있는지 확인
-  if sudo docker exec ${NGINX_CONTAINER} grep -q "location /freeai/" ${NGINX_CONF} 2>/dev/null; then
+  if docker exec ${NGINX_CONTAINER} grep -q "location /freeai/" ${NGINX_CONF} 2>/dev/null; then
     echo "freeai location 블록이 이미 존재합니다."
   else
     echo "freeai location 블록 추가 중..."
@@ -234,21 +243,21 @@ else
 NGINX_BLOCK
 
     # 기존 nginx 설정을 컨테이너에서 복사
-    sudo docker exec ${NGINX_CONTAINER} cat ${NGINX_CONF} > /tmp/nginx-original.conf
+    docker exec ${NGINX_CONTAINER} cat ${NGINX_CONF} > /tmp/nginx-original.conf
 
     # 마지막 닫는 중괄호 } 앞에 location 블록 삽입
-    sudo sed -i "/^}$/r /tmp/freeai-nginx.conf" /tmp/nginx-original.conf
+    sed -i "/^}$/r /tmp/freeai-nginx.conf" /tmp/nginx-original.conf
 
     # 수정된 설정을 컨테이너에 복사
-    sudo docker cp /tmp/nginx-original.conf ${NGINX_CONTAINER}:${NGINX_CONF}
+    docker cp /tmp/nginx-original.conf ${NGINX_CONTAINER}:${NGINX_CONF}
 
     # nginx 설정 테스트 및 리로드
-    if sudo docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
-      sudo docker exec ${NGINX_CONTAINER} nginx -s reload
+    if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
+      docker exec ${NGINX_CONTAINER} nginx -s reload
       echo "nginx 설정 업데이트 및 리로드 완료!"
     else
       echo "경고: nginx 설정 오류! 수동으로 확인하세요."
-      echo "sudo docker exec ${NGINX_CONTAINER} nginx -t"
+      echo "docker exec ${NGINX_CONTAINER} nginx -t"
     fi
 
     # 임시 파일 정리

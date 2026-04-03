@@ -120,31 +120,22 @@ echo "=== [5/9] 프로덕션 빌드 ==="
 cd ${DEPLOY_DIR}
 pnpm build
 
-# standalone 빌드에 static 파일 복사 (CSS/JS 포함 — 필수!)
-echo "static 파일 복사 중..."
-STANDALONE_DIR="${DEPLOY_DIR}/apps/web/.next/standalone/apps/web"
-mkdir -p "${STANDALONE_DIR}/.next"
-mkdir -p "${STANDALONE_DIR}/public"
-cp -r ${DEPLOY_DIR}/apps/web/.next/static "${STANDALONE_DIR}/.next/static"
-CSS_COUNT=$(find "${STANDALONE_DIR}/.next/static" -name '*.css' 2>/dev/null | wc -l)
-JS_COUNT=$(find "${STANDALONE_DIR}/.next/static" -name '*.js' 2>/dev/null | wc -l)
-echo "✓ .next/static 복사 완료 (CSS: ${CSS_COUNT}개, JS: ${JS_COUNT}개)"
-if [ "${CSS_COUNT}" -eq 0 ]; then
-  echo "⚠ 경고: CSS 파일이 없습니다! 빌드가 올바른지 확인하세요."
-fi
-cp -r ${DEPLOY_DIR}/apps/web/public/* "${STANDALONE_DIR}/public/" 2>/dev/null && echo "✓ public 파일 복사 완료" || echo "⚠ public 폴더가 비어있음 (무시 가능)"
+# 빌드 결과 확인
+CSS_COUNT=$(find ${DEPLOY_DIR}/apps/web/.next/static -name '*.css' 2>/dev/null | wc -l)
+JS_COUNT=$(find ${DEPLOY_DIR}/apps/web/.next/static -name '*.js' 2>/dev/null | wc -l)
+echo "✓ 빌드 완료 (CSS: ${CSS_COUNT}개, JS: ${JS_COUNT}개)"
 
 echo ""
 echo "=== [6/9] PM2 프로세스 시작/재시작 ==="
 cd ${DEPLOY_DIR}
 
+# 기존 프로세스가 있으면 삭제 후 새로 시작 (설정 변경 반영)
 if pm2 describe ${APP_NAME} > /dev/null 2>&1; then
-  echo "기존 프로세스 재시작..."
-  pm2 restart ${APP_NAME}
-else
-  echo "새 프로세스 시작..."
-  pm2 start ecosystem.config.cjs
+  echo "기존 프로세스 삭제..."
+  pm2 delete ${APP_NAME}
 fi
+echo "프로세스 시작..."
+pm2 start ecosystem.config.cjs
 pm2 save
 
 echo ""

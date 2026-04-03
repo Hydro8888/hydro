@@ -115,6 +115,13 @@ export default function Header() {
               <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent-red animate-pulse-dot" />
             </Link>
 
+            {/* Animated slogan */}
+            <span className="hidden sm:inline-block ml-3 overflow-hidden">
+              <span className="inline-block animate-slide-up text-caption text-accent/70 font-medium whitespace-nowrap">
+                전세계 뉴스를 한눈에
+              </span>
+            </span>
+
             {/* Right cluster */}
             <div className="flex items-center gap-2">
               <LiveClock />

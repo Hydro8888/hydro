@@ -211,8 +211,12 @@ docker cp /tmp/freeai.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/freeai.conf
 # nginx.conf에 conf.d include가 있는지 확인 — 없으면 추가
 if ! docker exec ${NGINX_CONTAINER} grep -q "include /etc/nginx/conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
   echo "nginx.conf에 conf.d include가 없습니다. 추가합니다..."
-  # 볼륨 마운트된 파일은 docker cp로 교체 불가 → docker exec sed로 직접 수정
-  docker exec ${NGINX_CONTAINER} sed -i '/include.*mime\.types/a\    include /etc/nginx/conf.d/*.conf;' /etc/nginx/nginx.conf
+  # 볼륨 마운트된 파일: sed -i와 docker cp 모두 실패 (rename 불가)
+  # cat > 으로 직접 덮어쓰기 (truncate+write, rename 없음)
+  docker exec ${NGINX_CONTAINER} cat /etc/nginx/nginx.conf > /tmp/nginx.conf
+  sed -i '/include.*mime\.types/a\    include /etc/nginx/conf.d/*.conf;' /tmp/nginx.conf
+  cat /tmp/nginx.conf | docker exec -i ${NGINX_CONTAINER} sh -c 'cat > /etc/nginx/nginx.conf'
+  rm -f /tmp/nginx.conf
   echo "✓ conf.d include 추가 완료"
 else
   echo "✓ conf.d include 이미 존재"

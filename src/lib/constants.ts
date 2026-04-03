@@ -78,3 +78,37 @@ export const MAIN_MENU = [
 ] as const;
 
 export const ITEMS_PER_PAGE = 20;
+
+// ---------------------------------------------------------------------------
+// Design System tokens — Dark modern palette (Slice S1)
+// ---------------------------------------------------------------------------
+
+/** Category color map: border-left accent, text color, translucent background */
+export const CATEGORY_COLORS: Record<string, { border: string; text: string; bg: string }> = {
+  politics:      { border: 'border-l-red-500',    text: 'text-red-400',    bg: 'bg-red-500/10' },
+  economy:       { border: 'border-l-blue-500',   text: 'text-blue-400',   bg: 'bg-blue-500/10' },
+  market:        { border: 'border-l-indigo-500',  text: 'text-indigo-400',  bg: 'bg-indigo-500/10' },
+  business:      { border: 'border-l-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'ai-tech':     { border: 'border-l-cyan-500',   text: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
+  semiconductor: { border: 'border-l-violet-500',  text: 'text-violet-400',  bg: 'bg-violet-500/10' },
+  automotive:    { border: 'border-l-sky-500',     text: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  energy:        { border: 'border-l-amber-500',   text: 'text-amber-400',   bg: 'bg-amber-500/10' },
+  society:       { border: 'border-l-orange-500',  text: 'text-orange-400',  bg: 'bg-orange-500/10' },
+  culture:       { border: 'border-l-rose-500',    text: 'text-rose-400',    bg: 'bg-rose-500/10' },
+  entertainment: { border: 'border-l-pink-500',    text: 'text-pink-400',    bg: 'bg-pink-500/10' },
+  sports:        { border: 'border-l-green-500',   text: 'text-green-400',   bg: 'bg-green-500/10' },
+  science:       { border: 'border-l-teal-500',    text: 'text-teal-400',    bg: 'bg-teal-500/10' },
+  health:        { border: 'border-l-lime-500',    text: 'text-lime-400',    bg: 'bg-lime-500/10' },
+  world:         { border: 'border-l-blue-400',    text: 'text-blue-300',    bg: 'bg-blue-400/10' },
+  general:       { border: 'border-l-gray-500',    text: 'text-gray-400',    bg: 'bg-gray-500/10' },
+};
+
+/** Priority-based visual styles for breaking/urgent/normal news */
+export const PRIORITY_STYLES = {
+  breaking: { badge: 'bg-accent-red/15 text-accent-red border border-accent-red/30', dot: 'animate-pulse-dot bg-accent-red' },
+  urgent:   { badge: 'bg-accent/15 text-accent border border-accent/30', dot: 'bg-accent' },
+  normal:   { badge: 'bg-surface-elevated text-text-secondary', dot: 'bg-text-muted' },
+} as const;
+
+/** Badge style for AI-generated / AI-recommended content */
+export const AI_BADGE_STYLE = 'bg-accent-blue/10 text-accent-blue border border-accent-blue/20 text-overline' as const;

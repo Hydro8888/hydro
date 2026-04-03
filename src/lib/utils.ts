@@ -1,3 +1,5 @@
+import { CATEGORY_COLORS } from './constants';
+
 export function timeAgo(date: Date | string | null): string {
   if (!date) return '';
   const now = new Date();
@@ -34,12 +36,12 @@ export function countryLabel(code: string): string {
 
 export function countryColor(code: string): string {
   const map: Record<string, string> = {
-    global: 'bg-blue-100 text-blue-800',
-    us: 'bg-red-100 text-red-800',
-    japan: 'bg-pink-100 text-pink-800',
-    china: 'bg-yellow-100 text-yellow-800',
+    global: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
+    us: 'bg-red-500/15 text-red-400 border border-red-500/20',
+    japan: 'bg-pink-500/15 text-pink-400 border border-pink-500/20',
+    china: 'bg-amber-500/15 text-amber-400 border border-amber-500/20',
   };
-  return map[code] || 'bg-gray-100 text-gray-800';
+  return map[code] || 'bg-surface-elevated text-text-secondary';
 }
 
 export function categoryLabel(slug: string): string {
@@ -71,4 +73,18 @@ export function getDefaultImage(category: string | null, articleId: number | str
   // Picsum uses numeric image IDs (0-1084). Map article ID to a range.
   const picId = (id % 1000) + 10;
   return `https://picsum.photos/seed/${category || 'news'}-${id}/800/500`;
+}
+
+// ---------------------------------------------------------------------------
+// Design System helpers (Slice S1)
+// ---------------------------------------------------------------------------
+
+/** Returns category color classes (border, text, bg) for the given slug */
+export function getCategoryStyle(slug: string): { border: string; text: string; bg: string } {
+  return CATEGORY_COLORS[slug] || { border: 'border-l-gray-500', text: 'text-text-secondary', bg: 'bg-surface-elevated' };
+}
+
+/** Merges class names, filtering out falsy values */
+export function cn(...classes: (string | false | null | undefined)[]): string {
+  return classes.filter(Boolean).join(' ');
 }

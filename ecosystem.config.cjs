@@ -5,6 +5,7 @@ module.exports = {
       cwd: '/home/ubuntu/freeai/apps/web',
       script: 'node_modules/.bin/next',
       args: 'start -p 3010 -H 0.0.0.0',
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3010,

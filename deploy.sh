@@ -118,6 +118,11 @@ pnpm install --no-frozen-lockfile
 echo ""
 echo "=== [5/9] 프로덕션 빌드 ==="
 cd ${DEPLOY_DIR}
+
+# 오래된 빌드 캐시 삭제 (standalone 잔여물 제거 — 이전 빌드에서 남은 .next/standalone/ 가 next start를 방해함)
+echo "오래된 빌드 캐시 삭제..."
+rm -rf ${DEPLOY_DIR}/apps/web/.next
+
 pnpm build
 
 # 빌드 결과 확인

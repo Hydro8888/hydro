@@ -85,4 +85,16 @@
   .surface-interactive {
     @apply bg-surface-card hover:bg-surface-elevated active:bg-surface transition-colors duration-150;
   }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

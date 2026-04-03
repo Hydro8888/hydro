@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MAIN_MENU, COUNTRIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
@@ -34,14 +34,15 @@ function LiveClock() {
 
   if (!time) return null;
   return (
-    <time className="hidden md:block text-caption text-text-muted tabular-nums select-none">
+    <time className="hidden md:flex items-center gap-1.5 text-caption text-text-muted tabular-nums select-none">
+      <span className="inline-block h-1 w-1 rounded-full bg-accent-green animate-pulse-dot" />
       {time}
     </time>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Desktop nav items (top row excluded: search, ranking)              */
+/*  Desktop nav items (exclude search, ranking from main strip)        */
 /* ------------------------------------------------------------------ */
 const NAV_ITEMS = MAIN_MENU.filter(
   (m) => m.href !== '/search' && m.href !== '/ranking',
@@ -56,7 +57,8 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
-  const countryRef = useRef<HTMLDivElement>(null);
+  const countryRef = useRef<HTMLLIElement>(null);
+  const navScrollRef = useRef<HTMLUListElement>(null);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -76,10 +78,19 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const isActive = (href: string) => {
+  // Auto-scroll active nav item into view
+  useEffect(() => {
+    if (!navScrollRef.current) return;
+    const active = navScrollRef.current.querySelector('[data-active="true"]');
+    if (active) {
+      active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [pathname]);
+
+  const isActive = useCallback((href: string) => {
     if (href === '/') return pathname === '/';
     return pathname.startsWith(href);
-  };
+  }, [pathname]);
 
   const collapsed = scrollDir === 'down' && !mobileOpen && !searchOpen;
 
@@ -92,7 +103,7 @@ export default function Header() {
         )}
         style={{ '--nav-h': '40px' } as React.CSSProperties}
       >
-        {/* ── Tier 1: Logo + clock + search toggle ─────────────── */}
+        {/* -- Tier 1: Logo + clock + search toggle ------------------- */}
         <div className="mx-auto max-w-screen-xl px-4">
           <div className="flex h-12 items-center justify-between">
             {/* Logo */}
@@ -107,7 +118,7 @@ export default function Header() {
             </Link>
 
             {/* Right cluster */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <LiveClock />
 
               {/* Search toggle (desktop) */}
@@ -115,14 +126,17 @@ export default function Header() {
                 aria-label="검색"
                 onClick={() => setSearchOpen((v) => !v)}
                 className={cn(
-                  'hidden sm:flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-caption transition-colors',
+                  'hidden sm:flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-caption transition-all duration-200',
                   searchOpen
-                    ? 'border-accent text-accent'
+                    ? 'border-accent text-accent bg-accent/5'
                     : 'border-border text-text-secondary hover:border-text-muted hover:text-text',
                 )}
               >
                 <SearchIcon className="h-3.5 w-3.5" />
                 <span>검색</span>
+                <kbd className="hidden lg:inline-block ml-1 px-1.5 py-0.5 text-[10px] rounded bg-surface-elevated text-text-muted border border-border-muted">
+                  /
+                </kbd>
               </button>
 
               {/* Search toggle (mobile) */}
@@ -140,7 +154,20 @@ export default function Header() {
                 onClick={() => setMobileOpen((v) => !v)}
                 className="lg:hidden p-2 rounded-md text-text-secondary hover:text-accent hover:bg-surface-elevated transition-colors"
               >
-                {mobileOpen ? <CloseIcon /> : <MenuIcon />}
+                <div className="relative w-5 h-5 flex flex-col items-center justify-center">
+                  <span className={cn(
+                    'block h-0.5 w-4 bg-current rounded transition-all duration-300 absolute',
+                    mobileOpen ? 'rotate-45 top-[9px]' : 'top-[5px]',
+                  )} />
+                  <span className={cn(
+                    'block h-0.5 w-4 bg-current rounded transition-all duration-300 absolute top-[9px]',
+                    mobileOpen ? 'opacity-0 scale-x-0' : 'opacity-100',
+                  )} />
+                  <span className={cn(
+                    'block h-0.5 w-4 bg-current rounded transition-all duration-300 absolute',
+                    mobileOpen ? '-rotate-45 top-[9px]' : 'top-[13px]',
+                  )} />
+                </div>
               </button>
             </div>
           </div>
@@ -156,31 +183,53 @@ export default function Header() {
           </div>
         </div>
 
-        {/* ── Tier 2: Nav bar (desktop) ─────────────────────────── */}
+        {/* -- Tier 2: Nav bar (desktop) -------------------------------- */}
         <nav
           className="hidden lg:block bg-surface-card/60 border-t border-border-muted"
           style={{ height: 'var(--nav-h, 40px)' }}
         >
           <div className="mx-auto max-w-screen-xl px-4">
-            <ul className="flex items-center h-10 gap-0 overflow-x-auto scrollbar-none">
-              {NAV_ITEMS.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'nav-link relative inline-flex items-center whitespace-nowrap',
-                      isActive(item.href) && 'nav-link-active',
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+            <ul
+              ref={navScrollRef}
+              className="flex items-center h-10 gap-0 overflow-x-auto scrollbar-none"
+            >
+              {NAV_ITEMS.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      data-active={active}
+                      className={cn(
+                        'nav-link relative inline-flex items-center whitespace-nowrap',
+                        active && 'nav-link-active',
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+
+              {/* Ranking link at end with separator */}
+              <li className="ml-auto flex items-center gap-2">
+                <span className="h-4 w-px bg-border-muted" />
+                <Link
+                  href="/ranking"
+                  className={cn(
+                    'nav-link relative inline-flex items-center whitespace-nowrap gap-1',
+                    isActive('/ranking') && 'nav-link-active',
+                  )}
+                >
+                  <ChartIcon className="h-3.5 w-3.5" />
+                  랭킹
+                </Link>
+              </li>
             </ul>
           </div>
         </nav>
 
-        {/* ── Mobile slide-down menu ────────────────────────────── */}
+        {/* -- Mobile slide-down menu ----------------------------------- */}
         <div
           className={cn(
             'lg:hidden overflow-hidden transition-all duration-300 ease-in-out border-t border-border-muted bg-surface-card',
@@ -188,6 +237,9 @@ export default function Header() {
           )}
         >
           <nav className="mx-auto max-w-screen-xl px-4 py-3">
+            <p className="text-overline text-text-muted uppercase tracking-widest mb-2 px-1">
+              카테고리
+            </p>
             <ul className="grid grid-cols-3 sm:grid-cols-4 gap-1">
               {MAIN_MENU.map((item) => (
                 <li key={item.href}>
@@ -206,12 +258,38 @@ export default function Header() {
                 </li>
               ))}
             </ul>
+
+            {/* Country section in mobile menu */}
+            <p className="text-overline text-text-muted uppercase tracking-widest mt-4 mb-2 px-1">
+              국가별
+            </p>
+            <ul className="flex gap-2 px-1 pb-1">
+              {COUNTRIES.filter((c) => c.code !== 'all').map((country) => {
+                const href = country.code === 'global' ? '/world' : `/${country.code}`;
+                return (
+                  <li key={country.code}>
+                    <Link
+                      href={href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors',
+                        isActive(href)
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-border text-text-secondary hover:border-text-muted hover:text-text',
+                      )}
+                    >
+                      {country.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         </div>
       </header>
 
-      {/* ── Mobile bottom nav (sticky) ─────────────────────────── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-md border-t border-border">
+      {/* -- Mobile bottom nav (sticky) -------------------------------- */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-md border-t border-border safe-area-bottom">
         <nav className="mx-auto max-w-md">
           <ul className="flex items-center justify-around h-14">
             {/* Home */}
@@ -270,31 +348,37 @@ export default function Header() {
               </button>
 
               {/* Country flyout */}
-              {countryOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-36 rounded-card bg-surface-card border border-border shadow-dropdown animate-slide-up">
-                  <ul className="py-1">
-                    {COUNTRIES.filter((c) => c.code !== 'all').map((country) => {
-                      const href = country.code === 'global' ? '/world' : `/${country.code}`;
-                      return (
-                        <li key={country.code}>
-                          <Link
-                            href={href}
-                            onClick={() => setCountryOpen(false)}
-                            className={cn(
-                              'block px-4 py-2 text-sm transition-colors',
-                              isActive(href)
-                                ? 'text-accent bg-accent/5'
-                                : 'text-text-secondary hover:text-text hover:bg-surface-elevated',
-                            )}
-                          >
-                            {country.label} ({country.labelEn})
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
+              <div
+                className={cn(
+                  'absolute bottom-full right-0 mb-2 w-40 rounded-card bg-surface-card border border-border shadow-dropdown transition-all duration-200 origin-bottom-right',
+                  countryOpen
+                    ? 'opacity-100 scale-100 pointer-events-auto'
+                    : 'opacity-0 scale-95 pointer-events-none',
+                )}
+              >
+                <ul className="py-1">
+                  {COUNTRIES.filter((c) => c.code !== 'all').map((country) => {
+                    const href = country.code === 'global' ? '/world' : `/${country.code}`;
+                    return (
+                      <li key={country.code}>
+                        <Link
+                          href={href}
+                          onClick={() => setCountryOpen(false)}
+                          className={cn(
+                            'flex items-center gap-2 px-4 py-2.5 text-sm transition-colors',
+                            isActive(href)
+                              ? 'text-accent bg-accent/5'
+                              : 'text-text-secondary hover:text-text hover:bg-surface-elevated',
+                          )}
+                        >
+                          <span>{country.label}</span>
+                          <span className="text-text-muted text-xs">{country.labelEn}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </li>
           </ul>
         </nav>
@@ -315,18 +399,10 @@ function SearchIcon({ className = 'h-4 w-4' }: { className?: string }) {
   );
 }
 
-function MenuIcon() {
+function ChartIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
     </svg>
   );
 }

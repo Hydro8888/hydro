@@ -2,11 +2,11 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <p className="mb-2 text-overline tracking-widest text-accent uppercase">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center animate-fade-in">
+      <p className="mb-4 text-[6rem] font-extrabold leading-none tracking-tighter text-surface-elevated select-none">
         404
       </p>
-      <h1 className="mb-3 text-headline-xl text-text">
+      <h1 className="mb-3 text-headline-lg text-text">
         페이지를 찾을 수 없습니다
       </h1>
       <p className="mb-8 max-w-md text-body-md text-text-secondary">

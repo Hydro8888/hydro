@@ -17,6 +17,12 @@ export default function Loading() {
         </div>
       </div>
 
+      {/* Section header skeleton */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-4 w-20 rounded bg-surface-elevated animate-pulse" />
+        <div className="flex-1 h-px bg-border-muted" />
+      </div>
+
       {/* Grid skeleton */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[...Array(8)].map((_, i) => (

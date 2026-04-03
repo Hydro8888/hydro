@@ -1,61 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
-import { getCached } from '@/lib/redis';
 import { COUNTRIES, CATEGORIES } from '@/lib/constants';
+import { getArticles, getBreakingNews, getCategoryCounts } from '@/lib/queries';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import NewsCard from '@/components/NewsCard';
 import CountryTabs from '@/components/CountryTabs';
 import SearchBar from '@/components/SearchBar';
-
-async function getArticles(country?: string) {
-  try {
-    const where: Record<string, unknown> = { isActive: true };
-    if (country && country !== 'all') where.country = country;
-
-    return await getCached(`home:${country || 'all'}`, 60, () =>
-      prisma.article.findMany({
-        where,
-        include: { source: true },
-        orderBy: { publishedAt: 'desc' },
-        take: 30,
-      })
-    );
-  } catch {
-    return [];
-  }
-}
-
-async function getBreakingNews() {
-  try {
-    return await getCached('breaking', 60, () =>
-      prisma.article.findMany({
-        where: { isActive: true },
-        include: { source: true },
-        orderBy: { publishedAt: 'desc' },
-        take: 10,
-      })
-    );
-  } catch {
-    return [];
-  }
-}
-
-async function getCategoryCounts() {
-  try {
-    return await getCached('cat-counts', 120, async () => {
-      const counts = await prisma.article.groupBy({
-        by: ['categoryPrimary'],
-        where: { isActive: true },
-        _count: true,
-      });
-      return counts.map((c) => ({ category: c.categoryPrimary, count: c._count }));
-    });
-  } catch {
-    return [];
-  }
-}
 
 export default async function HomePage({
   searchParams,
@@ -69,16 +20,17 @@ export default async function HomePage({
     getCategoryCounts(),
   ]);
 
-  const headlines = articles.slice(0, 3);
+  const hero = articles[0];
+  const subHero = articles.slice(1, 3);
   const rest = articles.slice(3);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
       {/* Breaking News Ticker */}
       {breaking.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl py-2.5 px-4 mb-6 overflow-hidden">
+        <div className="bg-accent-red/8 border border-accent-red/20 rounded-card py-2.5 px-4 mb-6 overflow-hidden">
           <div className="flex items-center gap-3">
-            <span className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-lg flex-shrink-0 animate-pulse">
+            <span className="bg-accent-red text-white text-overline font-bold px-3 py-1 rounded-badge flex-shrink-0 animate-pulse-dot">
               LIVE
             </span>
             <div className="overflow-hidden">
@@ -87,7 +39,7 @@ export default async function HomePage({
                   <Link
                     key={article.id}
                     href={`/article/${article.id}`}
-                    className="text-sm text-gray-700 hover:text-accent font-medium"
+                    className="text-body-md text-text-secondary hover:text-accent transition-colors font-medium"
                   >
                     {article.titleKo || article.titleOriginal}
                   </Link>
@@ -96,7 +48,7 @@ export default async function HomePage({
                   <Link
                     key={`dup-${article.id}`}
                     href={`/article/${article.id}`}
-                    className="text-sm text-gray-700 hover:text-accent font-medium"
+                    className="text-body-md text-text-secondary hover:text-accent transition-colors font-medium"
                   >
                     {article.titleKo || article.titleOriginal}
                   </Link>
@@ -115,26 +67,37 @@ export default async function HomePage({
       {/* Country Tabs */}
       <CountryTabs activeCountry={country} />
 
-      {/* Top Headlines - 3 Column Grid (like reference design) */}
-      {headlines.length > 0 && (
+      {/* Hero Section: full-width top article + 2 sub-hero */}
+      {hero && (
         <section className="mt-6">
-          <h2 className="text-xl font-bold mb-5 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+          <h2 className="text-headline-md text-text mb-5 flex items-center gap-2">
+            <span className="w-1 h-6 bg-accent rounded-full" />
             주요 헤드라인
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {headlines.map((article) => (
-              <NewsCardLarge key={article.id} article={article} />
-            ))}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Hero — spans 2 cols on large */}
+            <div className="lg:col-span-2">
+              <NewsCardLarge key={hero.id} article={hero} />
+            </div>
+
+            {/* Sub-hero stack */}
+            {subHero.length > 0 && (
+              <div className="flex flex-col gap-5">
+                {subHero.map((article) => (
+                  <NewsCardLarge key={article.id} article={article} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* Latest News - 3 Column Grid */}
+      {/* Latest News Grid */}
       {rest.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-xl font-bold mb-5 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-accent rounded-full"></span>
+          <h2 className="text-headline-md text-text mb-5 flex items-center gap-2">
+            <span className="w-1 h-6 bg-accent-blue rounded-full" />
             최신 뉴스
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -147,21 +110,21 @@ export default async function HomePage({
 
       {/* Empty State */}
       {articles.length === 0 && (
-        <div className="text-center py-24 text-gray-400">
-          <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="text-center py-24">
+          <svg className="w-16 h-16 mx-auto mb-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2" />
           </svg>
-          <p className="text-xl font-medium">뉴스를 수집 중입니다</p>
-          <p className="text-sm mt-2">잠시 후 다시 확인해주세요</p>
+          <p className="text-headline-sm text-text-secondary">뉴스를 수집 중입니다</p>
+          <p className="text-body-md text-text-muted mt-2">잠시 후 다시 확인해주세요</p>
         </div>
       )}
 
-      {/* Sidebar: Categories + Countries */}
+      {/* Bottom: Categories + Countries */}
       {articles.length > 0 && (
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Categories */}
-          <div className="bg-gray-50 rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-4">카테고리</h3>
+          <div className="bg-surface-card rounded-card p-6 border border-border-muted">
+            <h3 className="text-headline-sm text-text mb-4">카테고리</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {CATEGORIES.slice(0, 12).map((cat) => {
                 const count = catCounts.find((c) => c.category === cat.slug)?.count || 0;
@@ -169,10 +132,10 @@ export default async function HomePage({
                   <Link
                     key={cat.slug}
                     href={`/category/${cat.slug}`}
-                    className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-200 hover:border-primary hover:shadow-sm text-sm transition-all"
+                    className="flex items-center justify-between p-3 rounded-card bg-surface-elevated border border-border hover:border-accent hover:shadow-card text-body-md transition-all"
                   >
-                    <span className="font-medium text-gray-700">{cat.label}</span>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{count}</span>
+                    <span className="font-medium text-text">{cat.label}</span>
+                    <span className="text-caption text-text-muted bg-surface px-2 py-0.5 rounded-pill">{count}</span>
                   </Link>
                 );
               })}
@@ -180,14 +143,14 @@ export default async function HomePage({
           </div>
 
           {/* Countries */}
-          <div className="bg-gray-50 rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-4">국가별 뉴스</h3>
+          <div className="bg-surface-card rounded-card p-6 border border-border-muted">
+            <h3 className="text-headline-sm text-text mb-4">국가별 뉴스</h3>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
                 <Link
                   key={c.code}
                   href={`/${c.code === 'global' ? 'world' : c.code}`}
-                  className="text-center py-5 rounded-xl bg-white border border-gray-200 hover:border-primary hover:shadow-sm text-sm font-medium transition-all"
+                  className="text-center py-5 rounded-card bg-surface-elevated border border-border hover:border-accent hover:shadow-card text-body-md font-medium text-text transition-all"
                 >
                   <span className="text-2xl block mb-1">
                     {c.code === 'global' ? '🌍' : c.code === 'us' ? '🇺🇸' : c.code === 'japan' ? '🇯🇵' : '🇨🇳'}

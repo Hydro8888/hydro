@@ -9,12 +9,12 @@ const adminMenu = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface">
       {/* Admin Header */}
-      <div className="bg-dark text-white py-3 px-4">
+      <div className="bg-surface-card border-b border-border py-3 px-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="font-bold text-lg">
+            <Link href="/admin" className="font-bold text-lg text-accent">
               LiveNews Admin
             </Link>
             <nav className="flex flex-wrap gap-2 sm:gap-4">
@@ -22,14 +22,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                  className="text-sm text-text-secondary hover:text-text transition-colors"
                 >
                   {item.label}
                 </Link>
               ))}
             </nav>
           </div>
-          <Link href="/" className="text-sm text-gray-400 hover:text-white">
+          <Link href="/" className="text-sm text-text-muted hover:text-text">
             사이트로 돌아가기
           </Link>
         </div>

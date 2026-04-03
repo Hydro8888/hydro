@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI JobWorld — 관리자</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Google Sans','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:14px;background:#fff;color:#202124}
+
+/* ── 로그인 ─── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}
+.login-box{width:360px;padding:48px 40px 36px;border:1px solid #dadce0;border-radius:8px}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .brand{font-size:22px;font-weight:400;color:#202124;letter-spacing:-.5px}
+.login-logo .brand b{font-weight:700;color:#1a73e8}
+.login-logo small{display:block;color:#5f6368;font-size:13px;margin-top:6px}
+.login-box h2{font-size:24px;font-weight:400;margin-bottom:8px;text-align:center;color:#202124}
+.login-box .login-sub{font-size:14px;color:#5f6368;text-align:center;margin-bottom:28px}
+.field{margin-bottom:16px;position:relative}
+.field input{width:100%;border:1px solid #dadce0;border-radius:4px;padding:13px 14px;font-size:14px;outline:none;color:#202124;transition:border-color .2s,box-shadow .2s;background:#fff}
+.field input:focus{border-color:#1a73e8;box-shadow:0 0 0 1px #1a73e8}
+.field label{position:absolute;top:50%;left:14px;transform:translateY(-50%);font-size:14px;color:#5f6368;pointer-events:none;transition:all .15s;background:#fff;padding:0 2px}
+.field input:focus~label,.field input:not(:placeholder-shown)~label{top:-8px;font-size:11px;color:#1a73e8;transform:none}
+.error-msg{color:#d93025;font-size:12px;margin-bottom:12px;min-height:16px;padding:0 2px}
+.btn-login{width:100%;background:#1a73e8;color:#fff;border:none;border-radius:4px;padding:10px;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s,box-shadow .2s;letter-spacing:.25px}
+.btn-login:hover{background:#1557b0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.btn-login:disabled{background:#ccc;cursor:not-allowed;box-shadow:none}
+.login-notice{margin-top:16px;font-size:12px;color:#80868b;text-align:center}
+
+/* ── 앱 레이아웃 ─── */
+#app{display:none;height:100vh;overflow:hidden}
+.layout{display:flex;height:100%}
+
+/* ── 사이드바 ─── */
+.sidebar{width:256px;background:#fff;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:20px 16px 16px;display:flex;align-items:center;gap:10px;border-bottom:none}
+.sidebar-logo{font-size:18px;font-weight:500;color:#202124}
+.sidebar-logo b{color:#1a73e8;font-weight:700}
+.sidebar-sub{font-size:11px;color:#80868b;margin-top:1px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 24px;cursor:pointer;color:#3c4043;border-radius:0 24px 24px 0;margin-right:16px;font-size:13.5px;font-weight:500;transition:background .15s}
+.nav-item:hover{background:#f1f3f4}
+.nav-item.active{background:#e8f0fe;color:#1a73e8}
+.nav-item .icon{font-size:18px;width:22px;text-align:center;flex-shrink:0}
+.sidebar-footer{padding:12px 16px 20px;border-top:1px solid #f1f3f4}
+.admin-info{font-size:12px;color:#5f6368;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout{width:100%;border:1px solid #dadce0;background:#fff;border-radius:4px;padding:8px;font-size:13px;cursor:pointer;color:#3c4043;font-weight:500;transition:background .15s}
+.btn-logout:hover{background:#f1f3f4}
+
+/* ── 메인 ─── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:#f8f9fa}
+.topbar{padding:0 32px;height:64px;background:#fff;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar h1{font-size:22px;font-weight:400;color:#202124}
+.topbar-right{font-size:12px;color:#80868b}
+.content{padding:32px}
+
+/* ── 통계 카드 ─── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;margin-bottom:32px}
+.stat-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px}
+.stat-card .label{font-size:12px;color:#5f6368;margin-bottom:8px;font-weight:500;letter-spacing:.3px;text-transform:uppercase}
+.stat-card .value{font-size:28px;font-weight:400;color:#202124}
+.stat-card .sub{font-size:11px;color:#80868b;margin-top:4px}
+.stat-card.blue .value{color:#1a73e8}
+.stat-card.green .value{color:#188038}
+.stat-card.orange .value{color:#e37400}
+.stat-card.purple .value{color:#8430ce}
+
+/* ── 섹션 카드 ─── */
+.section{background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden}
+.section-header{padding:16px 20px;border-bottom:1px solid #f1f3f4;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.section-header h3{font-size:14px;font-weight:500;color:#202124;flex:1;min-width:120px}
+.search-bar{display:flex;gap:8px;flex:2;min-width:200px}
+.search-bar input,.search-bar select{border:1px solid #dadce0;border-radius:4px;padding:7px 12px;font-size:13px;outline:none;flex:1;color:#202124}
+.search-bar input:focus,.search-bar select:focus{border-color:#1a73e8}
+.btn-sm{padding:7px 16px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid #dadce0;background:#fff;color:#3c4043;transition:background .15s,border-color .15s;white-space:nowrap;letter-spacing:.25px}
+.btn-sm:hover{background:#f1f3f4}
+.btn-sm.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.btn-sm.primary:hover{background:#1557b0;border-color:#1557b0}
+.btn-sm.danger{color:#d93025;border-color:#f5c6c2}
+.btn-sm.danger:hover{background:#fce8e6}
+.btn-sm.success{color:#188038;border-color:#a8d5b5}
+.btn-sm.success:hover{background:#e6f4ea}
+
+/* ── 테이블 ─── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+thead tr{background:#f8f9fa}
+th{padding:11px 16px;text-align:left;font-size:11px;font-weight:500;color:#5f6368;white-space:nowrap;border-bottom:1px solid #e0e0e0;letter-spacing:.5px;text-transform:uppercase}
+td{padding:12px 16px;border-bottom:1px solid #f1f3f4;vertical-align:middle;font-size:13px;color:#3c4043}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8f9fa}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;letter-spacing:.3px}
+.badge.active{background:#e6f4ea;color:#137333}
+.badge.closed{background:#fce8e6;color:#c5221f}
+.badge.draft{background:#fef7e0;color:#b06000}
+.badge.jobseeker{background:#e8f0fe;color:#1a73e8}
+.badge.employer{background:#f3e8fd;color:#7627bb}
+.badge.admin{background:#fce8e6;color:#c5221f}
+.badge.on{background:#e6f4ea;color:#137333}
+.badge.off{background:#f1f3f4;color:#5f6368}
+
+/* ── 페이지네이션 ─── */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid #f1f3f4}
+.pagination .info{font-size:12px;color:#80868b}
+.pager{display:flex;gap:2px}
+.pager button{border:none;background:transparent;border-radius:50%;width:32px;height:32px;font-size:13px;cursor:pointer;color:#3c4043;transition:background .15s}
+.pager button:hover:not(:disabled){background:#f1f3f4}
+.pager button.active{background:#1a73e8;color:#fff}
+.pager button:disabled{opacity:.4;cursor:default}
+
+/* ── 모달 ─── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(32,33,36,.6);z-index:100;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:8px;padding:24px;width:440px;max-width:95vw;box-shadow:0 11px 15px -7px rgba(0,0,0,.2),0 24px 38px 3px rgba(0,0,0,.14)}
+.modal h3{font-size:20px;font-weight:400;margin-bottom:20px;color:#202124}
+.modal-field{margin-bottom:16px}
+.modal-field label{display:block;font-size:12px;color:#5f6368;margin-bottom:6px;font-weight:500}
+.modal-field input,.modal-field select{width:100%;border:1px solid #dadce0;border-radius:4px;padding:10px 12px;font-size:14px;outline:none;color:#202124}
+.modal-field input:focus,.modal-field select:focus{border-color:#1a73e8;box-shadow:0 0 0 1px #1a73e8}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+
+/* ── 토스트 ─── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px}
+.toast-item{padding:12px 24px;border-radius:4px;font-size:13px;color:#fff;box-shadow:0 3px 5px -1px rgba(0,0,0,.2),0 6px 10px rgba(0,0,0,.14);animation:fadeUp .25s ease;white-space:nowrap}
+.toast-item.success{background:#323232}
+.toast-item.error{background:#d93025}
+.toast-item.info{background:#323232}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── 기타 ─── */
+.empty{text-align:center;padding:56px 20px;color:#80868b;font-size:14px}
+.loading{text-align:center;padding:40px;color:#80868b;font-size:14px}
+
+.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.dashboard-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="brand">AI <b>JobWorld</b></div>
+      <small>관리자 콘솔</small>
+    </div>
+    <h2>로그인</h2>
+    <p class="login-sub">관리자(admin) 계정으로 로그인하세요</p>
+    <div class="field">
+      <input type="email" id="login-email" placeholder=" " autocomplete="username">
+      <label>이메일</label>
+    </div>
+    <div class="field">
+      <input type="password" id="login-pw" placeholder=" " autocomplete="current-password">
+      <label>비밀번호</label>
+    </div>
+    <div class="error-msg" id="login-err"></div>
+    <button class="btn-login" id="login-btn" onclick="doLogin()">로그인</button>
+    <p class="login-notice">관리자(admin) 계정만 접속 가능합니다</p>
+  </div>
+</div>
+
+<!-- 관리자 패널 -->
+<div id="app">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <div class="sidebar-logo">AI <b>JobWorld</b></div>
+          <div class="sidebar-sub">Admin Console</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" onclick="showTab('dashboard')" data-tab="dashboard">
+          <span class="icon">&#9783;</span> 대시보드
+        </div>
+        <div class="nav-item" onclick="showTab('users')" data-tab="users">
+          <span class="icon">&#9707;</span> 회원 관리
+        </div>
+        <div class="nav-item" onclick="showTab('jobs')" data-tab="jobs">
+          <span class="icon">&#9741;</span> 채용공고
+        </div>
+        <div class="nav-item" onclick="showTab('applications')" data-tab="applications">
+          <span class="icon">&#9741;</span> 지원 내역
+        </div>
+        <div class="nav-item" onclick="showTab('worknet')" data-tab="worknet">
+          <span class="icon">&#9784;</span> 워크넷 공고
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="admin-info" id="admin-info">관리자</div>
+        <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <h1 id="page-title">대시보드</h1>
+        <div class="topbar-right" id="topbar-date"></div>
+      </div>
+      <div class="content">
+
+        <!-- 대시보드 -->
+        <div id="tab-dashboard">
+          <div class="stat-grid" id="stat-grid">
+            <div class="loading">불러오는 중...</div>
+          </div>
+          <div class="dashboard-grid">
+            <div class="section" style="padding:20px 24px">
+              <p style="font-size:12px;font-weight:500;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">빠른 메뉴</p>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <button class="btn-sm" onclick="showTab('users')" style="text-align:left">회원 목록 보기</button>
+                <button class="btn-sm" onclick="showTab('jobs')" style="text-align:left">채용공고 관리</button>
+                <button class="btn-sm" onclick="showTab('applications')" style="text-align:left">지원 내역 확인</button>
+                <button class="btn-sm" onclick="showTab('worknet')" style="text-align:left">워크넷 공고 보기</button>
+                <button class="btn-sm primary" onclick="triggerWorknetSync()" style="text-align:left">워크넷 동기화 실행</button>
+              </div>
+            </div>
+            <div class="section" style="padding:20px 24px">
+              <p style="font-size:12px;font-weight:500;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">서버 정보</p>
+              <div style="font-size:13px;color:#3c4043;display:flex;flex-direction:column;gap:8px">
+                <div>API 주소<span style="float:right;color:#202124;font-weight:500" id="api-base-display"></span></div>
+                <div>접속 시각<span style="float:right;color:#202124;font-weight:500" id="login-time"></span></div>
+                <div>버전<span style="float:right;color:#202124;font-weight:500">AI JobWorld v1.0</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 회원 관리 -->
+        <div id="tab-users" style="display:none">
+          <div class="section">
+            <div class="section-header">
+              <h3>회원 목록</h3>
+              <div class="search-bar">
+                <input type="text" id="user-q" placeholder="이름 또는 이메일" onkeydown="if(event.key==='Enter')loadUsers(1)">
+                <select id="user-type-filter" onchange="loadUsers(1)">
+                  <option value="">전체 유형</option>
+                  <option value="jobseeker">구직자</option>
+                  <option value="employer">기업</option>
+                  <option value="admin">관리자</option>
+                </select>
+                <button class="btn-sm primary" onclick="loadUsers(1)">검색</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>이름</th><th>이메일</th><th>유형</th><th>상태</th><th>가입일</th><th>관리</th></tr></thead>
+                <tbody id="user-tbody"><tr><td colspan="7" class="loading">불러오는 중...</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <div class="info" id="user-info"></div>
+              <div class="pager" id="user-pager"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 채용공고 -->
+        <div id="tab-jobs" style="display:none">
+          <div class="section">
+            <div class="section-header">
+              <h3>채용공고 관리</h3>
+              <div class="search-bar">
+                <input type="text" id="job-q" placeholder="공고명 또는 기업명" onkeydown="if(event.key==='Enter')loadJobs(1)">
+                <select id="job-status-filter" onchange="loadJobs(1)">
+                  <option value="">전체 상태</option>
+                  <option value="active">진행중</option>
+                  <option value="closed">마감</option>
+                  <option value="draft">임시저장</option>
+                </select>
+                <button class="btn-sm primary" onclick="loadJobs(1)">검색</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>공고명</th><th>기업명</th><th>지역</th><th>고용형태</th><th>상태</th><th>마감일</th><th>조회수</th><th>관리</th></tr></thead>
+                <tbody id="job-tbody"><tr><td colspan="9" class="loading">불러오는 중...</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <div class="info" id="job-info"></div>
+              <div class="pager" id="job-pager"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 지원 내역 -->
+        <div id="tab-applications" style="display:none">
+          <div class="section">
+            <div class="section-header">
+              <h3>지원 내역</h3>
+              <button class="btn-sm" onclick="loadApplications(1)">새로고침</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>지원자</th><th>이메일</th><th>지원 공고</th><th>상태</th><th>지원일시</th></tr></thead>
+                <tbody id="app-tbody"><tr><td colspan="6" class="loading">불러오는 중...</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <div class="info" id="app-info"></div>
+              <div class="pager" id="app-pager"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 워크넷 -->
+        <div id="tab-worknet" style="display:none">
+          <div class="section">
+            <div class="section-header">
+              <h3>워크넷 공고</h3>
+              <div class="search-bar">
+                <input type="text" id="wn-q" placeholder="공고명 또는 기업명" onkeydown="if(event.key==='Enter')loadWorknet(1)">
+                <input type="text" id="wn-region" placeholder="지역 (예: 서울)" onkeydown="if(event.key==='Enter')loadWorknet(1)">
+                <button class="btn-sm primary" onclick="loadWorknet(1)">검색</button>
+                <button class="btn-sm success" onclick="triggerWorknetSync()">동기화</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>공고번호</th><th>공고명</th><th>기업명</th><th>지역</th><th>고용형태</th><th>마감일</th><th>수집일</th><th>관리</th></tr></thead>
+                <tbody id="wn-tbody"><tr><td colspan="8" class="loading">불러오는 중...</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <div class="info" id="wn-info"></div>
+              <div class="pager" id="wn-pager"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 회원 수정 모달 -->
+<div class="overlay" id="user-modal">
+  <div class="modal">
+    <h3>회원 정보 수정</h3>
+    <input type="hidden" id="edit-user-id">
+    <div class="modal-field"><label>이름</label><input type="text" id="edit-user-name"></div>
+    <div class="modal-field">
+      <label>회원 유형</label>
+      <select id="edit-user-type">
+        <option value="jobseeker">구직자</option>
+        <option value="employer">기업/구인</option>
+        <option value="admin">관리자</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>계정 상태</label>
+      <select id="edit-user-active">
+        <option value="true">활성</option>
+        <option value="false">비활성(정지)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('user-modal')">취소</button>
+      <button class="btn-sm primary" onclick="saveUser()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 공고 수정 모달 -->
+<div class="overlay" id="job-modal">
+  <div class="modal">
+    <h3>채용공고 수정</h3>
+    <input type="hidden" id="edit-job-id">
+    <div class="modal-field"><label>공고명</label><input type="text" id="edit-job-title"></div>
+    <div class="modal-field"><label>마감일</label><input type="text" id="edit-job-deadline" placeholder="YYYYMMDD"></div>
+    <div class="modal-field">
+      <label>상태</label>
+      <select id="edit-job-status">
+        <option value="active">진행중</option>
+        <option value="closed">마감</option>
+        <option value="draft">임시저장</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('job-modal')">취소</button>
+      <button class="btn-sm primary" onclick="saveJob()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 확인 모달 -->
+<div class="overlay" id="confirm-modal">
+  <div class="modal" style="width:360px">
+    <h3 id="confirm-title">삭제 확인</h3>
+    <p id="confirm-msg" style="font-size:14px;color:#5f6368;margin-bottom:0"></p>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('confirm-modal')">취소</button>
+      <button class="btn-sm danger" id="confirm-ok">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 설정 ──────────────────────────────────────────────────────────────────
+const API = (() => {
+  const stored = localStorage.getItem('jw_api_base');
+  if (stored) return stored;
+  return location.origin;
+})();
+
+// ── 상태 ─────────────────────────────────────────────────────────────────
+let token = localStorage.getItem('jw_admin_token') || '';
+let currentTab = 'dashboard';
+const PAGE_SIZE = 20;
+
+// ── 초기화 ────────────────────────────────────────────────────────────────
+document.getElementById('api-base-display').textContent = API;
+document.getElementById('topbar-date').textContent = new Date().toLocaleString('ko-KR');
+document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pw').focus(); });
+document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+if (token) {
+  verifyAndEnter();
+}
+
+// ── 인증 ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-err');
+
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+  btn.disabled = true; btn.textContent = '로그인 중...'; err.textContent = '';
+
+  try {
+    const res = await fetch(`${API}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pw }),
+    });
+    let data;
+    try { data = await res.json(); } catch { data = {}; }
+    if (!res.ok) { err.textContent = data.detail || `로그인 실패 (${res.status})`; return; }
+    if (data.user?.user_type !== 'admin') {
+      err.textContent = '관리자 계정만 접속 가능합니다.'; return;
+    }
+    token = data.access_token;
+    localStorage.setItem('jw_admin_token', token);
+    enterAdmin(data.user);
+  } catch(e) {
+    console.error('Login error:', e);
+    err.textContent = `서버 연결 실패: ${e.message || '네트워크 오류'}. 백엔드 서비스 상태를 확인해주세요.`;
+  } finally {
+    btn.disabled = false; btn.textContent = '로그인';
+  }
+}
+
+async function verifyAndEnter() {
+  try {
+    const res = await apiFetch('/api/v1/auth/me');
+    if (res.ok) {
+      const user = await res.json();
+      if (user.user_type === 'admin') { enterAdmin(user); return; }
+    }
+  } catch(e) {}
+  token = ''; localStorage.removeItem('jw_admin_token');
+}
+
+function enterAdmin(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('admin-info').textContent = `${user.name} (${user.email})`;
+  document.getElementById('login-time').textContent = new Date().toLocaleString('ko-KR');
+  showTab('dashboard');
+}
+
+function doLogout() {
+  token = ''; localStorage.removeItem('jw_admin_token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-err').textContent = '';
+}
+
+// ── API 헬퍼 ──────────────────────────────────────────────────────────────
+function apiFetch(path, opts={}) {
+  return fetch(API + path, {
+    ...opts,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers||{}) },
+  });
+}
+
+// ── 탭 전환 ───────────────────────────────────────────────────────────────
+const TAB_TITLES = { dashboard:'대시보드', users:'회원 관리', jobs:'채용공고 관리', applications:'지원 내역', worknet:'워크넷 공고' };
+
+function showTab(tab) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display='none');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).style.display = 'block';
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('page-title').textContent = TAB_TITLES[tab];
+  currentTab = tab;
+  if (tab === 'dashboard')    loadDashboard();
+  if (tab === 'users')        loadUsers(1);
+  if (tab === 'jobs')         loadJobs(1);
+  if (tab === 'applications') loadApplications(1);
+  if (tab === 'worknet')      loadWorknet(1);
+}
+
+// ── 대시보드 ─────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const res = await apiFetch('/api/v1/admin/dashboard');
+    if (!res.ok) return;
+    const d = await res.json();
+    document.getElementById('stat-grid').innerHTML = `
+      <div class="stat-card blue"><div class="label">전체 회원</div><div class="value">${fmt(d.total_users)}</div><div class="sub">기업회원 ${fmt(d.total_employers)}명</div></div>
+      <div class="stat-card green"><div class="label">진행중 공고</div><div class="value">${fmt(d.total_jobs)}</div><div class="sub">전체 ${fmt(d.total_jobs_all)}건</div></div>
+      <div class="stat-card orange"><div class="label">지원 건수</div><div class="value">${fmt(d.total_applications)}</div><div class="sub">이력서 ${fmt(d.total_resumes)}건</div></div>
+      <div class="stat-card purple"><div class="label">워크넷 공고</div><div class="value">${fmt(d.total_worknet)}</div><div class="sub">수집 데이터</div></div>
+      <div class="stat-card"><div class="label">오늘 검색</div><div class="value">${fmt(d.searches_today)}</div><div class="sub">검색 로그</div></div>
+      <div class="stat-card"><div class="label">신규 회원</div><div class="value">${fmt(d.new_users_today)}</div><div class="sub">오늘 가입</div></div>
+    `;
+  } catch(e) { console.error(e); }
+}
+
+// ── 회원 관리 ─────────────────────────────────────────────────────────────
+let userPage = 1;
+async function loadUsers(page=1) {
+  userPage = page;
+  const q       = document.getElementById('user-q').value.trim();
+  const utype   = document.getElementById('user-type-filter').value;
+  let url = `/api/v1/admin/users?page=${page}&size=${PAGE_SIZE}`;
+  if (q)     url += `&q=${encodeURIComponent(q)}`;
+  if (utype) url += `&user_type=${utype}`;
+
+  const tbody = document.getElementById('user-tbody');
+  tbody.innerHTML = `<tr><td colspan="7" class="loading">불러오는 중...</td></tr>`;
+  try {
+    const res = await apiFetch(url);
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">불러오기 실패</td></tr>`; return; }
+    const d = await res.json();
+    if (!d.users.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">데이터가 없습니다</td></tr>`; }
+    else tbody.innerHTML = d.users.map(u => `
+      <tr>
+        <td style="color:#80868b">${u.id}</td>
+        <td><strong style="color:#202124">${esc(u.name)}</strong></td>
+        <td>${esc(u.email)}</td>
+        <td><span class="badge ${u.user_type}">${userTypeLabel(u.user_type)}</span></td>
+        <td><span class="badge ${u.is_active?'on':'off'}">${u.is_active?'활성':'정지'}</span></td>
+        <td style="color:#80868b">${fmtDate(u.created_at)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-sm" onclick="openUserModal(${JSON.stringify(u).replace(/"/g,'&quot;')})">수정</button>
+          <button class="btn-sm danger" onclick="confirmDelete('users',${u.id},'회원 #${u.id} ${esc(u.name)}을(를) 삭제하시겠습니까?')">삭제</button>
+        </td>
+      </tr>`).join('');
+    renderPager('user', page, d.total, d.size);
+    document.getElementById('user-info').textContent = `전체 ${fmt(d.total)}명`;
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" class="empty">오류 발생</td></tr>`; }
+}
+
+function openUserModal(u) {
+  document.getElementById('edit-user-id').value    = u.id;
+  document.getElementById('edit-user-name').value  = u.name;
+  document.getElementById('edit-user-type').value  = u.user_type;
+  document.getElementById('edit-user-active').value = String(u.is_active);
+  document.getElementById('user-modal').classList.add('show');
+}
+
+async function saveUser() {
+  const id = document.getElementById('edit-user-id').value;
+  const body = {
+    name:      document.getElementById('edit-user-name').value,
+    user_type: document.getElementById('edit-user-type').value,
+    is_active: document.getElementById('edit-user-active').value === 'true',
+  };
+  try {
+    const res = await apiFetch(`/api/v1/admin/users/${id}`, { method:'PATCH', body: JSON.stringify(body) });
+    if (!res.ok) { const d=await res.json(); toast(d.detail||'저장 실패','error'); return; }
+    toast('저장되었습니다','success');
+    closeModal('user-modal');
+    loadUsers(userPage);
+  } catch(e) { toast('오류 발생','error'); }
+}
+
+// ── 채용공고 관리 ─────────────────────────────────────────────────────────
+let jobPage = 1;
+async function loadJobs(page=1) {
+  jobPage = page;
+  const q      = document.getElementById('job-q').value.trim();
+  const status = document.getElementById('job-status-filter').value;
+  let url = `/api/v1/admin/jobs?page=${page}&size=${PAGE_SIZE}`;
+  if (q)      url += `&q=${encodeURIComponent(q)}`;
+  if (status) url += `&status=${status}`;
+
+  const tbody = document.getElementById('job-tbody');
+  tbody.innerHTML = `<tr><td colspan="9" class="loading">불러오는 중...</td></tr>`;
+  try {
+    const res = await apiFetch(url);
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="9" class="empty">불러오기 실패</td></tr>`; return; }
+    const d = await res.json();
+    if (!d.jobs.length) { tbody.innerHTML = `<tr><td colspan="9" class="empty">데이터가 없습니다</td></tr>`; }
+    else tbody.innerHTML = d.jobs.map(j => `
+      <tr>
+        <td style="color:#80868b">${j.id}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(j.title)}"><strong style="color:#202124">${esc(j.title)}</strong></td>
+        <td>${esc(j.company_name)}</td>
+        <td>${esc(j.location||'-')}</td>
+        <td>${esc(j.job_type||'-')}</td>
+        <td><span class="badge ${j.status}">${statusLabel(j.status)}</span></td>
+        <td>${esc(j.deadline||'-')}</td>
+        <td style="color:#80868b">${fmt(j.view_count)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-sm" onclick="openJobModal(${JSON.stringify(j).replace(/"/g,'&quot;')})">수정</button>
+          <button class="btn-sm danger" onclick="confirmDelete('jobs',${j.id},'공고 #${j.id}를 삭제하시겠습니까?')">삭제</button>
+        </td>
+      </tr>`).join('');
+    renderPager('job', page, d.total, d.size);
+    document.getElementById('job-info').textContent = `전체 ${fmt(d.total)}건`;
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="9" class="empty">오류 발생</td></tr>`; }
+}
+
+function openJobModal(j) {
+  document.getElementById('edit-job-id').value       = j.id;
+  document.getElementById('edit-job-title').value    = j.title;
+  document.getElementById('edit-job-deadline').value = j.deadline || '';
+  document.getElementById('edit-job-status').value   = j.status;
+  document.getElementById('job-modal').classList.add('show');
+}
+
+async function saveJob() {
+  const id = document.getElementById('edit-job-id').value;
+  const body = {
+    title:    document.getElementById('edit-job-title').value,
+    deadline: document.getElementById('edit-job-deadline').value,
+    status:   document.getElementById('edit-job-status').value,
+  };
+  try {
+    const res = await apiFetch(`/api/v1/admin/jobs/${id}`, { method:'PATCH', body: JSON.stringify(body) });
+    if (!res.ok) { const d=await res.json(); toast(d.detail||'저장 실패','error'); return; }
+    toast('저장되었습니다','success');
+    closeModal('job-modal');
+    loadJobs(jobPage);
+  } catch(e) { toast('오류 발생','error'); }
+}
+
+// ── 지원 내역 ─────────────────────────────────────────────────────────────
+let appPage = 1;
+async function loadApplications(page=1) {
+  appPage = page;
+  const tbody = document.getElementById('app-tbody');
+  tbody.innerHTML = `<tr><td colspan="6" class="loading">불러오는 중...</td></tr>`;
+  try {
+    const res = await apiFetch(`/api/v1/admin/applications?page=${page}&size=${PAGE_SIZE}`);
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="6" class="empty">불러오기 실패</td></tr>`; return; }
+    const d = await res.json();
+    if (!d.applications.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty">데이터가 없습니다</td></tr>`; }
+    else tbody.innerHTML = d.applications.map(a => `
+      <tr>
+        <td style="color:#80868b">${a.id}</td>
+        <td>${esc(a.user_name)}</td>
+        <td>${esc(a.user_email)}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(a.job_title)}">${esc(a.job_title)}</td>
+        <td><span class="badge active">${esc(a.status||'접수')}</span></td>
+        <td style="color:#80868b">${fmtDate(a.applied_at)}</td>
+      </tr>`).join('');
+    renderPager('app', page, d.total, d.size);
+    document.getElementById('app-info').textContent = `전체 ${fmt(d.total)}건`;
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="6" class="empty">오류 발생</td></tr>`; }
+}
+
+// ── 워크넷 ────────────────────────────────────────────────────────────────
+let wnPage = 1;
+async function loadWorknet(page=1) {
+  wnPage = page;
+  const q      = document.getElementById('wn-q').value.trim();
+  const region = document.getElementById('wn-region').value.trim();
+  let url = `/api/v1/admin/worknet?page=${page}&size=${PAGE_SIZE}`;
+  if (q)      url += `&q=${encodeURIComponent(q)}`;
+  if (region) url += `&region=${encodeURIComponent(region)}`;
+
+  const tbody = document.getElementById('wn-tbody');
+  tbody.innerHTML = `<tr><td colspan="8" class="loading">불러오는 중...</td></tr>`;
+  try {
+    const res = await apiFetch(url);
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="8" class="empty">불러오기 실패</td></tr>`; return; }
+    const d = await res.json();
+    if (!d.jobs.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">워크넷 공고가 없습니다. 동기화 버튼을 눌러 수집하세요.</td></tr>`; }
+    else tbody.innerHTML = d.jobs.map(j => `
+      <tr>
+        <td style="font-size:11px;color:#80868b">${esc(j.id)}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(j.title)}"><strong style="color:#202124">${esc(j.title)}</strong></td>
+        <td>${esc(j.company_name)}</td>
+        <td>${esc(j.location||'-')}</td>
+        <td>${esc(j.employment_type||'-')}</td>
+        <td>${esc(j.deadline||'-')}</td>
+        <td style="font-size:11px;color:#80868b">${fmtDate(j.synced_at)}</td>
+        <td>
+          <button class="btn-sm danger" onclick="confirmDelete('worknet','${esc(j.id)}','워크넷 공고를 삭제하시겠습니까?')">삭제</button>
+        </td>
+      </tr>`).join('');
+    renderPager('wn', page, d.total, d.size);
+    document.getElementById('wn-info').textContent = `전체 ${fmt(d.total)}건`;
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="8" class="empty">오류 발생</td></tr>`; }
+}
+
+async function triggerWorknetSync() {
+  if (!confirm('워크넷 데이터를 지금 동기화합니다. (최대 1,000건, 수분 소요)\n계속하시겠습니까?')) return;
+  toast('동기화를 시작합니다...','info');
+  try {
+    const res = await apiFetch('/api/v1/admin/worknet/sync', { method:'POST' });
+    if (res.status === 404) {
+      const res2 = await apiFetch('/api/v1/worknet/sync', { method:'POST' });
+      if (!res2.ok) { toast('동기화 실패','error'); return; }
+      const d = await res2.json();
+      toast(`동기화 완료 — 수집 ${d.fetched}건 / 신규 ${d.inserted}건 / 갱신 ${d.updated}건`,'success');
+    } else if (!res.ok) {
+      const d = await res.json(); toast(d.detail||'동기화 실패','error');
+    } else {
+      const d = await res.json();
+      toast(`동기화 완료 — 수집 ${d.fetched}건 / 신규 ${d.inserted}건 / 갱신 ${d.updated}건`,'success');
+    }
+    if (currentTab === 'worknet') loadWorknet(1);
+    if (currentTab === 'dashboard') loadDashboard();
+  } catch(e) { toast('서버 오류','error'); }
+}
+
+// ── 삭제 확인 ─────────────────────────────────────────────────────────────
+function confirmDelete(resource, id, msg) {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-ok').onclick = async () => {
+    closeModal('confirm-modal');
+    try {
+      const res = await apiFetch(`/api/v1/admin/${resource}/${id}`, { method:'DELETE' });
+      if (!res.ok) { const d=await res.json(); toast(d.detail||'삭제 실패','error'); return; }
+      toast('삭제되었습니다','success');
+      if (resource==='users')   loadUsers(userPage);
+      if (resource==='jobs')    loadJobs(jobPage);
+      if (resource==='worknet') loadWorknet(wnPage);
+    } catch(e) { toast('오류 발생','error'); }
+  };
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+// ── 페이저 렌더링 ─────────────────────────────────────────────────────────
+function renderPager(prefix, currentPage, total, size) {
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  const pager = document.getElementById(`${prefix}-pager`);
+  const fnMap = { user:'loadUsers', job:'loadJobs', app:'loadApplications', wn:'loadWorknet' };
+  const fn = fnMap[prefix];
+  let pages = [];
+  if (totalPages <= 7) { for(let i=1;i<=totalPages;i++) pages.push(i); }
+  else {
+    pages = [1];
+    if (currentPage > 3) pages.push('…');
+    for (let i=Math.max(2,currentPage-1); i<=Math.min(totalPages-1,currentPage+1); i++) pages.push(i);
+    if (currentPage < totalPages-2) pages.push('…');
+    pages.push(totalPages);
+  }
+  pager.innerHTML = `
+    <button ${currentPage<=1?'disabled':''} onclick="${fn}(${currentPage-1})">&#8249;</button>
+    ${pages.map(p => p==='…' ? `<button disabled style="background:transparent;border:none">…</button>` : `<button class="${p===currentPage?'active':''}" onclick="${fn}(${p})">${p}</button>`).join('')}
+    <button ${currentPage>=totalPages?'disabled':''} onclick="${fn}(${currentPage+1})">&#8250;</button>
+  `;
+}
+
+// ── 모달 ──────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
+});
+
+// ── 토스트 ────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const container = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── 유틸 ─────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmt(n) { return Number(n||0).toLocaleString('ko-KR'); }
+function fmtDate(s) {
+  if (!s) return '-';
+  try { return new Date(s).toLocaleDateString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  catch { return s; }
+}
+function userTypeLabel(t) { return {jobseeker:'구직자',employer:'기업',admin:'관리자'}[t]||t; }
+function statusLabel(s) { return {active:'진행중',closed:'마감',draft:'임시저장'}[s]||s; }
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+name: JobWorld Deploy
+
+on:
+  push:
+    branches:
+      - claude/ai-job-platform-GXCLo
+      - main
+    paths:
+      - 'jobworld/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 211.198.54.207
+          port: 2222
+          username: ubuntu
+          password: ${{ secrets.SSH_PASSWORD }}
+          script_stop: true
+          script: |
+            set -e
+            echo "=== JobWorld 배포 시작 ==="
+
+            # 디렉토리 준비
+            if [ ! -d "/home/ubuntu/jobworld" ]; then
+              git clone https://github.com/Hydro8888/hydro.git /home/ubuntu/hydro
+            else
+              cd /home/ubuntu/hydro && git pull origin claude/ai-job-platform-GXCLo
+            fi
+
+            cd /home/ubuntu/hydro/jobworld
+
+            # .env 파일 생성 (없는 경우)
+            if [ ! -f .env ]; then
+              cat > .env << 'ENVEOF'
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            ACCESS_TOKEN_EXPIRE_MINUTES=60
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            ENVEOF
+            fi
+
+            # Docker Compose 실행
+            docker compose pull --quiet 2>/dev/null || true
+            docker compose up -d --build
+
+            # 헬스체크
+            sleep 10
+            docker compose ps
+            curl -sf http://localhost/health && echo "배포 성공!" || echo "헬스체크 실패 - 로그 확인 필요"

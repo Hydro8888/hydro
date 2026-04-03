@@ -50,10 +50,10 @@ export default function Pagination({ currentPage, totalPages, basePath }: Pagina
   const hasNext = currentPage < totalPages;
 
   const baseBtn =
-    'inline-flex h-10 min-w-[2.5rem] items-center justify-center rounded-md border px-2 text-sm font-medium transition-colors';
-  const activeBtn = `${baseBtn} border-blue-600 bg-blue-600 text-white`;
-  const normalBtn = `${baseBtn} border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:text-blue-600`;
-  const disabledBtn = `${baseBtn} border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed pointer-events-none`;
+    'inline-flex h-10 min-w-[2.5rem] items-center justify-center rounded-card border px-2 text-body-md font-medium transition-colors';
+  const activeBtn = `${baseBtn} bg-accent border-accent text-white`;
+  const normalBtn = `${baseBtn} bg-surface-card border-border text-text-secondary hover:bg-surface-elevated hover:text-text`;
+  const disabledBtn = `${baseBtn} bg-surface border-border-muted text-text-muted cursor-not-allowed pointer-events-none`;
 
   return (
     <nav
@@ -99,10 +99,10 @@ export default function Pagination({ currentPage, totalPages, basePath }: Pagina
           return (
             <span
               key={`ellipsis-${idx}`}
-              className="inline-flex h-10 min-w-[2.5rem] items-center justify-center text-sm text-gray-400"
+              className="inline-flex h-10 min-w-[2.5rem] items-center justify-center text-body-md text-text-muted"
               aria-hidden="true"
             >
-              …
+              ...
             </span>
           );
         }

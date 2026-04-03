@@ -24,7 +24,7 @@ export default function CountryTabs({ activeCountry, basePath }: CountryTabsProp
       aria-label="국가별 뉴스"
       className="w-full overflow-x-auto scrollbar-none"
     >
-      <ul className="flex min-w-max items-center gap-0 border-b border-gray-200">
+      <ul className="flex min-w-max items-center gap-0 border-b border-border-muted">
         {COUNTRIES.map((c) => {
           const href = pattern ? buildHref(pattern, c.code) : c.code === 'all' ? '/' : `/?country=${c.code}`;
           const isActive = activeCountry === c.code;
@@ -34,16 +34,16 @@ export default function CountryTabs({ activeCountry, basePath }: CountryTabsProp
               <Link
                 href={href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative inline-flex items-center gap-1 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors
+                className={`relative inline-flex items-center gap-1 px-4 py-3 text-body-md font-medium whitespace-nowrap transition-colors
                   ${
                     isActive
-                      ? 'text-blue-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-600'
-                      : 'text-gray-600 hover:text-blue-600'
+                      ? 'text-accent after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-accent'
+                      : 'text-text-secondary hover:text-text'
                   }`}
               >
                 {c.label}
                 {c.code !== 'all' && (
-                  <span className="hidden sm:inline text-xs text-gray-400 font-normal">
+                  <span className="hidden sm:inline text-caption text-text-muted font-normal">
                     ({c.labelEn})
                   </span>
                 )}

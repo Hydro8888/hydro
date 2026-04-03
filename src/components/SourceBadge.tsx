@@ -10,7 +10,7 @@ export default function SourceBadge({ sourceName, country }: SourceBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium leading-none ${colorClass}`}
+      className={`inline-flex items-center rounded-badge px-1.5 py-0.5 text-caption leading-none ${colorClass}`}
     >
       {sourceName}
     </span>

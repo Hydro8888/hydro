@@ -214,6 +214,20 @@ export default function Header() {
                     >
                       {item.label}
                     </Link>
+                    {/* Hacker News right after 스포츠 */}
+                    {item.href === '/category/sports' && (
+                      <a
+                        href="https://hacker.ai.kr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="nav-link inline-flex items-center gap-1 whitespace-nowrap text-accent-green font-semibold hover:text-accent-green/80 transition-colors ml-1"
+                      >
+                        Hacker News
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
                   </li>
                 );
               })}
@@ -231,18 +245,6 @@ export default function Header() {
                   <ChartIcon className="h-3.5 w-3.5" />
                   랭킹
                 </Link>
-                <span className="h-4 w-px bg-border-muted" />
-                <a
-                  href="https://hacker.ai.kr"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="nav-link inline-flex items-center gap-1 whitespace-nowrap text-accent-green font-semibold hover:text-accent-green/80 transition-colors"
-                >
-                  Hacker News
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
               </li>
             </ul>
           </div>

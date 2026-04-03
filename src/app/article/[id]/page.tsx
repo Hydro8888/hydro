@@ -127,13 +127,25 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
         {/* Divider */}
         <hr className="border-border mb-8" />
 
-        {/* Article Body - contentKo or summaryKo */}
+        {/* Article Body - contentKo → contentOriginal → summaryKo fallback chain */}
         <div className="mb-8">
           {article.contentKo ? (
             <div className="text-text leading-[1.9] text-base md:text-[17px] space-y-5">
               {article.contentKo.split('\n').filter(Boolean).map((paragraph, i) => (
                 <p key={i}>{paragraph}</p>
               ))}
+            </div>
+          ) : article.contentOriginal ? (
+            <div>
+              <p className="text-caption text-text-muted mb-4 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
+                원문 (번역 준비 중)
+              </p>
+              <div className="text-text leading-[1.9] text-base md:text-[17px] space-y-5">
+                {article.contentOriginal.split('\n').filter(Boolean).map((paragraph, i) => (
+                  <p key={i}>{paragraph}</p>
+                ))}
+              </div>
             </div>
           ) : article.summaryKo ? (
             <div className="text-text leading-[1.9] text-base md:text-[17px] space-y-5">

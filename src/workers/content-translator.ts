@@ -77,13 +77,6 @@ export async function translateContent(
       );
 
       article.contentKo = contentKo;
-
-      // Also improve summaryKo using actual content
-      if (article.contentKo && article.contentKo.length > 50) {
-        article.summaryKo =
-          article.contentKo.slice(0, 200) +
-          (article.contentKo.length > 200 ? '...' : '');
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(

@@ -19,6 +19,7 @@ export default function NewsCard({ article }: { article: Article }) {
           src={article.imageUrl || getDefaultImage(article.categoryPrimary, article.id)}
           alt={title}
           fill
+          unoptimized
           sizes="(max-width: 768px) 100vw, 33vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />

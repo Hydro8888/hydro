@@ -169,127 +169,54 @@ fi
 echo ""
 echo "=== [9/9] Docker nginx 설정 업데이트 ==="
 
-# nginx 설정 파일 위치 확인
-NGINX_CONF=""
-for conf_path in \
-  "/etc/nginx/conf.d/default.conf" \
-  "/etc/nginx/nginx.conf" \
-  "/etc/nginx/sites-enabled/default"; do
-  if docker exec ${NGINX_CONTAINER} test -f ${conf_path} 2>/dev/null; then
-    NGINX_CONF=${conf_path}
-    break
-  fi
-done
+# free.ai.kr 전용 nginx 서버 블록을 별도 파일로 생성
+# (기존 default.conf를 수정하지 않아 다른 앱에 영향 없음)
+echo "free.ai.kr 전용 nginx 서버 블록 생성..."
 
-if [ -z "${NGINX_CONF}" ]; then
-  echo "경고: nginx 설정 파일을 찾을 수 없습니다. 수동 설정이 필요합니다."
-  echo "Docker 컨테이너 내부 nginx 설정에 아래 location 블록을 추가하세요:"
-  echo ""
-  echo '  location / {'
-  echo "      proxy_pass http://172.17.0.1:${APP_PORT};"
-  echo '      proxy_http_version 1.1;'
-  echo '      proxy_set_header Upgrade $http_upgrade;'
-  echo "      proxy_set_header Connection 'upgrade';"
-  echo '      proxy_set_header Host $host;'
-  echo '      proxy_set_header X-Real-IP $remote_addr;'
-  echo '      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;'
-  echo '      proxy_set_header X-Forwarded-Proto $scheme;'
-  echo '      proxy_cache_bypass $http_upgrade;'
-  echo '  }'
+cat > /tmp/freeai.conf << NGINX_CONF
+server {
+    listen 80;
+    server_name free.ai.kr;
+
+    location / {
+        proxy_pass http://172.17.0.1:${APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /_next/static/ {
+        proxy_pass http://172.17.0.1:${APP_PORT}/_next/static/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+NGINX_CONF
+
+# Docker 컨테이너에 설정 파일 복사
+docker cp /tmp/freeai.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/freeai.conf
+
+# nginx 설정 테스트 및 리로드
+if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
+  docker exec ${NGINX_CONTAINER} nginx -s reload
+  echo "✓ nginx 설정 업데이트 및 리로드 완료!"
+  echo "  설정 파일: /etc/nginx/conf.d/freeai.conf"
 else
-  echo "nginx 설정 파일: ${NGINX_CONF}"
-
-  # freeai 프록시가 이미 있는지 확인 (이전 /freeai/ 블록 또는 3010 포트 참조)
-  if docker exec ${NGINX_CONTAINER} grep -q "172.17.0.1:${APP_PORT}" ${NGINX_CONF} 2>/dev/null; then
-    echo "freeai 프록시 설정이 이미 존재합니다. 기존 /freeai/ 블록을 제거하고 새로 추가합니다..."
-
-    # 기존 설정을 컨테이너에서 복사
-    docker exec ${NGINX_CONTAINER} cat ${NGINX_CONF} > /tmp/nginx-original.conf
-
-    # 기존 /freeai/ location 블록 제거 (있으면)
-    sed -i '/# AI Portal Pro/,/^    }/d' /tmp/nginx-original.conf
-    sed -i '/location \/freeai\//,/^    }/d' /tmp/nginx-original.conf
-
-    # 새 프록시 블록 생성
-    cat > /tmp/freeai-nginx.conf << 'NGINX_BLOCK'
-
-    # AI Portal Pro (free.ai.kr)
-    location / {
-        proxy_pass http://172.17.0.1:3010;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-NGINX_BLOCK
-
-    # 마지막 닫는 중괄호 } 앞에 location 블록 삽입
-    sed -i "/^}$/r /tmp/freeai-nginx.conf" /tmp/nginx-original.conf
-
-    # 수정된 설정을 컨테이너에 복사
-    docker cp /tmp/nginx-original.conf ${NGINX_CONTAINER}:${NGINX_CONF}
-
-    # nginx 설정 테스트 및 리로드
-    if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
-      docker exec ${NGINX_CONTAINER} nginx -s reload
-      echo "✓ nginx 설정 업데이트 및 리로드 완료!"
-    else
-      echo "경고: nginx 설정 오류! 수동으로 확인하세요."
-      echo "docker exec ${NGINX_CONTAINER} nginx -t"
-    fi
-
-    # 임시 파일 정리
-    rm -f /tmp/freeai-nginx.conf /tmp/nginx-original.conf
-  else
-    echo "freeai 프록시 블록 추가 중..."
-
-    # 임시 nginx 설정 파일 생성
-    cat > /tmp/freeai-nginx.conf << 'NGINX_BLOCK'
-
-    # AI Portal Pro (free.ai.kr)
-    location / {
-        proxy_pass http://172.17.0.1:3010;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-NGINX_BLOCK
-
-    # 기존 nginx 설정을 컨테이너에서 복사
-    docker exec ${NGINX_CONTAINER} cat ${NGINX_CONF} > /tmp/nginx-original.conf
-
-    # 마지막 닫는 중괄호 } 앞에 location 블록 삽입
-    sed -i "/^}$/r /tmp/freeai-nginx.conf" /tmp/nginx-original.conf
-
-    # 수정된 설정을 컨테이너에 복사
-    docker cp /tmp/nginx-original.conf ${NGINX_CONTAINER}:${NGINX_CONF}
-
-    # nginx 설정 테스트 및 리로드
-    if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
-      docker exec ${NGINX_CONTAINER} nginx -s reload
-      echo "✓ nginx 설정 업데이트 및 리로드 완료!"
-    else
-      echo "경고: nginx 설정 오류! 수동으로 확인하세요."
-      echo "docker exec ${NGINX_CONTAINER} nginx -t"
-    fi
-
-    # 임시 파일 정리
-    rm -f /tmp/freeai-nginx.conf /tmp/nginx-original.conf
-  fi
+  echo "경고: nginx 설정 오류! 수동으로 확인하세요."
+  echo "  docker exec ${NGINX_CONTAINER} cat /etc/nginx/conf.d/freeai.conf"
+  echo "  docker exec ${NGINX_CONTAINER} nginx -t"
 fi
+
+rm -f /tmp/freeai.conf
 
 echo ""
 echo "============================================"

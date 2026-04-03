@@ -11,6 +11,11 @@
     @apply bg-accent/20 text-text;
   }
 
+  @keyframes slogan {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
   ::-webkit-scrollbar {
     width: 8px;
   }

@@ -115,12 +115,14 @@ export default function Header() {
               <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent-red animate-pulse-dot" />
             </Link>
 
-            {/* Animated slogan */}
-            <span className="hidden sm:inline-block ml-3 overflow-hidden">
-              <span className="inline-block animate-slide-up text-caption text-accent/70 font-medium whitespace-nowrap">
-                전세계 뉴스를 한눈에
-              </span>
-            </span>
+            {/* Scrolling slogan */}
+            <div className="hidden sm:block ml-3 flex-1 max-w-[200px] overflow-hidden relative">
+              <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-surface to-transparent z-10" />
+              <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-surface to-transparent z-10" />
+              <p className="whitespace-nowrap text-caption font-medium text-accent/70 animate-[slogan_8s_linear_infinite]">
+                전세계 뉴스를 한눈에 &nbsp;&nbsp;&nbsp; 전세계 뉴스를 한눈에 &nbsp;&nbsp;&nbsp;
+              </p>
+            </div>
 
             {/* Right cluster */}
             <div className="flex items-center gap-2">

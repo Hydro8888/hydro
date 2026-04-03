@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'freeai',
       cwd: '/home/ubuntu/freeai/apps/web',
-      script: 'node_modules/.bin/next',
+      script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3010 -H 0.0.0.0',
       exec_mode: 'fork',
       env: {

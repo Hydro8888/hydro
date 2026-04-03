@@ -174,7 +174,7 @@ fi
 echo ""
 echo "=== [9/9] Docker nginx 설정 업데이트 ==="
 
-# free.ai.kr 전용 nginx 서버 블록을 별도 파일로 생성
+# free.ai.kr 전용 nginx 서버 블록 생성
 echo "free.ai.kr 전용 nginx 서버 블록 생성..."
 
 cat > /tmp/freeai.conf << NGINX_CONF
@@ -206,14 +206,21 @@ server {
 }
 NGINX_CONF
 
-# Docker 컨테이너에 설정 파일 복사
 docker cp /tmp/freeai.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/freeai.conf
 
-# default.conf에서 catch-all default_server가 free.ai.kr을 가로채지 않도록 확인
-if docker exec ${NGINX_CONTAINER} grep -q "default_server" /etc/nginx/conf.d/default.conf 2>/dev/null; then
-  echo "⚠ default.conf에 default_server 발견 — free.ai.kr 라우팅 확인 필요"
-  echo "  default_server가 free.ai.kr 요청을 가로챌 수 있습니다."
-  echo "  해결: default.conf의 server_name에 free.ai.kr이 없는지 확인하세요."
+# nginx.conf에 conf.d include가 있는지 확인 — 없으면 추가
+if ! docker exec ${NGINX_CONTAINER} grep -q "include /etc/nginx/conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
+  echo "nginx.conf에 conf.d include가 없습니다. 추가합니다..."
+  docker exec ${NGINX_CONTAINER} cat /etc/nginx/nginx.conf > /tmp/nginx.conf
+
+  # http { 블록 내의 include mime.types 줄 뒤에 conf.d include 추가
+  sed -i '/include.*mime\.types/a\    include /etc/nginx/conf.d/*.conf;' /tmp/nginx.conf
+
+  docker cp /tmp/nginx.conf ${NGINX_CONTAINER}:/etc/nginx/nginx.conf
+  rm -f /tmp/nginx.conf
+  echo "✓ conf.d include 추가 완료"
+else
+  echo "✓ conf.d include 이미 존재"
 fi
 
 # nginx 설정 테스트 및 리로드
@@ -223,6 +230,13 @@ if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
 else
   echo "경고: nginx 설정 오류! 수동으로 확인하세요."
   echo "  docker exec ${NGINX_CONTAINER} nginx -t"
+fi
+
+# freeai.conf가 실제로 로드되었는지 확인
+if docker exec ${NGINX_CONTAINER} nginx -T 2>/dev/null | grep -q "server_name free.ai.kr"; then
+  echo "✓ free.ai.kr 서버 블록 로드 확인!"
+else
+  echo "✗ free.ai.kr 서버 블록이 로드되지 않았습니다"
 fi
 
 rm -f /tmp/freeai.conf

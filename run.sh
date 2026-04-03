@@ -159,8 +159,8 @@ quick_update() {
   GIT_SSH_COMMAND="${GIT_SSH_CMD}" git pull origin claude/ai-portal-dev-plan-yI3Gd
 
   echo ""
-  echo "[2/4] 오래된 빌드 캐시 삭제..."
-  rm -rf ${DEPLOY_DIR}/apps/web/.next
+  echo "[2/4] 오래된 빌드 캐시 삭제 (standalone + turbo)..."
+  rm -rf ${DEPLOY_DIR}/apps/web/.next ${DEPLOY_DIR}/.turbo ${DEPLOY_DIR}/apps/web/.turbo ${DEPLOY_DIR}/node_modules/.cache
 
   echo ""
   echo "[3/4] 빌드..."

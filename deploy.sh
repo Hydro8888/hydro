@@ -119,9 +119,9 @@ echo ""
 echo "=== [5/9] 프로덕션 빌드 ==="
 cd ${DEPLOY_DIR}
 
-# 오래된 빌드 캐시 삭제 (standalone 잔여물 제거 — 이전 빌드에서 남은 .next/standalone/ 가 next start를 방해함)
+# 오래된 빌드 캐시 완전 삭제 (standalone 잔여물 + turbo 캐시)
 echo "오래된 빌드 캐시 삭제..."
-rm -rf ${DEPLOY_DIR}/apps/web/.next
+rm -rf ${DEPLOY_DIR}/apps/web/.next ${DEPLOY_DIR}/.turbo ${DEPLOY_DIR}/apps/web/.turbo ${DEPLOY_DIR}/node_modules/.cache
 
 pnpm build
 

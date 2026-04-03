@@ -109,11 +109,9 @@ export default function Header() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-0.5 select-none group">
               <span className="text-xl font-extrabold tracking-tight text-accent transition-colors group-hover:text-accent/80">
-                Live
+                LiveNews
               </span>
-              <span className="text-xl font-extrabold tracking-tight text-text">
-                News
-              </span>
+              <span className="text-lg font-medium tracking-tight text-text-secondary">.co.kr</span>
               <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent-red animate-pulse-dot" />
             </Link>
 

@@ -16,8 +16,8 @@ export default function Footer() {
           {/* Left: logo + description */}
           <div className="flex-1 max-w-sm">
             <div className="mb-3 flex items-center gap-0.5">
-              <span className="text-lg font-extrabold text-accent">Live</span>
-              <span className="text-lg font-extrabold text-text">News</span>
+              <span className="text-lg font-extrabold text-accent">LiveNews</span>
+              <span className="text-base font-medium text-text-secondary">.co.kr</span>
               <span className="ml-1.5 h-1 w-1 rounded-full bg-accent-red" />
             </div>
             <p className="text-body-md text-text-secondary leading-relaxed">

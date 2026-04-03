@@ -78,15 +78,21 @@ async function invalidateCachesSelective(
     const patterns = new Set<string>();
 
     for (const article of enrichedArticles) {
-      patterns.add(`articles:${article.country}:*`);
+      // Match cache keys from queries.ts: `${countryCode}:${page}` e.g. "global:1"
+      patterns.add(`${article.country}:*`);
+      // Match home page cache: `home:${country}` e.g. "home:global"
       patterns.add(`home:${article.country}`);
+      patterns.add(`home:all`);
       if (article.categoryPrimary) {
-        patterns.add(`category:${article.categoryPrimary}:*`);
+        // Match category cache: `cat:${slug}:${page}` e.g. "cat:economy:1"
+        patterns.add(`cat:${article.categoryPrimary}:*`);
       }
     }
 
-    // Always invalidate breaking/trending — they span all countries
+    // Always invalidate breaking/trending/ranking — they span all countries
     patterns.add('breaking:*');
+    patterns.add('ranking:*');
+    patterns.add('cat-counts');
     patterns.add('feed:*');
 
     const patternList = Array.from(patterns);

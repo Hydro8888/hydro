@@ -1,11 +1,16 @@
 /**
  * translator.ts
- * Translates and categorizes article titles using xAI Grok via batchTranslateAndCategorize.
- * Processes articles in chunks of 10 to stay within token limits and avoid rate errors.
+ * Phase 1: Translates and categorizes article titles using xAI Grok.
+ * Processes articles in chunks of 10 to stay within token limits.
+ *
+ * Phase 2 (content translation) → content-translator.ts
+ * Phase 3 (image generation)    → image-generator.ts
  */
 
 import OpenAI from 'openai';
 import type { NormalizedArticle } from './normalizer';
+import { xaiTextBreaker } from '../lib/circuit-breaker';
+import { retryWithBackoff } from '../lib/retry';
 
 // ---------------------------------------------------------------------------
 // Inline batchTranslateAndCategorize to avoid @/ alias issues in tsx runner
@@ -83,14 +88,15 @@ export type TranslatableArticle = NormalizedArticle & {
 };
 
 /**
- * Accepts an array of normalized articles and enriches each one with:
- *   - titleKo        — Korean-translated headline
- *   - summaryKo      — Korean one-sentence summary
+ * Phase 1: Accepts an array of normalized articles and enriches each one with:
+ *   - titleKo           — Korean-translated headline
+ *   - summaryKo         — Korean one-sentence summary
  *   - categoryPrimary   — primary category slug
  *   - categorySecondary — secondary category slug (may be empty)
  *
  * Articles are processed in chunks of {@link CHUNK_SIZE}.
- * Any chunk that fails is silently skipped (fields remain empty strings).
+ * Uses CircuitBreaker and retryWithBackoff for resilience.
+ * Any chunk that fails after retries is silently skipped (fields remain empty strings).
  */
 export async function translateArticles(
   articles: TranslatableArticle[],
@@ -118,10 +124,16 @@ export async function translateArticles(
 
     let translations: TranslationResult[];
     try {
-      translations = await translateChunk(
-        client,
-        model,
-        chunk.map((a) => ({ title: a.titleOriginal })),
+      translations = await retryWithBackoff(
+        () =>
+          xaiTextBreaker.execute(() =>
+            translateChunk(
+              client,
+              model,
+              chunk.map((a) => ({ title: a.titleOriginal })),
+            ),
+          ),
+        { maxRetries: 2, baseDelay: 1500 },
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -152,88 +164,6 @@ export async function translateArticles(
     if (i + CHUNK_SIZE < articles.length) {
       await new Promise((r) => setTimeout(r, 300));
     }
-  }
-
-  // Phase 2: Translate content for articles that have contentOriginal
-  const articlesWithContent = results.filter((a) => a.contentOriginal && a.contentOriginal.length > 30);
-  if (articlesWithContent.length > 0 && client) {
-    console.log(`[translator] Translating content for ${articlesWithContent.length} articles...`);
-
-    for (const article of articlesWithContent) {
-      try {
-        const trimmed = (article.contentOriginal || '').slice(0, 4500);
-        const res = await client.chat.completions.create({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: `당신은 뉴스 기사 번역 전문가입니다. 주어진 영문 뉴스 기사 본문을 자연스러운 한국어로 번역하세요.
-
-규칙:
-- 뉴스 기사 스타일의 격식체 사용 (예: ~했다, ~이다)
-- 고유명사(인명, 지명, 기관명)는 원문 그대로 유지하거나 널리 알려진 한국어 표기 사용
-- 문단 구분을 유지하세요 (빈 줄로 구분)
-- 내용을 빠짐없이 모두 번역하세요
-- 번역문만 출력하세요`,
-            },
-            { role: 'user', content: trimmed },
-          ],
-          max_tokens: 4000,
-          temperature: 0.3,
-        });
-        article.contentKo = res.choices[0]?.message?.content?.trim() || '';
-
-        // Also improve summaryKo using actual content
-        if (article.contentKo && article.contentKo.length > 50) {
-          article.summaryKo = article.contentKo.slice(0, 200) + (article.contentKo.length > 200 ? '...' : '');
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[translator] Content translation failed for "${article.titleOriginal.slice(0, 40)}": ${msg}`);
-        article.contentKo = '';
-      }
-
-      // Pause between translations
-      await new Promise((r) => setTimeout(r, 500));
-    }
-
-    console.log(`[translator] Content translation complete`);
-  }
-
-  // Phase 3: Generate images for articles without imageUrl
-  const articlesWithoutImage = results.filter((a) => !a.imageUrl);
-  if (articlesWithoutImage.length > 0 && client) {
-    console.log(`[translator] Generating images for ${articlesWithoutImage.length} articles without photos...`);
-
-    for (const article of articlesWithoutImage) {
-      try {
-        const res = await client.images.generate({
-          model: 'grok-2-image',
-          prompt: `Professional news article header image for: "${article.titleOriginal}". Category: ${article.categoryPrimary || 'general news'}. Style: photojournalism, realistic, high quality, editorial photo. No text overlays.`,
-          n: 1,
-          size: '1024x1024',
-        });
-
-        const url = res.data?.[0]?.url;
-        if (url) {
-          article.imageUrl = url;
-          console.log(`[translator] Generated image for "${article.titleOriginal.slice(0, 40)}..."`);
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[translator] Image generation failed: ${msg}`);
-        // Stop trying if the model is not available
-        if (msg.includes('model') || msg.includes('not found') || msg.includes('404')) {
-          console.warn(`[translator] Image generation model not available. Skipping remaining.`);
-          break;
-        }
-      }
-
-      // Pause between generations
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-
-    console.log(`[translator] Image generation complete`);
   }
 
   return results;

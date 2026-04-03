@@ -11,6 +11,13 @@ interface MessageBubbleProps {
   content: string;
   modelId?: string;
   isStreaming?: boolean;
+  createdAt?: string;
+}
+
+function formatTime(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 export function MessageBubble({
@@ -18,6 +25,7 @@ export function MessageBubble({
   content,
   modelId,
   isStreaming,
+  createdAt,
 }: MessageBubbleProps) {
   const modelConfig = modelId ? getModelConfig(modelId) : undefined;
   const [copied, setCopied] = useState(false);
@@ -105,7 +113,16 @@ export function MessageBubble({
             >
               <ThumbsDown className={cn('w-3.5 h-3.5', feedback === 'dislike' ? 'text-red-500' : 'text-gray-400')} />
             </button>
+            {createdAt && (
+              <span className="ml-auto text-[10px] text-gray-400">
+                {formatTime(createdAt)}
+              </span>
+            )}
           </div>
+        )}
+
+        {role === 'user' && createdAt && (
+          <p className="text-[10px] opacity-70 mt-1 text-right">{formatTime(createdAt)}</p>
         )}
       </div>
 

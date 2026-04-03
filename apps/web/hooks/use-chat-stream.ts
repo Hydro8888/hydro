@@ -18,5 +18,8 @@ export function useChatStream(conversationId?: string, modelIdOverride?: string)
         );
       }
     },
+    onError: (error) => {
+      console.error('[chat] Stream error:', error.message);
+    },
   });
 }

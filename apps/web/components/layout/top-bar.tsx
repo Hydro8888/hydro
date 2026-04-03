@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, User } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, User, Settings, CreditCard, ChevronDown } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 
 export function TopBar() {
@@ -13,6 +14,15 @@ export function TopBar() {
     theme,
     setTheme,
   } = useUIStore();
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
+    if (!dropdownRef.current?.contains(e.relatedTarget as Node)) {
+      setDropdownOpen(false);
+    }
+  }
 
   return (
     <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-950 shrink-0">
@@ -57,8 +67,47 @@ export function TopBar() {
             <PanelRightOpen className="w-4 h-4" />
           )}
         </button>
-        <div className="ml-2 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-          <User className="w-4 h-4 text-primary-500" />
+
+        {/* User dropdown */}
+        <div
+          ref={dropdownRef}
+          className="relative ml-1"
+          onBlur={handleBlur}
+        >
+          <button
+            onClick={() => setDropdownOpen((o) => !o)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+              <User className="w-4 h-4 text-primary-500" />
+            </div>
+            <ChevronDown className="w-3 h-3 text-gray-500" />
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 z-50">
+              <Link
+                href="/settings"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <Settings className="w-4 h-4" />
+                설정
+              </Link>
+              <Link
+                href="/billing"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <CreditCard className="w-4 h-4" />
+                요금제
+              </Link>
+              <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+              <div className="px-3 py-2 text-xs text-gray-400">
+                로그아웃 (준비 중)
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

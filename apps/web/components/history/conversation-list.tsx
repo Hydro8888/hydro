@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquare, Trash2, Pin } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Pin, Trash2 } from 'lucide-react';
+import { MODEL_CATALOG } from '@ai-portal/shared';
 
 interface ConversationItem {
   id: string;
@@ -19,21 +19,32 @@ interface ConversationListProps {
   onPin?: (id: string) => void;
 }
 
+function getModelColor(modelId: string): string {
+  const m = MODEL_CATALOG.find((m) => m.id === modelId);
+  return m?.color ?? '#6366F1';
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+
+  if (mins < 1) return '방금 전';
+  if (mins < 60) return `${mins}분 전`;
+  if (hours < 24) return `${hours}시간 전`;
+  if (days === 1) return '어제';
+  if (days < 7) return `${days}일 전`;
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
+
 export function ConversationList({
   conversations,
   onDelete,
   onPin,
 }: ConversationListProps) {
   if (conversations.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">대화 기록이 없습니다</p>
-        <p className="text-xs text-gray-400 mt-1">
-          새 대화를 시작해보세요
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -49,13 +60,17 @@ export function ConversationList({
               {conv.pinned && (
                 <Pin className="w-3 h-3 text-primary-500 shrink-0" />
               )}
+              {conv.modelIds[0] && (
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: getModelColor(conv.modelIds[0]) }}
+                />
+              )}
               <h3 className="font-medium text-sm truncate">{conv.title}</h3>
             </div>
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
               <span>{conv.messageCount}개 메시지</span>
-              <span>
-                {new Date(conv.updatedAt).toLocaleDateString('ko-KR')}
-              </span>
+              <span>{relativeTime(conv.updatedAt)}</span>
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -65,8 +80,9 @@ export function ConversationList({
                 onPin?.(conv.id);
               }}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              title={conv.pinned ? '고정 해제' : '고정'}
             >
-              <Pin className="w-3.5 h-3.5 text-gray-400" />
+              <Pin className={`w-3.5 h-3.5 ${conv.pinned ? 'text-primary-500' : 'text-gray-400'}`} />
             </button>
             <button
               onClick={(e) => {
@@ -74,6 +90,7 @@ export function ConversationList({
                 onDelete?.(conv.id);
               }}
               className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950 rounded"
+              title="삭제"
             >
               <Trash2 className="w-3.5 h-3.5 text-red-400" />
             </button>

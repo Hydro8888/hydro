@@ -1,137 +1,166 @@
 #!/bin/bash
-# JobWorld 서버 최초 설치 및 배포 스크립트
+# ============================================================
+# JobWorld 서버 초기 ��치 및 배포 스크립트
 # 실행: bash server_setup.sh
+# ============================================================
 set -e
+
+REPO_URL="https://github.com/Hydro8888/hydro.git"
+BRANCH="claude/import-jobworld-project-zvwke"
+INSTALL_DIR="/home/ubuntu/hydro"
+PROJECT_DIR="${INSTALL_DIR}/jobworld"
 
 echo "================================================"
 echo "  JobWorld 서버 설치 및 배포"
 echo "================================================"
+echo ""
 
-# 1. Docker 설치 확인
-if ! command -v docker &> /dev/null; then
-  echo "[1/6] Docker 설치 중..."
+# ── 1. Docker 설치 ────────────────────────────────────────
+echo "[1/7] Docker 확인..."
+if ! command -v docker &>/dev/null; then
+  echo "  Docker 설치 중..."
   curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker $USER
-  echo "Docker 설치 완료. 재로그인 후 다시 실행하세요."
+  sudo usermod -aG docker "$USER"
+  echo ""
+  echo "  Docker 설치 완료. 재로그인 후 다시 실행하세요:"
+  echo "    exit && ssh ubuntu@서버IP"
+  echo "    bash ${PROJECT_DIR}/server_setup.sh"
   exit 0
 else
-  echo "[1/6] Docker 이미 설치됨: $(docker --version)"
+  echo "  $(docker --version)"
 fi
 
-# 2. Docker Compose 플러그인 확인
-if ! sudo docker compose version &> /dev/null 2>&1; then
-  echo "[2/6] Docker Compose 설치 중..."
+# ── 2. Docker Compose ��러그인 확인 ���──────────────────────
+echo "[2/7] Docker Compose 확인..."
+if ! docker compose version &>/dev/null 2>&1; then
+  echo "  Docker Compose 설치 중..."
   sudo apt-get update -qq
   sudo apt-get install -y docker-compose-plugin
 else
-  echo "[2/6] Docker Compose 이미 설치됨: $(sudo docker compose version)"
+  echo "  $(docker compose version)"
 fi
 
-# 3. 코드 클론/업데이트
-REPO_URL="https://github.com/Hydro8888/hydro.git"
-BRANCH="claude/ai-job-platform-GXCLo"
-
-echo "[3/6] 코드 준비 중..."
-if [ ! -d "/home/ubuntu/hydro" ]; then
-  git clone --branch "$BRANCH" "$REPO_URL" /home/ubuntu/hydro
-  echo "  레포지토리 클론 완료"
+# ── 3. 레포지토리 클론/업데이트 ───────────────────────────
+echo "[3/7] 코드 준비..."
+if [ ! -d "${INSTALL_DIR}/.git" ]; then
+  git clone --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
+  echo "  클론 완료"
 else
-  cd /home/ubuntu/hydro
-  git fetch origin "$BRANCH"
-  git checkout "$BRANCH"
-  git pull origin "$BRANCH"
-  echo "  레포지토리 업데이트 완료"
+  cd "${INSTALL_DIR}"
+  git fetch origin "${BRANCH}"
+  git checkout "${BRANCH}"
+  git pull origin "${BRANCH}"
+  echo "  업데이트 완료"
 fi
 
-cd /home/ubuntu/hydro/jobworld
+cd "${PROJECT_DIR}"
 
-# 4. .env 파일 설정
-echo "[4/6] 환경 변수 설정..."
+# ── 4. .env 파일 설정 ────────────────────────────────────
+echo "[4/7] 환경 변수 설정..."
 if [ ! -f .env ]; then
   POSTGRES_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
   SECRET=$(openssl rand -base64 48 | tr -d '/+=' | head -c 48)
+
   cat > .env << ENVEOF
+# Database
 POSTGRES_PASSWORD=${POSTGRES_PASS}
+
+# JWT
 SECRET_KEY=${SECRET}
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=30
-ANTHROPIC_API_KEY=
+
+# AI (GEMINI_API_KEY 필수 — AI 검색 기능에 필요)
+GEMINI_API_KEY=
+# GEMINI_GROUNDING_MODEL=gemini-2.5-flash
+# GEMINI_MODEL=gemini-2.5-flash-lite
+
+# WorkNet OpenAPI (선택)
+WORKNET_API_KEY=
+
+# 기타 AI API (선택)
 OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
 ENVEOF
-  echo "  .env 파일 생성 완료"
+
+  echo ""
+  echo "  ┌─────────────────────────────────────────────┐"
+  echo "  │  .env 파일이 생성되었습니다.                │"
+  echo "  │  GEMINI_API_KEY를 반드시 설정하세요!        │"
+  echo "  │                                             │"
+  echo "  │  nano ${PROJECT_DIR}/.env                   │"
+  echo "  │                                             │"
+  echo "  │  설정 후 다시 실행:                          │"
+  echo "  │  bash ${PROJECT_DIR}/server_setup.sh        │"
+  echo "  └─────────────────────────────────────────────┘"
+  exit 1
 else
-  echo "  .env 파일 이미 존재 - 건너뜀"
+  echo "  .env 파일 확인 완료"
+  # GEMINI_API_KEY 설정 여부 경고
+  if grep -q "^GEMINI_API_KEY=$" .env 2>/dev/null; then
+    echo ""
+    echo "  ⚠  GEMINI_API_KEY가 비어 있습니다."
+    echo "     AI 검색 기능이 제한됩니다."
+    echo "     설정: nano ${PROJECT_DIR}/.env"
+    echo ""
+  fi
 fi
 
-# 5. nginx HTTP 전용 설정 생성
-echo "[5/6] Docker 컨테이너 빌드 및 실행 중..."
+# ── 5. SSL 디렉토리 준비 ─────────────────────────────────
+echo "[5/7] 디렉토리 준비..."
 mkdir -p nginx/ssl
 
-cat > nginx/nginx.conf << 'NGINXEOF'
-user nginx;
-worker_processes auto;
-error_log /var/log/nginx/error.log warn;
-pid /var/run/nginx.pid;
-
-events { worker_connections 1024; }
-
-http {
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-    sendfile on;
-
-    upstream frontend { server frontend:3000; }
-    upstream backend  { server backend:8000; }
-
-    server {
-        listen 80 default_server;
-        server_name _;
-
-        location / {
-            proxy_pass http://frontend;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_cache_bypass $http_upgrade;
-        }
-
-        location /api/ {
-            proxy_pass http://backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_read_timeout 60s;
-        }
-
-        location /health {
-            proxy_pass http://backend/health;
-        }
-    }
-}
-NGINXEOF
+# ── 6. Docker Compose 빌�� 및 실행 ───────────────────────
+echo "[6/7] Docker 컨테이너 빌드 및 실행..."
+echo "  (프론트엔드 빌드에 수 분이 걸릴 수 있습니다)"
+echo ""
 
 sudo docker compose down --remove-orphans 2>/dev/null || true
 sudo docker compose up -d --build
 
-echo "[6/6] 배포 완료 확인 중..."
+echo ""
+echo "  컨테이너 시작 완료. 초기화 대기 중..."
 sleep 15
+
+# ── 7. 헬스체크 ──────────────────────────────────────────
+echo "[7/7] 헬스체크..."
+echo ""
 
 sudo docker compose ps
 
+HEALTH_OK=false
 for i in 1 2 3 4 5; do
-  if curl -sf http://localhost/health > /dev/null 2>&1; then
-    echo ""
-    echo "================================================"
-    echo "  배포 성공!"
-    echo "  서비스 주소: http://211.198.54.207"
-    echo "  API 주소:   http://211.198.54.207/api/v1"
-    echo "================================================"
-    exit 0
+  if curl -sf http://localhost:3100/jobworld/health >/dev/null 2>&1; then
+    HEALTH_OK=true
+    break
   fi
-  echo "  헬스체크 대기 중... ($i/5)"
+  echo "  대기 중... (${i}/5)"
   sleep 5
 done
 
 echo ""
-echo "헬스체크 실패 - 로그 확인:"
-sudo docker compose logs --tail=30
+if [ "$HEALTH_OK" = true ]; then
+  echo "================================================"
+  echo "  배포 성공!"
+  echo "================================================"
+  echo ""
+  echo "  내부 접속: http://localhost:3100/jobworld"
+  echo "  API:       http://localhost:3100/jobworld/api/v1"
+  echo "  관리자:    http://localhost:3100/jobworld/admin.html"
+  echo ""
+  echo "  호스트 nginx 설정 (외부 접속 필요 시):"
+  echo "    sudo bash ${INSTALL_DIR}/host_nginx_setup.sh"
+  echo ""
+  echo "  업데이트:"
+  echo "    bash ${PROJECT_DIR}/update.sh"
+else
+  echo "================================================"
+  echo "  헬스체크 실패!"
+  echo "================================================"
+  echo ""
+  echo "  로그 확인:"
+  echo "    sudo docker compose logs backend --tail=50"
+  echo "    sudo docker compose logs frontend --tail=50"
+  echo ""
+  sudo docker compose logs --tail=20
+fi

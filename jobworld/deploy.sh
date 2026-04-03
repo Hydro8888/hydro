@@ -1,36 +1,66 @@
 #!/bin/bash
-# JobWorld Deployment Script
+# ============================================================
+# JobWorld 빠른 배포 스크립트 (이미 설치된 환경용)
+# 실행: bash deploy.sh [backend|frontend|all]
+# ============================================================
 set -e
 
-echo "=== JobWorld 배포 시작 ==="
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "${PROJECT_DIR}"
 
-# 1. .env 파일 확인
+TARGET="${1:-all}"
+
+echo "=== JobWorld 배포: ${TARGET} ==="
+echo ""
+
+# .env 확인
 if [ ! -f .env ]; then
-  echo "[!] .env 파일이 없습니다. .env.example을 복사하고 값을 설정해주세요."
-  cp .env.example .env
-  echo "    .env 파일이 생성되었습니다. 설정 후 다시 실행해주세요."
+  echo "[!] .env 파일이 없습니다."
+  echo "    초기 설치: bash server_setup.sh"
   exit 1
 fi
 
-# 2. SSL 인증서 디렉토리 생성
-mkdir -p nginx/ssl
+case "$TARGET" in
+  backend)
+    echo "[1/2] 백엔드 빌드..."
+    sudo docker compose build --no-cache backend
+    echo "[2/2] 백엔드 재시작..."
+    sudo docker compose up -d backend
+    ;;
+  frontend)
+    echo "[1/2] 프론트엔드 빌드..."
+    sudo docker compose build --no-cache frontend
+    echo "[2/2] 프론트엔드 재시작..."
+    sudo docker compose up -d frontend
+    ;;
+  nginx)
+    echo "nginx 재시작..."
+    sudo docker compose restart nginx
+    ;;
+  all)
+    echo "[1/2] 전체 빌드..."
+    sudo docker compose build --no-cache
+    echo "[2/2] 전체 재시작..."
+    sudo docker compose up -d
+    ;;
+  *)
+    echo "사용법: bash deploy.sh [backend|frontend|nginx|all]"
+    exit 1
+    ;;
+esac
 
-# 3. Docker 이미지 빌드 및 실행
-echo "[1/3] Docker 컨테이너 빌드 중..."
-docker compose build --no-cache
-
-echo "[2/3] 컨테이너 실행 중..."
-docker compose up -d
-
-echo "[3/3] 상태 확인..."
+echo ""
 sleep 5
-docker compose ps
+sudo docker compose ps
 
+# 헬스체크
 echo ""
-echo "=== 배포 완료 ==="
-echo "  로컬: http://localhost"
-echo "  운영: https://jobworld.co.kr"
-echo ""
-echo "SSL 인증서 발급 (최초 1회):"
-echo "  docker run --rm -v ./nginx/ssl:/etc/letsencrypt certbot/certbot certonly \\"
-echo "    --standalone -d jobworld.co.kr -d www.jobworld.co.kr --email admin@jobworld.co.kr --agree-tos"
+for i in 1 2 3; do
+  if curl -sf http://localhost:3100/jobworld/health >/dev/null 2>&1; then
+    echo "=== 배포 완료! ==="
+    exit 0
+  fi
+  sleep 3
+done
+
+echo "헬스체크 실패 — 로그: sudo docker compose logs --tail=20"

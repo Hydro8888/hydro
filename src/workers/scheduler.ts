@@ -11,24 +11,7 @@
  */
 
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
-import Redis from 'ioredis';
-import { collectAll } from './collector';
-
-// ---------------------------------------------------------------------------
-// Shared client references — kept here so the shutdown handler can reach them.
-// collector.ts creates its own instances internally; we create lightweight ones
-// here solely for the graceful-shutdown disconnect calls.
-// ---------------------------------------------------------------------------
-
-const prisma = new PrismaClient();
-
-function createRedis(): Redis {
-  const url = process.env.REDIS_URL || 'redis://localhost:6379';
-  return new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true });
-}
-
-const redis = createRedis();
+import { collectAll, prisma, redis } from './collector';
 
 // ---------------------------------------------------------------------------
 // Run state — prevents concurrent collection runs

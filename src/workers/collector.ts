@@ -7,10 +7,12 @@
  *   2. Parse RSS feed
  *   3. Filter URLs already in DB
  *   4. Normalize raw items → Article shape
- *   5. Translate / categorize via AI
+ *   5. Translate titles (Phase 1) → Translate content (Phase 2) → Generate images (Phase 3)
  *   6. Save new articles with prisma.article.createMany
  *   7. Write CollectionLog entry
- *   8. Invalidate Redis cache keys for affected country/category combos
+ *   8. Selectively invalidate Redis cache keys for affected country/category combos
+ *
+ * Sources are processed in parallel with a concurrency limit of 3.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -18,38 +20,77 @@ import Redis from 'ioredis';
 import { parseRssFeed } from './rss-parser';
 import { normalizeArticle } from './normalizer';
 import { translateArticles } from './translator';
+import { translateContent } from './content-translator';
+import { generateImages } from './image-generator';
 import { scrapeArticleContents } from './scraper';
 
 // ---------------------------------------------------------------------------
-// Clients — created once per process lifetime
+// Clients — created once per process lifetime, exported for scheduler reuse
 // ---------------------------------------------------------------------------
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
 function createRedis(): Redis {
   const url = process.env.REDIS_URL || 'redis://localhost:6379';
   return new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true });
 }
 
-const redis = createRedis();
+export const redis = createRedis();
 
 // ---------------------------------------------------------------------------
-// Redis cache invalidation helpers
-// (Mirrors the key patterns used by the Next.js API routes)
+// Timestamp of the last completed collection run (for health checks)
 // ---------------------------------------------------------------------------
 
-const CACHE_PATTERNS = [
-  'articles:*',
-  'feed:*',
-  'breaking:*',
-  'country:*',
-  'category:*',
-  'home:*',
-];
+export let lastCollectionTime: Date | null = null;
 
-async function invalidateCaches(): Promise<void> {
+// ---------------------------------------------------------------------------
+// Concurrency helper — simple semaphore-based parallel execution
+// ---------------------------------------------------------------------------
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  limit: number,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const idx = nextIndex++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Selective Redis cache invalidation
+// ---------------------------------------------------------------------------
+
+async function invalidateCachesSelective(
+  enrichedArticles: Array<{ country: string; categoryPrimary?: string }>,
+): Promise<void> {
   try {
-    for (const pattern of CACHE_PATTERNS) {
+    const patterns = new Set<string>();
+
+    for (const article of enrichedArticles) {
+      patterns.add(`articles:${article.country}:*`);
+      patterns.add(`home:${article.country}`);
+      if (article.categoryPrimary) {
+        patterns.add(`category:${article.categoryPrimary}:*`);
+      }
+    }
+
+    // Always invalidate breaking/trending — they span all countries
+    patterns.add('breaking:*');
+    patterns.add('feed:*');
+
+    const patternList = Array.from(patterns);
+    for (const pattern of patternList) {
       const keys = await redis.keys(pattern);
       if (keys.length > 0) {
         await redis.del(...keys);
@@ -171,13 +212,18 @@ async function collectSource(source: Source): Promise<CollectionResult> {
     console.warn(`${logBase} Scraping failed (non-fatal): ${message}`);
   }
 
-  // ── Step 4: Translate / Categorize ──────────────────────────────────────
+  // ── Step 4: Translate / Categorize / Generate images (3-phase pipeline) ─
   let enriched: typeof normalized;
   try {
+    // Phase 1: Translate titles + categorize
     enriched = await translateArticles(normalized);
+    // Phase 2: Translate full article content
+    enriched = await translateContent(enriched);
+    // Phase 3: Generate images for articles without photos
+    enriched = await generateImages(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`${logBase} Translation failed: ${message}`);
+    console.error(`${logBase} Translation pipeline failed: ${message}`);
     // Fall back to un-translated articles so we don't lose the data
     enriched = normalized.map((a) => ({
       ...a,
@@ -285,14 +331,11 @@ export async function collectAll(): Promise<void> {
     return;
   }
 
-  console.log(`[collector] Processing ${sources.length} source(s)`);
+  console.log(`[collector] Processing ${sources.length} source(s) with concurrency limit 3`);
 
-  // ── Process sources sequentially to avoid API rate limits ────────────────
-  const results: CollectionResult[] = [];
-  for (const source of sources) {
-    const result = await collectSource(source);
-    results.push(result);
-  }
+  // ── Process sources in parallel (max 3 concurrent) ──────────────────────
+  const CONCURRENCY = 3;
+  const results = await runWithConcurrency(sources, collectSource, CONCURRENCY);
 
   // ── Summary ──────────────────────────────────────────────────────────────
   const totalFound = results.reduce((s, r) => s + r.articlesFound, 0);
@@ -307,10 +350,28 @@ export async function collectAll(): Promise<void> {
     `failed: ${failed}, partial: ${partial}`,
   );
 
-  // ── Invalidate Redis caches if any new articles were saved ────────────────
+  // ── Selectively invalidate Redis caches based on affected articles ───────
   if (totalNew > 0) {
-    await invalidateCaches();
+    // Gather all saved articles' country/category for targeted invalidation
+    // (We re-query saved articles from the last run for accuracy)
+    try {
+      const recentArticles = await prisma.article.findMany({
+        where: { createdAt: { gte: new Date(runStart) } },
+        select: { country: true, categoryPrimary: true },
+      });
+      await invalidateCachesSelective(
+        recentArticles.map((a) => ({
+          country: a.country,
+          categoryPrimary: a.categoryPrimary || undefined,
+        })),
+      );
+    } catch {
+      // Fallback: invalidate common patterns
+      await invalidateCachesSelective([{ country: '*' }]);
+    }
   }
+
+  lastCollectionTime = new Date();
 }
 
 // ---------------------------------------------------------------------------

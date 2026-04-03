@@ -32,8 +32,8 @@ export async function POST(req: Request) {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: parsed.data.priceId, quantity: 1 }],
-      success_url: `${req.headers.get('origin')}/freeai/billing?success=true`,
-      cancel_url: `${req.headers.get('origin')}/freeai/billing?canceled=true`,
+      success_url: `${req.headers.get('origin')}/billing?success=true`,
+      cancel_url: `${req.headers.get('origin')}/billing?canceled=true`,
       metadata: { userId },
     });
     return Response.json({ url: session.url });

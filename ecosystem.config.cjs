@@ -3,8 +3,9 @@ module.exports = {
     {
       name: 'freeai',
       cwd: '/home/ubuntu/freeai/apps/web',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3010 -H 0.0.0.0',
+      script: 'pnpm',
+      args: 'run start -- -p 3010 -H 0.0.0.0',
+      interpreter: 'none',
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',

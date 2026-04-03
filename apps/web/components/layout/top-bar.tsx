@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, Monitor, User, Settings, CreditCard, ChevronDown } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -23,6 +23,16 @@ export function TopBar() {
       setDropdownOpen(false);
     }
   }
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDropdownOpen(false);
+    }
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [dropdownOpen]);
 
   return (
     <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-950 shrink-0">

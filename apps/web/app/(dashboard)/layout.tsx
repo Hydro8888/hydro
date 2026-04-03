@@ -1,5 +1,6 @@
 import { AppShell } from '@/components/layout/app-shell';
 import { ToastContainer } from '@/components/ui/toast';
+import { ThemeApplier } from '@/components/theme-applier';
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <>
+      <ThemeApplier />
       <AppShell>{children}</AppShell>
       <ToastContainer />
     </>

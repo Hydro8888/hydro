@@ -33,9 +33,9 @@ export function ContextPanel() {
     };
   });
 
-  // Split tokens roughly 50/50 for display (actual split tracked server-side)
-  const inputTokens = Math.floor(totalTokens / 2);
-  const outputTokens = totalTokens - inputTokens;
+  // Display total tokens (actual input/output breakdown not available from aggregated usage API)
+  const inputTokens = totalTokens;
+  const outputTokens = 0;
 
   return (
     <aside className="w-72 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col shrink-0 overflow-y-auto">
@@ -128,16 +128,16 @@ export function ContextPanel() {
         )}
 
         <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-          <h3 className="text-xs font-medium text-gray-500 mb-3">빠른 설정</h3>
-          <div className="space-y-2">
-            <label className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">스트리밍</span>
-              <input type="checkbox" defaultChecked className="rounded" />
-            </label>
-            <label className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">자동 저장</span>
-              <input type="checkbox" defaultChecked className="rounded" />
-            </label>
+          <h3 className="text-xs font-medium text-gray-500 mb-3">설정</h3>
+          <div className="space-y-2 text-xs text-gray-400">
+            <div className="flex items-center justify-between">
+              <span>스트리밍</span>
+              <span className="text-green-500 font-medium">활성</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>자동 저장</span>
+              <span className="text-green-500 font-medium">활성</span>
+            </div>
           </div>
         </div>
       </div>

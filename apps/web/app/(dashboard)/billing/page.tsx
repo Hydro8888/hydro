@@ -3,10 +3,12 @@
 import { PricingTable } from '@/components/billing/pricing-table';
 import { UsageMeter } from '@/components/billing/usage-meter';
 import { useUsage } from '@/hooks/use-usage';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BillingPage() {
   const { data } = useUsage();
   const period = data?.currentPeriod;
+  const { info } = useToast();
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 overflow-y-auto h-full">
@@ -28,7 +30,7 @@ export default function BillingPage() {
         <PricingTable
           currentTier="free"
           onUpgrade={() => {
-            alert('결제 시스템은 현재 준비 중입니다.');
+            info('결제 시스템은 현재 준비 중입니다.');
           }}
         />
       </div>

@@ -59,7 +59,8 @@ export default function HistoryPage() {
   const pinned = conversations.filter((c) => c.pinned);
   const unpinned = conversations.filter((c) => !c.pinned);
 
-  const filtered = search
+  const isSearching = search.trim().length > 0;
+  const filtered = isSearching
     ? conversations.filter((c) =>
         c.title.toLowerCase().includes(search.toLowerCase())
       )

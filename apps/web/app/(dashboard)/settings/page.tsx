@@ -1,25 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { MODEL_CATALOG } from '@ai-portal/shared';
 import { useModelStore } from '@/stores/model-store';
 import { useUIStore } from '@/stores/ui-store';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
   const { selectedModelIds, selectModel } = useModelStore();
   const { theme, setTheme } = useUIStore();
-  const [saved, setSaved] = useState(false);
-
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  const { success } = useToast();
 
   return (
     <div className="p-6 max-w-3xl mx-auto overflow-y-auto h-full">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-1">설정</h1>
-        <p className="text-sm text-gray-500">계정 설정 및 환경 설정을 관리하세요.</p>
+        <p className="text-sm text-gray-500">설정은 자동으로 저장됩니다.</p>
       </div>
 
       <div className="space-y-6">
@@ -31,7 +26,10 @@ export default function SettingsPage() {
             </label>
             <select
               value={selectedModelIds[0] || ''}
-              onChange={(e) => selectModel(e.target.value, 0)}
+              onChange={(e) => {
+                selectModel(e.target.value, 0);
+                success('기본 모델이 변경되었습니다.');
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
             >
               {MODEL_CATALOG.map((m) => (
@@ -49,7 +47,10 @@ export default function SettingsPage() {
             {(['light', 'dark', 'system'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setTheme(t)}
+                onClick={() => {
+                  setTheme(t);
+                  success(`테마가 ${t === 'light' ? '라이트' : t === 'dark' ? '다크' : '시스템'}으로 변경되었습니다.`);
+                }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   theme === t
                     ? 'bg-primary-500 text-white'
@@ -69,12 +70,9 @@ export default function SettingsPage() {
           </p>
         </section>
 
-        <button
-          onClick={handleSave}
-          className="px-6 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
-        >
-          {saved ? '저장되었습니다 ✓' : '설정 저장'}
-        </button>
+        <p className="text-xs text-gray-400">
+          모든 설정은 브라우저 로컬 스토리지에 자동 저장됩니다.
+        </p>
       </div>
     </div>
   );

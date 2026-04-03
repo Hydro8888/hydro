@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, User, Settings, CreditCard, ChevronDown } from 'lucide-react';
+import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, Monitor, User, Settings, CreditCard, ChevronDown } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 
 export function TopBar() {
@@ -46,14 +46,20 @@ export function TopBar() {
 
       <div className="flex items-center gap-2">
         <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          onClick={() => {
+            const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
+            setTheme(next);
+          }}
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           aria-label="Toggle theme"
+          title={`테마: ${theme === 'light' ? '라이트' : theme === 'dark' ? '다크' : '시스템'}`}
         >
           {theme === 'dark' ? (
-            <Sun className="w-4 h-4" />
-          ) : (
             <Moon className="w-4 h-4" />
+          ) : theme === 'system' ? (
+            <Monitor className="w-4 h-4" />
+          ) : (
+            <Sun className="w-4 h-4" />
           )}
         </button>
         <button

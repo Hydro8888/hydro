@@ -72,7 +72,7 @@ export function ChatWorkspace({
                 role={message.role as 'user' | 'assistant'}
                 content={message.content}
                 modelId={message.role === 'assistant' ? modelId : undefined}
-                createdAt={new Date().toISOString()}
+                createdAt={message.createdAt?.toString()}
                 isStreaming={
                   isLoading &&
                   index === messages.length - 1 &&

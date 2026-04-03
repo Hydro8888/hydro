@@ -6,11 +6,12 @@ import { Sidebar } from './sidebar';
 import { useUIStore } from '@/stores/ui-store';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { sidebarOpen, toggleSidebar } = useUIStore();
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
 
   // Close sidebar on small screens by default
   useEffect(() => {
-    if (window.innerWidth < 768 && sidebarOpen) {
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && sidebarOpen) {
       toggleSidebar();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,17 +29,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Sidebar — absolute on mobile, relative on desktop */}
-        <div
-          className={`
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:-translate-x-0 md:w-0'}
-            fixed md:relative z-50 md:z-auto h-full
-            transition-transform duration-200 md:transition-none
-            ${sidebarOpen ? 'md:flex' : 'md:hidden'}
-          `}
-        >
-          <Sidebar />
-        </div>
+        {/* Sidebar: hidden when closed on desktop, slide overlay on mobile */}
+        {sidebarOpen && (
+          <div className="fixed md:relative z-50 md:z-auto h-[calc(100vh-3.5rem)] md:h-auto">
+            <Sidebar />
+          </div>
+        )}
 
         <main className="flex-1 overflow-hidden">{children}</main>
       </div>

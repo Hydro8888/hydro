@@ -170,7 +170,6 @@ echo ""
 echo "=== [9/9] Docker nginx 설정 업데이트 ==="
 
 # free.ai.kr 전용 nginx 서버 블록을 별도 파일로 생성
-# (기존 default.conf를 수정하지 않아 다른 앱에 영향 없음)
 echo "free.ai.kr 전용 nginx 서버 블록 생성..."
 
 cat > /tmp/freeai.conf << NGINX_CONF
@@ -205,14 +204,19 @@ NGINX_CONF
 # Docker 컨테이너에 설정 파일 복사
 docker cp /tmp/freeai.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/freeai.conf
 
+# default.conf에서 catch-all default_server가 free.ai.kr을 가로채지 않도록 확인
+if docker exec ${NGINX_CONTAINER} grep -q "default_server" /etc/nginx/conf.d/default.conf 2>/dev/null; then
+  echo "⚠ default.conf에 default_server 발견 — free.ai.kr 라우팅 확인 필요"
+  echo "  default_server가 free.ai.kr 요청을 가로챌 수 있습니다."
+  echo "  해결: default.conf의 server_name에 free.ai.kr이 없는지 확인하세요."
+fi
+
 # nginx 설정 테스트 및 리로드
 if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
   docker exec ${NGINX_CONTAINER} nginx -s reload
   echo "✓ nginx 설정 업데이트 및 리로드 완료!"
-  echo "  설정 파일: /etc/nginx/conf.d/freeai.conf"
 else
   echo "경고: nginx 설정 오류! 수동으로 확인하세요."
-  echo "  docker exec ${NGINX_CONTAINER} cat /etc/nginx/conf.d/freeai.conf"
   echo "  docker exec ${NGINX_CONTAINER} nginx -t"
 fi
 
@@ -222,10 +226,35 @@ echo ""
 echo "============================================"
 echo "  배포 완료!"
 echo "============================================"
+
 echo ""
-echo "  PM2 상태:    pm2 status"
+echo "=== 배포 진단 ==="
+echo ""
+echo "[1] PM2 상태:"
+pm2 status
+echo ""
+echo "[2] 앱 HTTP 응답:"
+APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/ 2>/dev/null || echo "연결실패")
+echo "  http://localhost:${APP_PORT}/ → ${APP_STATUS}"
+echo ""
+echo "[3] CSS 파일 서빙 확인:"
+CSS_FILE=$(find ${DEPLOY_DIR}/apps/web/.next/static/css -name '*.css' 2>/dev/null | head -1)
+if [ -n "${CSS_FILE}" ]; then
+  CSS_NAME=$(basename "${CSS_FILE}")
+  CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${APP_PORT}/_next/static/css/${CSS_NAME}" 2>/dev/null || echo "연결실패")
+  echo "  /_next/static/css/${CSS_NAME} → ${CSS_STATUS}"
+  if [ "${CSS_STATUS}" = "200" ]; then
+    echo "  ✓ CSS 정상 서빙 확인!"
+  else
+    echo "  ✗ CSS 서빙 실패 — PM2 로그 확인: pm2 logs ${APP_NAME}"
+  fi
+else
+  echo "  ✗ 빌드된 CSS 파일을 찾을 수 없음"
+fi
+echo ""
+echo "[4] nginx 서버 블록 확인:"
+docker exec ${NGINX_CONTAINER} nginx -T 2>/dev/null | grep -A2 "server_name free" || echo "  nginx에서 free.ai.kr 서버 블록을 찾을 수 없음"
+echo ""
 echo "  PM2 로그:    pm2 logs ${APP_NAME}"
 echo "  로컬 접속:   http://localhost:${APP_PORT}/"
 echo "  외부 접속:   http://free.ai.kr/"
-echo ""
-pm2 status

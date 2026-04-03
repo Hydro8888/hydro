@@ -75,7 +75,12 @@ export function MessageBubble({
               : 'dark:prose-invert'
           )}
         >
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown
+            allowedElements={['p', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'a', 'br', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'del', 'img']}
+            unwrapDisallowed
+          >
+            {content}
+          </ReactMarkdown>
         </div>
 
         {isStreaming && (
@@ -85,10 +90,24 @@ export function MessageBubble({
         {role === 'assistant' && !isStreaming && content && (
           <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(content);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(content);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                } catch {
+                  // Fallback for browsers without clipboard API
+                  const ta = document.createElement('textarea');
+                  ta.value = content;
+                  ta.style.position = 'fixed';
+                  ta.style.opacity = '0';
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(ta);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }
               }}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
               aria-label="Copy"

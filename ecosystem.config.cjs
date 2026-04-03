@@ -4,7 +4,7 @@ module.exports = {
       name: 'freeai',
       cwd: '/home/ubuntu/freeai/apps/web',
       script: 'pnpm',
-      args: 'run start -- -p 3010 -H 0.0.0.0',
+      args: 'start',
       interpreter: 'none',
       exec_mode: 'fork',
       env: {

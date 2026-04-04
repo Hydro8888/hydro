@@ -72,9 +72,31 @@ export default async function HomePage() {
             </h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              {/* Main hero — spans 2 cols on large */}
-              <div className="lg:col-span-2">
+              {/* Main hero + breaking list below */}
+              <div className="lg:col-span-2 flex flex-col gap-5">
                 <NewsCardLarge article={hero} />
+
+                {/* Breaking news list — fills the gap below hero */}
+                {breaking.length > 0 && (
+                  <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
+                    <h3 className="text-headline-sm text-text mb-3 flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-accent-red animate-pulse-dot opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-red" />
+                      </span>
+                      속보
+                    </h3>
+                    <div className="space-y-0">
+                      {breaking.slice(0, 5).map((article, idx) => (
+                        <NewsCardCompact
+                          key={article.id}
+                          article={article}
+                          rank={idx + 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Sub-hero stack */}

@@ -1,5 +1,103 @@
 import { CATEGORY_COLORS } from './constants';
 
+// ---------------------------------------------------------------------------
+// Image validation — blocked URL patterns & domains
+// ---------------------------------------------------------------------------
+
+/** Blocked URL patterns indicating logos/placeholders, not real article images */
+export const BLOCKED_IMAGE_PATTERNS: RegExp[] = [
+  /logo/i,
+  /brand/i,
+  /favicon/i,
+  /\bicon\b/i,
+  /default[-_]?image/i,
+  /placeholder/i,
+  /share[-_]image/i,
+  /site[-_]image/i,
+  /og[-_]image/i,
+  /sns[-_]image/i,
+  /\/common\//i,
+  /widget/i,
+  /spacer/i,
+  /pixel/i,
+  /beacon/i,
+  /tracking/i,
+  /\b1x1\b/i,
+  /\b50x50\b/i,
+  /\b100x100\b/i,
+  /\.svg(\?|$)/i,
+  /^data:image\//i,
+  /avatar/i,
+  /banner[-_]?default/i,
+  /transparent\./i,
+  /blank\./i,
+];
+
+/** Domain-level patterns known to serve site-wide logos instead of article images */
+export const BLOCKED_IMAGE_DOMAINS: RegExp[] = [
+  /chinadaily\.com\.cn\/.*?(logo|masthead)/i,
+  /nhk\.or\.jp\/.*?common\//i,
+  /reuters\.com\/pf\/resources\//i,
+  /static\.bbc\.co\.uk\/.*?logo/i,
+];
+
+/** Domains known to serve site-wide logos instead of article images */
+const BLOCKED_IMAGE_DOMAIN_NAMES = [
+  'static.chinadaily.com.cn',
+];
+
+/** Check whether a URL looks like a real article image vs. site logo/placeholder */
+export function isValidArticleImage(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.length < 10) return false;
+
+  // Check blocked patterns against full URL
+  for (const pattern of BLOCKED_IMAGE_PATTERNS) {
+    if (pattern.test(trimmed)) return false;
+  }
+
+  // Check domain-level blocked patterns
+  for (const pattern of BLOCKED_IMAGE_DOMAINS) {
+    if (pattern.test(trimmed)) return false;
+  }
+
+  // Check blocked domain names
+  try {
+    const hostname = new URL(trimmed).hostname;
+    if (BLOCKED_IMAGE_DOMAIN_NAMES.some(d => hostname === d || hostname.endsWith('.' + d))) {
+      return false;
+    }
+  } catch {
+    return false; // malformed URL
+  }
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Category image seed keywords for default/fallback images
+// ---------------------------------------------------------------------------
+
+const CATEGORY_IMAGE_SEEDS: Record<string, string[]> = {
+  economy: ['finance', 'stockmarket', 'trading', 'charts'],
+  market: ['wallstreet', 'stocks', 'exchange', 'trading-floor'],
+  politics: ['government', 'capitol', 'parliament', 'diplomacy'],
+  sports: ['stadium', 'athletics', 'competition', 'match'],
+  'ai-tech': ['technology', 'circuit', 'digital', 'computing'],
+  semiconductor: ['microchip', 'silicon', 'wafer', 'processor'],
+  automotive: ['automobile', 'factory', 'vehicle', 'highway'],
+  energy: ['power', 'solar', 'wind-turbine', 'pipeline'],
+  entertainment: ['performance', 'stage', 'cinema', 'entertainment'],
+  health: ['medical', 'hospital', 'wellness', 'healthcare'],
+  business: ['office', 'meeting', 'corporate', 'skyline'],
+  science: ['laboratory', 'research', 'space', 'microscope'],
+  society: ['cityscape', 'community', 'urban', 'people'],
+  culture: ['museum', 'art', 'heritage', 'festival'],
+  world: ['globe', 'international', 'landscape', 'travel'],
+  general: ['newsroom', 'newspaper', 'press', 'editorial'],
+};
+
 export function timeAgo(date: Date | string | null): string {
   if (!date) return '';
   const now = new Date();
@@ -70,9 +168,10 @@ export function buildSearchParams(params: Record<string, string | number | undef
  */
 export function getDefaultImage(category: string | null, articleId: number | string): string {
   const id = typeof articleId === 'string' ? parseInt(articleId) || 0 : articleId;
-  // Picsum uses numeric image IDs (0-1084). Map article ID to a range.
-  const picId = (id % 1000) + 10;
-  return `https://picsum.photos/seed/${category || 'news'}-${id}/800/500`;
+  const cat = (category || 'general').toLowerCase();
+  const seeds = CATEGORY_IMAGE_SEEDS[cat] || CATEGORY_IMAGE_SEEDS['general'];
+  const keyword = seeds[id % seeds.length];
+  return `https://picsum.photos/seed/${keyword}-${id}/800/500`;
 }
 
 // ---------------------------------------------------------------------------

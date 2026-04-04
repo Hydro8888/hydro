@@ -5,6 +5,7 @@
  */
 
 import type { NormalizedArticle } from './normalizer';
+import { isValidArticleImage } from '../lib/utils';
 
 function stripHtml(html: string): string {
   return html
@@ -81,14 +82,14 @@ function extractFromJsonLd(html: string): string {
 function extractOgImage(html: string): string {
   const ogMatch = html.match(/<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
     || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-  if (ogMatch?.[1]) return ogMatch[1];
+  if (ogMatch?.[1] && isValidArticleImage(ogMatch[1])) return ogMatch[1];
 
   const twMatch = html.match(/<meta\s[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
     || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
-  if (twMatch?.[1]) return twMatch[1];
+  if (twMatch?.[1] && isValidArticleImage(twMatch[1])) return twMatch[1];
 
   const imgMeta = html.match(/<meta\s[^>]*name=["']image["'][^>]*content=["']([^"']+)["']/i);
-  if (imgMeta?.[1]) return imgMeta[1];
+  if (imgMeta?.[1] && isValidArticleImage(imgMeta[1])) return imgMeta[1];
 
   // First large image in article
   const imgTag = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*(?:width=["'](\d+)["'])?/gi);
@@ -99,9 +100,8 @@ function extractOgImage(html: string): string {
       if (srcMatch?.[1]) {
         const src = srcMatch[1];
         if (widthMatch && parseInt(widthMatch[1]) < 200) continue;
-        if (src.includes('logo') || src.includes('icon') || src.includes('avatar')) continue;
-        if (src.includes('1x1') || src.includes('pixel') || src.includes('tracking')) continue;
         if (src.endsWith('.gif') && !src.includes('giphy')) continue;
+        if (!isValidArticleImage(src)) continue;
         return src;
       }
     }

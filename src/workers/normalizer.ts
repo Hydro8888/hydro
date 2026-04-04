@@ -4,6 +4,7 @@
  */
 
 import type { RawFeedItem } from './rss-parser';
+import { isValidArticleImage } from '../lib/utils';
 
 /** Minimal source fields needed for normalization */
 export interface SourceInfo {
@@ -90,16 +91,16 @@ function resolveImageUrl(
     // Only accept if it looks like an image
     const isImage =
       !type || type.startsWith('image/') || /\.(jpe?g|png|gif|webp|avif|svg)(\?.*)?$/i.test(url);
-    if (isImage) return url;
+    if (isImage && isValidArticleImage(url)) return url;
   }
 
   // 2. First <img> inside the content HTML
   if (raw.content) {
     const fromHtml = extractImageFromHtml(raw.content);
-    if (fromHtml) return fromHtml;
+    if (fromHtml && isValidArticleImage(fromHtml)) return fromHtml;
 
     const fromMeta = extractImageFromMeta(raw.content);
-    if (fromMeta) return fromMeta;
+    if (fromMeta && isValidArticleImage(fromMeta)) return fromMeta;
   }
 
   return null;

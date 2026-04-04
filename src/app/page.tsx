@@ -50,18 +50,19 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Breaking Ticker — full width, outside container */}
-      {breaking.length > 0 && (
-        <BreakingTicker
-          articles={breaking.map((a) => ({
-            id: String(a.id),
-            titleKo: a.titleKo,
-            titleOriginal: a.titleOriginal,
-          }))}
-        />
-      )}
-
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
+        {/* Breaking Ticker — inside container, aligned with content */}
+        {breaking.length > 0 && (
+          <div className="mb-6 rounded-lg overflow-hidden">
+            <BreakingTicker
+              articles={breaking.map((a) => ({
+                id: String(a.id),
+                titleKo: a.titleKo,
+                titleOriginal: a.titleOriginal,
+              }))}
+            />
+          </div>
+        )}
         {/* ── Hero Section ── */}
         {hero && (
           <section className="animate-fade-in">

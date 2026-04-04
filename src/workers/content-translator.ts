@@ -47,7 +47,7 @@ export async function translateContent(
 
   for (const article of articlesWithContent) {
     try {
-      const trimmed = (article.contentOriginal || '').slice(0, 4500);
+      const trimmed = (article.contentOriginal || '').slice(0, 6000);
 
       const contentKo = await retryWithBackoff(
         () =>

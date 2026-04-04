@@ -187,7 +187,7 @@ interface ScrapedPage {
   imageUrl: string;
 }
 
-async function fetchArticlePage(url: string): Promise<ScrapedPage> {
+export async function fetchArticlePage(url: string): Promise<ScrapedPage> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
@@ -229,7 +229,7 @@ export async function scrapeArticleContents(
   articles: NormalizedArticle[],
 ): Promise<NormalizedArticle[]> {
   const needsScraping = articles.filter(
-    (a) => !a.contentOriginal || a.contentOriginal.length < 500 || !a.imageUrl
+    (a) => !a.contentOriginal || a.contentOriginal.length < 1500 || !a.imageUrl
   );
 
   if (needsScraping.length === 0) {

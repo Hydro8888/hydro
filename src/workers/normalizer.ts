@@ -141,12 +141,12 @@ export function normalizeArticle(
     return null;
   }
 
-  // Extract and clean content text (max 3000 chars for API cost control)
+  // Extract and clean content text (max 8000 chars — scraper may replace with full page content)
   let contentOriginal: string | null = null;
   if (raw.content) {
     const cleaned = stripHtml(raw.content);
     if (cleaned.length > 30) { // Only save meaningful content
-      contentOriginal = cleaned.slice(0, 500);
+      contentOriginal = cleaned.slice(0, 8000);
     }
   }
 

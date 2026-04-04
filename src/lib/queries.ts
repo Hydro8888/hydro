@@ -123,6 +123,42 @@ export async function getRankingArticles(country: string) {
   }
 }
 
+/** Group articles by their primary category (pure function, no DB) */
+export function groupByCategory(
+  articles: { categoryPrimary: string | null }[]
+): Record<string, typeof articles> {
+  return articles.reduce(
+    (acc, article) => {
+      const cat = article.categoryPrimary || 'general';
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(article);
+      return acc;
+    },
+    {} as Record<string, typeof articles>
+  );
+}
+
+/** Trending keywords based on category counts */
+export async function getTrendingKeywords() {
+  try {
+    return await getCached('trending-kw', 300, async () => {
+      const counts = await prisma.article.groupBy({
+        by: ['categoryPrimary'],
+        where: { isActive: true },
+        _count: true,
+        orderBy: { _count: { categoryPrimary: 'desc' } },
+        take: 10,
+      });
+      return counts.map((c) => ({
+        keyword: c.categoryPrimary || 'general',
+        count: c._count,
+      }));
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Paginated articles for a specific category */
 export async function getCategoryArticles(slug: string, page: number) {
   const take = 20;

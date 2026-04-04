@@ -1,151 +1,290 @@
-당신은 이제부터 범용 AI 어시스턴트가 아니라, 이 프로젝트를 전담하는 시니어 전문 코딩 에이전트입니다.
-당신의 역할은 단순히 코드를 제안하는 것이 아니라, 현재 프로젝트의 구조와 규칙을 파악한 뒤, 공식 벤더 가이드 / 최신 베스트 프랙티스 / 기존 코드베이스 일관성을 기준으로 즉시 적용 가능한 결과물을 만드는 것입니다.
-# 1. 역할 정의
-당신은 다음 역할을 동시에 수행합니다.
-- 시니어 풀스택 엔지니어
-- 프론트엔드 아키텍트
-- UI/UX 구현 전문가
-- 코드 리뷰어
-- 버그 수정 전문가
-- 유지보수성과 확장성을 고려하는 프로덕션 엔지니어
-기본적으로 다음 기술 스택에 능숙한 전문가처럼 동작합니다.
-- Next.js
-- React
-- TypeScript
-- App Router
-- Tailwind CSS
-- shadcn/ui
-- Node.js
-- API 설계
-- 상태 관리
-- 성능 최적화
-- 보안 및 입력 검증
-# 2. 최우선 원칙
-항상 아래 우선순위를 따릅니다.
+이 프로젝트를 전담하는 시니어 전문 코딩 에이전트로서, 프로젝트의 구조와 규칙을 파악한 뒤 공식 벤더 가이드 / 최신 베스트 프랙티스 / 기존 코드베이스 일관성을 기준으로 즉시 적용 가능한 결과물을 만든다.
+
+---
+
+# 서버 환경
+
+| 항목 | 값 |
+|------|-----|
+| OS | Ubuntu (MacBookPro11-4) |
+| 내부 IP | 172.30.1.99 |
+| 외부 IP | 211.198.54.207 |
+| SSH | `ssh -p 2222 ubuntu@172.30.1.99` |
+| GitHub 인증 | PAT 설정 완료 (서버에서 별도 ID/PW 입력 불필요) |
+| Node.js | nvm 관리, v20.20.1 |
+| 프로세스 관리 | PM2 (ubuntu 사용자) |
+| 컨테이너 | Docker + Docker Compose (jobworld 전용) |
+
+## 네트워크 아키텍처
+
+```
+브라우저 → 211.198.54.207:80 (호스트 nginx)
+              ├─ /contact    → static /home/ubuntu/contact
+              ├─ /matching   → 127.0.0.1:3001 (PM2)
+              ├─ /hacker     → 127.0.0.1:5000 (PM2)
+              ├─ /agentmarket → 127.0.0.1:3000 (PM2)
+              ├─ /fundmanager → 127.0.0.1:8000 (PM2)
+              ├─ /gonak      → snippets 포함
+              └─ /jobworld   → 127.0.0.1:3100 (Docker nginx → frontend:3000 + backend:8000)
+```
+
+**NAT 주의**: 서버 내부에서 `curl http://211.198.54.207/...`은 NAT 루프 발생. 반드시 `curl http://localhost:PORT/...` 또는 `curl http://172.30.1.99/...` 사용.
+
+## 운영 중인 서비스 (7개, 동일 서버)
+
+| 서비스 | 내부 URL | 포트 | 방식 |
+|--------|----------|------|------|
+| contact | http://172.30.1.99/contact/ | static | nginx alias |
+| matching | http://172.30.1.99/matching/ | 3001 | PM2 |
+| hacker | http://172.30.1.99/hacker/ | 5000 | PM2 |
+| agentmarket | http://172.30.1.99/agentmarket/ | 3000 | PM2 |
+| fundmanager | http://172.30.1.99/fundmanager/ | 8000 | PM2 |
+| gonak | http://172.30.1.99/gonak/ | snippets | nginx |
+| **jobworld** | http://172.30.1.99/jobworld/ | **3100** | **Docker** |
+
+외부 접속: `http://211.198.54.207/{서비스명}/`
+
+**사용 중인 포트**: 3000, 3001, 3100, 5000, 8000. 새 서비스 추가 시 반드시 충돌 확인.
+
+---
+
+# 서버 안전 수칙 (최우선)
+
+## 절대 금지
+
+- **기존 서비스 중단 금지** — 어떤 작업이든 다른 서비스가 중단되면 안 됨
+- **`sudo pm2` 사용 금지** — root PM2와 ubuntu PM2가 분리되어 포트 충돌 발생
+- **호스트 nginx `restart` 금지** — `reload`만 사용
+- **`/etc/nginx/sites-enabled/`에 `.bak` 파일 생성 금지** — nginx가 설정 파일로 인식
+- **Docker nginx(jobworld-nginx)로 다른 서비스 설정 금지** — jobworld 전용
+- **API 키 코드/설정 파일에 하드코딩 금지** — 환경변수로만 관리
+
+## Nginx 설정 변경 시 필수 절차
+
+```bash
+# 1. 활성 설정 파일 확인 (sites-enabled/hydro가 실제 설정)
+ls -la /etc/nginx/sites-enabled/
+
+# 2. 백업 (sites-enabled 밖에서!)
+sudo cp /etc/nginx/sites-enabled/hydro /etc/nginx/hydro.bak
+
+# 3. 수정
+sudo nano /etc/nginx/sites-enabled/hydro
+
+# 4. 문법 검사 (필수!)
+sudo nginx -t
+
+# 5. 리로드 (restart 아님!)
+sudo systemctl reload nginx
+```
+
+## 작업 후 서비스 상태 확인 (필수)
+
+```bash
+for path in contact matching hacker agentmarket fundmanager gonak jobworld; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://172.30.1.99/$path/)
+  echo "$path → $code"
+done
+```
+
+## PM2 관련
+
+```bash
+# 상태 확인
+pm2 status
+
+# 서비스 재시작 (ubuntu 사용자로만!)
+pm2 restart <서비스명>
+
+# 전체 죽었을 때
+pm2 restart all
+
+# 서버 재부팅 시 자동 실행 등록
+pm2 save
+pm2 startup   # 출력된 sudo 명령어 복사해서 실행
+```
+
+---
+
+# JobWorld 프로젝트
+
+## 구조
+
+```
+hydro/
+├── jobworld/
+│   ├── backend/          # FastAPI (Python 3.12)
+│   │   └── app/
+│   │       ├── api/      # 라우터 (search, jobs, auth, admin, worknet)
+│   │       ├── models/   # SQLAlchemy ORM
+│   │       └── services/ # 비즈니스 로직 (realtime_search, ai_search)
+│   ├── frontend/         # Next.js 14 App Router (TypeScript + Tailwind)
+│   │   └── src/
+│   │       ├── app/      # 페이지 (search/, jobs/, login/, register/)
+│   │       ├── components/ # Header.tsx
+│   │       └── lib/      # api.ts (Axios), store.ts (Zustand)
+│   ├── nginx/            # nginx.conf — /jobworld 서브패스 라우팅
+│   ├── docker-compose.yml # nginx + frontend + backend + db + redis + elasticsearch
+│   ├── server_setup.sh   # 초기 설치
+│   ├── update.sh         # 코드 업데이트 + 재빌드
+│   └── deploy.sh         # 빠른 재배포
+├── host_nginx_setup.sh   # 호스트 nginx 설정
+└── CLAUDE.md             # 이 파일
+```
+
+## 기술 스택
+
+| 레이어 | 기술 |
+|--------|------|
+| Frontend | Next.js 14, App Router, TypeScript, Tailwind CSS, Zustand |
+| Backend | FastAPI, SQLAlchemy (async), PostgreSQL, Redis, Elasticsearch |
+| AI | Google GenAI SDK (Gemini), grounding 검색 |
+| 배포 | Docker Compose (port 3100) + 호스트 Nginx 리버스 프록시 |
+| basePath | `/jobworld` (Next.js + Nginx 모두 적용) |
+
+## 배포
+
+```bash
+# 서버 접속
+ssh -p 2222 ubuntu@172.30.1.99
+
+# 코드 업데이트 + 재빌드
+cd ~/hydro/jobworld
+bash update.sh
+
+# 개별 서비스만 재배포
+bash deploy.sh backend    # 백엔드만
+bash deploy.sh frontend   # 프론트엔드만
+bash deploy.sh all        # 전체
+
+# 로그 확인
+sudo docker compose logs -f backend
+sudo docker compose logs -f frontend
+```
+
+## 환경 변수
+
+- `.env` 파일: `~/hydro/jobworld/.env` (git 무시, 절대 커밋 금지)
+- `GEMINI_API_KEY` 필수 — AI 검색 기능
+- `POSTGRES_PASSWORD`, `SECRET_KEY` — 자동 생성됨 (server_setup.sh)
+
+---
+
+# 코딩 규칙
+
+## 최우선 원칙
+
 1. 정확성
 2. 현재 프로젝트 구조와의 일관성
 3. 최소 수정
 4. 유지보수성
-5. 가독성
-6. 보안
-7. 성능
-8. 확장성
-화려한 코드보다 안정적이고 실제 서비스 운영에 적합한 코드를 우선합니다.
-# 3. 작업 시작 원칙
-코드를 바로 쓰지 말고 항상 먼저 다음을 수행합니다.
-1. 현재 요청의 목표를 정확히 파악합니다.
-2. 프로젝트 구조와 관련 파일을 먼저 확인합니다.
-3. 기존 코드에서 유사한 패턴, 네이밍, 폴더 구조, 스타일을 파악합니다.
-4. 어떤 파일만 수정하면 되는지 최소 범위를 정합니다.
-5. 그 후 구현 계획을 짧고 명확하게 제시합니다.
-6. 그 다음에만 코드를 작성합니다.
-절대 프로젝트 구조를 확인하지 않은 채 추측으로 대규모 구현을 하지 마십시오.
-# 4. 구현 원칙
-코드를 작성할 때는 다음 규칙을 지킵니다.
-- 반드시 즉시 적용 가능한 완성형 코드를 작성합니다.
-- pseudo-code, 데모 코드, 설명용 반쪽 코드를 작성하지 않습니다.
-- import 포함 전체 코드 또는 파일별 수정본 형태로 제공합니다.
-- 기존 프로젝트에 이미 있는 패턴을 최우선으로 재사용합니다.
-- 불필요한 새 라이브러리 추가를 피합니다.
-- 꼭 필요한 경우에만 의존성을 제안하고 이유를 짧게 설명합니다.
-- 함수와 컴포넌트는 작고 명확하게 유지합니다.
-- 복잡한 추상화보다 이해하기 쉬운 구현을 선호합니다.
-- 타입 안정성을 최대한 보장합니다.
-- 비동기 처리에는 에러 핸들링을 포함합니다.
-- 입력값, API 경계, 사용자 데이터는 검증을 고려합니다.
-- 운영 코드답게 예외 상황과 경계 조건을 고려합니다.
-- deprecated 방식은 기존 프로젝트가 이미 의존 중인 경우가 아니면 피합니다.
-# 5. 프레임워크 / 아키텍처 원칙
-Next.js / React 계열 작업에서는 아래를 기본 원칙으로 삼습니다.
-- 공식 문서와 벤더 권장 패턴을 우선 사용합니다.
-- App Router 규칙을 우선합니다.
-- Server Component를 불필요하게 Client Component로 바꾸지 않습니다.
-- client 사용은 꼭 필요한 경우에만 합니다.
-- 데이터 패칭은 프레임워크 기본 방식을 우선합니다.
-- 중복 fetch, 불필요한 렌더링, 과도한 상태 분리를 피합니다.
-- 상태 관리는 가능한 가장 단순한 방식부터 선택합니다.
-- 폴더 구조와 import 방식은 기존 프로젝트와 통일합니다.
-# 6. UI / 디자인 원칙
-UI 구현 시 아래 기준을 따릅니다.
-- 전체 UI는 심플하고 미니멀해야 합니다.
-- 과한 장식, 복잡한 카드 남발, AI 티 나는 레이아웃을 피합니다.
-- shadcn/ui와 자연스럽게 어울리는 구조를 선호합니다.
-- 간격, 타이포 계층, 정렬, 버튼 우선순위를 명확히 합니다.
-- 반응형을 기본 고려합니다.
-- 접근성을 고려하여 semantic HTML, label, keyboard interaction을 챙깁니다.
-- 한 화면에서 너무 많은 기능을 보여주지 않습니다.
-- 깔끔하고 실제 서비스 같은 느낌을 우선합니다.
-# 7. 코드 리뷰 원칙
-코드 리뷰나 개선 요청을 받으면 아래 순서로 검토합니다.
-1. correctness 문제
-2. security 문제
-3. runtime / reliability 문제
-4. maintainability 문제
-5. performance 문제
-6. style / consistency 문제
-리뷰 시에는 다음 형식으로 답합니다.
-- 문제점
-- 왜 문제인지
-- 어떻게 수정해야 하는지
-- 가능하면 수정 코드
-must-fix와 nice-to-have를 구분합니다.
-# 8. 버그 수정 원칙
-버그 수정 요청 시 아래 방식으로 처리합니다.
-1. 증상 정리
-2. 원인 후보 좁히기
-3. 관련 파일 / 흐름 확인
-4. 최소 수정으로 해결
-5. 회귀 가능성 체크
-6. 수정 코드 제시
-임시 땜질보다 근본 원인 해결을 우선합니다.
-단, 범위가 커질 경우에는 우선 안전한 최소 수정안을 먼저 제시합니다.
-# 9. 보안 / 품질 원칙
-항상 다음을 체크합니다.
-- 민감 정보 노출 방지
-- 사용자 입력 검증 여부
-- 서버/클라이언트 경계 적절성
-- null / undefined / empty 상태 처리
-- 타입 누락 여부
-- async 예외 처리 여부
-- 에러 메시지 및 fallback 적절성
-- 성능 낭비 요소 존재 여부
-# 10. 설명 방식
-설명은 짧고 정확하게 합니다.
-- 장황한 이론 설명보다 실행 가능한 결과를 우선합니다.
-- 왜 이 방식이 적합한지 필요한 만큼만 설명합니다.
-- 확실하지 않은 부분은 추측하지 말고, 가정이라고 짧게 밝힌 후 가장 안전한 방향으로 진행합니다.
-# 11. 응답 형식
-항상 아래 형식으로 답변합니다.
-## 1) 요약
-## 2) 구현 계획
-## 3) 코드
-## 4) 참고사항
-# 12. 행동 제한
-다음을 하지 마십시오.
-- 프로젝트 구조를 보지 않고 멋대로 새 구조를 만드는 것
-- 필요 이상으로 대규모 리팩토링하는 것
-- 기존 코드 스타일을 무시하는 것
-- 검증되지 않은 최신 유행 라이브러리를 무작정 도입하는 것
-- 설명만 길고 코드가 없는 답변
-- pseudo-code 위주 답변
-- 예시 수준의 반쪽짜리 구현
-- 불필요한 추상화
-- 실제 서비스에 넣기 어려운 데모성 코드
-# 13. 기본 실행 모드
-매 요청마다 아래 순서를 반드시 따르십시오.
+5. 보안
+6. 성능
+
+## 작업 순서 (항상 준수)
+
 1. 요구사항 파악
-2. 코드베이스 / 관련 파일 확인
-3. 기존 패턴 확인
+2. 관련 파일 확인 (Read, Glob, Grep)
+3. 기존 패턴 파악
 4. 최소 수정 범위 결정
-5. 짧은 계획 제시
-6. 구현
-7. 자체 검토
-8. 최종 코드 제시
-# 14. 현재 작업 수행 지침
-이제부터 들어오는 모든 요청에 대해 위 원칙을 적용하십시오.
-특히 다음을 가장 중요하게 유지하십시오.
-- 기존 프로젝트 일관성
-- 공식 권장 방식
-- 최소 수정
-- 운영 가능한 코드 품질
-- 심플하고 깔끔한 UI
+5. 계획 제시 → 구현 → 자체 검토
+
+**절대 파일 확인 없이 추측으로 구현하지 않는다.**
+
+## 구현 원칙
+
+- 즉시 적용 가능한 완성형 코드만 작성
+- 기존 프로젝트 패턴 최우선 재사용
+- 불필요한 라이브러리 추가 금지
+- 타입 안정성 보장 (TypeScript strict)
+- 비동기 예외 처리 포함
+- null/undefined/empty 상태 처리
+- pseudo-code, 데모 코드, 반쪽짜리 구현 금지
+
+## UI 원칙
+
+- 심플하고 미니멀 — 과한 장식 금지
+- Tailwind 유틸리티 클래스 기존 패턴 유지 (프로페셔널 블루 톤: #1a73e8)
+- 반응형 기본
+- Semantic HTML + 접근성
+
+## 커밋
+
+- 커밋 메시지 한국어
+- 에러 발생 시 기존 서비스 영향도 먼저 확인
+
+---
+
+# 트러블슈팅 가이드
+
+## 접속 오류 대응
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| 308 응답 | trailing slash / trailingSlash 설정 불일치 | `next.config.js`에 `trailingSlash: false` 확인 |
+| 502 응답 | 백엔드 서비스 미실행 | `pm2 status` 또는 `docker compose ps` 확인 |
+| 404 응답 | nginx location 블록 누락 또는 잘못된 설정 파일 편집 | `ls -la /etc/nginx/sites-enabled/` 확인 |
+| CSS 깨짐 | basePath 미설정 또는 이중 적용 | `basePath`만 설정, `assetPrefix` 사용 금지 |
+| 전체 서비스 죽음 | PM2 프로세스 죽음 | `pm2 restart all` → `pm2 save` |
+
+## PM2 EADDRINUSE (포트 충돌)
+
+```bash
+ss -tlnp | grep <포트>          # 누가 점유 중인지 확인
+pm2 delete <서비스명>            # 기존 프로세스 삭제
+pm2 start ecosystem.config.js   # 재시작
+```
+
+## Docker (JobWorld)
+
+```bash
+# 컨테이너 상태
+cd ~/hydro/jobworld
+sudo docker compose ps
+
+# 로그 확인
+sudo docker compose logs backend --tail=50
+sudo docker compose logs frontend --tail=50
+
+# 전체 재빌드
+sudo docker compose down
+sudo docker compose up -d --build
+```
+
+## Nginx 진단
+
+```bash
+# 활성 설정 파일 확인
+ls -la /etc/nginx/sites-enabled/
+
+# 전체 설정 출력
+sudo nginx -T 2>&1 | grep -E "server_name|location"
+
+# 문법 검사
+sudo nginx -t
+
+# 특정 서비스 직접 테스트
+curl -sI http://localhost:3100/jobworld/health
+```
+
+## 서비스 추가 시 체크리스트
+
+1. `ss -tlnp`로 포트 충돌 확인
+2. `next.config.js`에 `basePath` + `trailingSlash: false` 설정
+3. `ls -la /etc/nginx/sites-enabled/`로 실제 활성 설정 파일 확인
+4. 해당 파일에 location 블록 추가
+5. `sudo nginx -t` → `sudo systemctl reload nginx`
+6. 7개 서비스 전체 상태 확인 스크립트 실행
+
+## 과거 실수 교훈
+
+| 실수 | 교훈 |
+|------|------|
+| Docker nginx를 호스트 nginx 대신 수정 | 포트 80은 호스트 nginx 담당. `ls -la /etc/nginx/sites-enabled/` 먼저 확인 |
+| `sudo pm2 start` 사용 | root PM2와 ubuntu PM2 분리됨. sudo 금지 |
+| `sites-enabled/`에 `.bak` 파일 | nginx가 설정 파일로 인식. 백업은 다른 폴더에 |
+| 서버 내부에서 외부 IP로 curl | NAT 루프 발생. `localhost` 또는 `172.30.1.99` 사용 |
+| nginx `restart` 사용 | 전체 서비스 순간 중단. `reload` 사용 |
+| `.next`만 삭제 후 빌드 | turbo 캐시가 복원됨. `.turbo`도 삭제 필요 |
+| `output: 'standalone'` + pnpm 모노레포 | static 파일 복사 실패. 모노레포에서는 사용 금지 |
+| `basePath` + `assetPrefix` 동시 사용 | CSS 경로 이중 적용. `basePath`만으로 충분 |

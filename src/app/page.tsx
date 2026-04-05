@@ -76,27 +76,34 @@ export default async function HomePage() {
               <div className="lg:col-span-2 flex flex-col gap-5">
                 <NewsCardLarge article={hero} />
 
-                {/* Breaking news list — fills the gap below hero */}
-                {breaking.length > 0 && (
-                  <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
-                    <h3 className="text-headline-sm text-text mb-3 flex items-center gap-2">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-accent-red animate-pulse-dot opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-red" />
-                      </span>
-                      속보
-                    </h3>
-                    <div className="space-y-0">
-                      {breaking.slice(0, 5).map((article, idx) => (
-                        <NewsCardCompact
-                          key={article.id}
-                          article={article}
-                          rank={idx + 1}
-                        />
-                      ))}
+                {/* Breaking + Latest news list — fills the gap below hero */}
+                {(() => {
+                  const heroIds = new Set([hero.id, ...subHeroes.map(a => a.id)]);
+                  const breakingIds = new Set(breaking.map(a => a.id));
+                  const fillArticles = articles
+                    .filter(a => !heroIds.has(a.id) && !breakingIds.has(a.id))
+                    .slice(0, 8 - breaking.length);
+                  const listItems = [...breaking, ...fillArticles].slice(0, 8);
+                  const hasExtraFill = fillArticles.length > 0;
+
+                  if (listItems.length === 0) return null;
+                  return (
+                    <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
+                      <h3 className="text-headline-sm text-text mb-3 flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-accent-red animate-pulse-dot opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-red" />
+                        </span>
+                        {hasExtraFill ? '속보 · 최신' : '속보'}
+                      </h3>
+                      <div className="space-y-0">
+                        {listItems.map((article, idx) => (
+                          <NewsCardCompact key={article.id} article={article} rank={idx + 1} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Sub-hero stack */}

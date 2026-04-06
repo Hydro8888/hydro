@@ -108,8 +108,8 @@ export default function Header() {
           <div className="flex h-12 items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-0.5 select-none group">
-              <span className="text-xl font-extrabold tracking-tight text-accent transition-colors group-hover:text-accent/80">
-                LiveNews
+              <span className="text-xl font-extrabold tracking-tight transition-colors">
+                <span className="text-accent-red group-hover:text-accent-red/80">Live</span><span className="text-accent-blue group-hover:text-accent-blue/80">News</span>
               </span>
               <span className="text-lg font-medium tracking-tight text-text-secondary">.co.kr</span>
               <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent-red animate-pulse-dot" />

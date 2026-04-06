@@ -15,7 +15,7 @@ export async function getArticles(country?: string) {
       prisma.article.findMany({
         where,
         include: { source: true },
-        orderBy: { publishedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: 30,
       })
     );
@@ -31,7 +31,7 @@ export async function getBreakingNews() {
       prisma.article.findMany({
         where: { isActive: true },
         include: { source: true },
-        orderBy: { publishedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: 10,
       })
     );
@@ -67,7 +67,7 @@ export async function getCountryArticles(countryCode: string, page: number) {
         prisma.article.findMany({
           where: { country: countryCode, isActive: true },
           include: { source: true },
-          orderBy: { publishedAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
           take,
           skip,
         }),
@@ -91,7 +91,7 @@ export async function getBreakingArticles(page: number) {
         prisma.article.findMany({
           where: { isActive: true },
           include: { source: true },
-          orderBy: { publishedAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
           take,
           skip,
         }),
@@ -170,7 +170,7 @@ export async function getCategoryArticles(slug: string, page: number) {
         prisma.article.findMany({
           where: { categoryPrimary: slug, isActive: true },
           include: { source: true },
-          orderBy: { publishedAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
           take,
           skip,
         }),

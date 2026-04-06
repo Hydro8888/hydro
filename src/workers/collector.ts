@@ -94,6 +94,7 @@ async function invalidateCachesSelective(
     patterns.add('breaking:*');
     patterns.add('ranking:*');
     patterns.add('cat-counts');
+    patterns.add('trending-kw');
     patterns.add('feed:*');
 
     const patternList = Array.from(patterns);
@@ -372,11 +373,10 @@ export async function collectAll(): Promise<void> {
   );
   console.log(`[collector] Next scheduled run at ~${nextRun} (4h interval)`);
 
-  // ── Selectively invalidate Redis caches based on affected articles ───────
-  if (totalNew > 0) {
-    // Gather all saved articles' country/category for targeted invalidation
-    // (We re-query saved articles from the last run for accuracy)
-    try {
+  // ── Always invalidate Redis caches after collection ─────────────────────
+  // (Even if no new articles, ensures stale cache is cleared)
+  try {
+    if (totalNew > 0) {
       const recentArticles = await prisma.article.findMany({
         where: { createdAt: { gte: new Date(runStart) } },
         select: { country: true, categoryPrimary: true },
@@ -387,10 +387,14 @@ export async function collectAll(): Promise<void> {
           categoryPrimary: a.categoryPrimary || undefined,
         })),
       );
-    } catch {
-      // Fallback: invalidate common patterns
+    } else {
+      // No new articles — still invalidate common caches to ensure freshness
       await invalidateCachesSelective([{ country: '*' }]);
+      console.log('[collector] No new articles, but caches invalidated for freshness');
     }
+  } catch {
+    // Fallback: invalidate common patterns
+    await invalidateCachesSelective([{ country: '*' }]);
   }
 
   lastCollectionTime = new Date();

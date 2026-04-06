@@ -364,11 +364,13 @@ export async function collectAll(): Promise<void> {
   const partial    = results.filter((r) => r.status === 'partial').length;
   const elapsed    = ((Date.now() - runStart) / 1000).toFixed(1);
 
+  const nextRun = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
   console.log(
     `[collector] ── Run complete in ${elapsed}s ─ ` +
     `sources: ${sources.length}, found: ${totalFound}, new: ${totalNew}, ` +
     `failed: ${failed}, partial: ${partial}`,
   );
+  console.log(`[collector] Next scheduled run at ~${nextRun} (4h interval)`);
 
   // ── Selectively invalidate Redis caches based on affected articles ───────
   if (totalNew > 0) {

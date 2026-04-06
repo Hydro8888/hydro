@@ -26,7 +26,7 @@ module.exports = {
       max_restarts: 10,
       watch: false,
       max_memory_restart: '300M',
-      cron_restart: '0 */8 * * *',
+      cron_restart: '0 */12 * * *',
       env: {
         NODE_ENV: 'production',
       },

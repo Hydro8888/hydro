@@ -36,6 +36,8 @@ export const BLOCKED_IMAGE_PATTERNS: RegExp[] = [
 /** Domain-level patterns known to serve site-wide logos instead of article images */
 export const BLOCKED_IMAGE_DOMAINS: RegExp[] = [
   /chinadaily\.com\.cn\/.*?(logo|masthead)/i,
+  /chinadaily\.com\.cn\/image_e\//i,
+  /cnbut\.png/i,
   /nhk\.or\.jp\/.*?common\//i,
   /reuters\.com\/pf\/resources\//i,
   /static\.bbc\.co\.uk\/.*?logo/i,
@@ -44,6 +46,7 @@ export const BLOCKED_IMAGE_DOMAINS: RegExp[] = [
 /** Domains known to serve site-wide logos instead of article images */
 const BLOCKED_IMAGE_DOMAIN_NAMES = [
   'static.chinadaily.com.cn',
+  'www.chinadaily.com.cn',
 ];
 
 /** Check whether a URL looks like a real article image vs. site logo/placeholder */

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { isValidArticleImage } from '@/lib/utils';
+import { isValidArticleImage, normalizeImageUrl } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-/** GET: Dry-run — report how many articles have bad image URLs */
+/** GET: Dry-run — report how many articles have bad or non-normalized image URLs */
 export async function GET() {
   try {
     const articles = await prisma.article.findMany({
@@ -12,16 +12,27 @@ export async function GET() {
       select: { id: true, imageUrl: true },
     });
 
-    const badArticles = articles.filter(a => !isValidArticleImage(a.imageUrl));
+    const needsNormalization = articles.filter(a => {
+      const normalized = normalizeImageUrl(a.imageUrl);
+      return normalized !== a.imageUrl;
+    });
+
+    const badArticles = articles.filter(a => !isValidArticleImage(normalizeImageUrl(a.imageUrl)));
 
     return NextResponse.json({
       total: articles.length,
+      needsNormalization: needsNormalization.length,
       bad: badArticles.length,
-      samples: badArticles.slice(0, 10).map(a => ({
+      normalizationSamples: needsNormalization.slice(0, 10).map(a => ({
+        id: a.id,
+        before: a.imageUrl,
+        after: normalizeImageUrl(a.imageUrl),
+      })),
+      badSamples: badArticles.slice(0, 10).map(a => ({
         id: a.id,
         imageUrl: a.imageUrl,
       })),
-      message: `${badArticles.length} of ${articles.length} articles have invalid image URLs`,
+      message: `${needsNormalization.length} need normalization, ${badArticles.length} are invalid`,
     });
   } catch (error) {
     console.error('[GET /api/admin/fix-images]', error);
@@ -32,7 +43,7 @@ export async function GET() {
   }
 }
 
-/** POST: Clear bad image URLs so fallback/regeneration can work */
+/** POST: Normalize image URLs (http→https, //→https://) and clear truly bad ones */
 export async function POST() {
   try {
     const articles = await prisma.article.findMany({
@@ -40,22 +51,34 @@ export async function POST() {
       select: { id: true, imageUrl: true },
     });
 
-    const badArticles = articles.filter(a => !isValidArticleImage(a.imageUrl));
+    let normalizedCount = 0;
+    let clearedCount = 0;
 
-    if (badArticles.length === 0) {
-      return NextResponse.json({ fixed: 0, total: articles.length, message: 'No bad images found' });
+    for (const article of articles) {
+      const normalized = normalizeImageUrl(article.imageUrl);
+
+      if (!normalized || !isValidArticleImage(normalized)) {
+        // Clear truly bad URLs
+        await prisma.article.update({
+          where: { id: article.id },
+          data: { imageUrl: null },
+        });
+        clearedCount++;
+      } else if (normalized !== article.imageUrl) {
+        // Update with normalized URL (http→https, //→https://)
+        await prisma.article.update({
+          where: { id: article.id },
+          data: { imageUrl: normalized },
+        });
+        normalizedCount++;
+      }
     }
 
-    // Clear bad image URLs so frontend fallback and future AI generation can work
-    const result = await prisma.article.updateMany({
-      where: { id: { in: badArticles.map(a => a.id) } },
-      data: { imageUrl: null },
-    });
-
     return NextResponse.json({
-      fixed: result.count,
       total: articles.length,
-      message: `Cleared ${result.count} bad image URLs`,
+      normalized: normalizedCount,
+      cleared: clearedCount,
+      message: `Normalized ${normalizedCount} URLs, cleared ${clearedCount} bad URLs`,
     });
   } catch (error) {
     console.error('[POST /api/admin/fix-images]', error);

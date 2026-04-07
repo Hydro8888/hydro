@@ -23,7 +23,7 @@ import { translateArticles } from './translator';
 import { translateContent } from './content-translator';
 import { generateImages } from './image-generator';
 import { scrapeArticleContents } from './scraper';
-import { isValidArticleImage } from '../lib/utils';
+import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
 // ---------------------------------------------------------------------------
 // Clients — created once per process lifetime, exported for scheduler reuse
@@ -220,9 +220,12 @@ async function collectSource(source: Source): Promise<CollectionResult> {
     console.warn(`${logBase} Scraping failed (non-fatal): ${message}`);
   }
 
-  // ── Step 3.6: Validate image URLs — clear bad ones so Phase 3 generates replacements
+  // ── Step 3.6: Normalize & validate image URLs — clear bad ones so Phase 3 generates replacements
   let clearedImages = 0;
   for (const article of normalized) {
+    if (article.imageUrl) {
+      article.imageUrl = normalizeImageUrl(article.imageUrl);
+    }
     if (article.imageUrl && !isValidArticleImage(article.imageUrl)) {
       console.log(`${logBase} Clearing bad imageUrl: ${article.imageUrl.slice(0, 80)}`);
       article.imageUrl = null;

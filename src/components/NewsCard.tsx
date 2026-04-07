@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage } from '@/lib/utils';
+import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl } from '@/lib/utils';
 import type { Article } from '@/lib/types';
 
 export default function NewsCard({ article }: { article: Article }) {
@@ -16,7 +16,7 @@ export default function NewsCard({ article }: { article: Article }) {
       {/* Image */}
       <Link href={`/article/${article.id}`} className="relative block h-[160px] sm:h-[180px] w-full overflow-hidden bg-surface-elevated">
         <Image
-          src={isValidArticleImage(article.imageUrl) ? article.imageUrl! : getDefaultImage(article.categoryPrimary, article.id)}
+          src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : getDefaultImage(article.categoryPrimary, article.id)}
           alt={title}
           fill
           unoptimized

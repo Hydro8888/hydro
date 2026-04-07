@@ -5,7 +5,7 @@
  */
 
 import type { NormalizedArticle } from './normalizer';
-import { isValidArticleImage } from '../lib/utils';
+import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
 function stripHtml(html: string): string {
   return html
@@ -214,7 +214,7 @@ export async function fetchArticlePage(url: string): Promise<ScrapedPage> {
     const html = await res.text();
     return {
       content: extractArticleContent(html),
-      imageUrl: extractOgImage(html),
+      imageUrl: normalizeImageUrl(extractOgImage(html)) || '',
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : '';

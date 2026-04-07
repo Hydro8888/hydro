@@ -75,6 +75,28 @@ export function isValidArticleImage(url: string | null | undefined): boolean {
   return true;
 }
 
+/**
+ * Normalizes an image URL: fixes protocol-relative URLs and upgrades http to https.
+ * Returns null if the URL is not usable.
+ */
+export function normalizeImageUrl(url: string | null | undefined): string | null {
+  if (!url || typeof url !== 'string') return null;
+  let trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Fix protocol-relative URLs: //example.com/img.jpg → https://example.com/img.jpg
+  if (trimmed.startsWith('//')) {
+    trimmed = 'https:' + trimmed;
+  }
+
+  // Upgrade http to https to avoid mixed content blocking
+  if (trimmed.startsWith('http://')) {
+    trimmed = trimmed.replace(/^http:\/\//, 'https://');
+  }
+
+  return trimmed;
+}
+
 // ---------------------------------------------------------------------------
 // Category image seed keywords for default/fallback images
 // ---------------------------------------------------------------------------

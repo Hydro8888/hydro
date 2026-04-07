@@ -4,7 +4,7 @@
  */
 
 import type { RawFeedItem } from './rss-parser';
-import { isValidArticleImage } from '../lib/utils';
+import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
 /** Minimal source fields needed for normalization */
 export interface SourceInfo {
@@ -159,6 +159,6 @@ export function normalizeArticle(
     language: source.language,
     country: source.country,
     author: raw.creator?.trim() || null,
-    imageUrl: resolveImageUrl(raw),
+    imageUrl: normalizeImageUrl(resolveImageUrl(raw)),
   };
 }

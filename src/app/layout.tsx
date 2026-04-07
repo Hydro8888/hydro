@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   description: '전 세계 주요 뉴스를 실시간 AI 번역·요약으로 한국어 제공하는 글로벌 뉴스 허브',
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '48x48' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/livenews/favicon.ico', sizes: '48x48' },
+      { url: '/livenews/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/apple-touch-icon.png',
+    apple: '/livenews/apple-touch-icon.png',
   },
   openGraph: {
     title: 'LiveNews - 글로벌 라이브 뉴스',

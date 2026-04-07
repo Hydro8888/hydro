@@ -18,6 +18,13 @@ export const metadata: Metadata = {
     template: '%s | LiveNews',
   },
   description: '전 세계 주요 뉴스를 실시간 AI 번역·요약으로 한국어 제공하는 글로벌 뉴스 허브',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'LiveNews - 글로벌 라이브 뉴스',
     description: '세계·미국·일본·중국 주요 뉴스를 한 화면에서',

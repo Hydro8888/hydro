@@ -87,17 +87,16 @@ def create_favicon(size: int) -> Image.Image:
 
 
 def main():
-    # Generate multi-size ICO
-    sizes_ico = [16, 32, 48]
-    ico_images = [create_favicon(s) for s in sizes_ico]
+    # Generate multi-size ICO by creating a large image and letting Pillow resize
+    base = create_favicon(256)
     ico_path = os.path.join(OUTPUT_DIR, 'favicon.ico')
-    ico_images[0].save(
+    base.save(
         ico_path,
         format='ICO',
-        sizes=[(s, s) for s in sizes_ico],
-        append_images=ico_images[1:],
+        sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
     )
-    print(f"Created {ico_path}")
+    file_size = os.path.getsize(ico_path)
+    print(f"Created {ico_path} ({file_size} bytes)")
 
     # Generate PNG icons
     for name, size in [

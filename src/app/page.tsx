@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import React from 'react';
 import Link from 'next/link';
 import {
   getArticles,
@@ -14,6 +15,8 @@ import NewsCard from '@/components/NewsCard';
 import NewsCardCompact from '@/components/NewsCardCompact';
 import BreakingTicker from '@/components/BreakingTicker';
 import TrendingKeywords from '@/components/TrendingKeywords';
+import NewsletterBanner from '@/components/NewsletterBanner';
+import AdSlot from '@/components/AdSlot';
 
 export default async function HomePage() {
   const [articles, breaking, catCounts, trendingKw] = await Promise.all([
@@ -118,6 +121,11 @@ export default async function HomePage() {
           </section>
         )}
 
+        {/* ── Newsletter Banner ── */}
+        <section className="mt-8 animate-fade-in">
+          <NewsletterBanner />
+        </section>
+
         {/* ── Category Sections ── */}
         {categorySections.length > 0 && (
           <section className="mt-10 animate-fade-in">
@@ -181,9 +189,12 @@ export default async function HomePage() {
                 );
               })}
 
-              {/* Trending Keywords sidebar */}
-              <div>
+              {/* Trending Keywords sidebar + Ad */}
+              <div className="flex flex-col gap-5">
                 <TrendingKeywords keywords={trendingKw} />
+                <div className="hidden lg:block">
+                  <AdSlot size="sidebar" />
+                </div>
               </div>
             </div>
           </section>
@@ -197,8 +208,13 @@ export default async function HomePage() {
               최신 뉴스
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {latestNews.map((article) => (
-                <NewsCard key={article.id} article={article} />
+              {latestNews.map((article, idx) => (
+                <React.Fragment key={article.id}>
+                  <NewsCard article={article} />
+                  {(idx + 1) % 4 === 0 && idx < latestNews.length - 1 && (
+                    <AdSlot size="native" className="md:col-span-2 lg:col-span-3" />
+                  )}
+                </React.Fragment>
               ))}
             </div>
           </section>

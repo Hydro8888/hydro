@@ -1,11 +1,14 @@
 export const dynamic = 'force-dynamic';
 
+import React from 'react';
 import { notFound } from 'next/navigation';
 import { COUNTRY_SUBCATEGORIES } from '@/lib/constants';
 import { getCountryArticles } from '@/lib/queries';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
+import NewsletterBanner from '@/components/NewsletterBanner';
+import AdSlot from '@/components/AdSlot';
 
 // Route-param → Prisma country code mapping
 const COUNTRY_CONFIG: Record<string, { dbCode: string; label: string; emoji: string }> = {
@@ -86,8 +89,13 @@ export default async function CountryPage({
       {rest.length > 0 && (
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {rest.map((article) => (
-              <NewsCard key={article.id} article={article} />
+            {rest.map((article, idx) => (
+              <React.Fragment key={article.id}>
+                <NewsCard article={article} />
+                {(idx + 1) % 4 === 0 && idx < rest.length - 1 && (
+                  <AdSlot size="native" className="md:col-span-2 lg:col-span-3" />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </section>
@@ -99,6 +107,11 @@ export default async function CountryPage({
           <p className="text-text-muted text-body-lg">{config.label} 뉴스를 수집 중입니다</p>
         </div>
       )}
+
+      {/* Newsletter Banner */}
+      <section className="mt-10 mb-6">
+        <NewsletterBanner />
+      </section>
 
       <Pagination currentPage={page} totalPages={totalPages} basePath={`/${params.country}`} />
     </div>

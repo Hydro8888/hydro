@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic';
 
+import React from 'react';
 import { CATEGORIES } from '@/lib/constants';
 import { categoryLabel, getCategoryStyle } from '@/lib/utils';
 import { getCategoryArticles } from '@/lib/queries';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
+import AdSlot from '@/components/AdSlot';
 import Link from 'next/link';
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
@@ -72,8 +74,13 @@ export default async function CategoryPage({
       {rest.length > 0 && (
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {rest.map((a) => (
-              <NewsCard key={a.id} article={a} />
+            {rest.map((a, idx) => (
+              <React.Fragment key={a.id}>
+                <NewsCard article={a} />
+                {(idx + 1) % 4 === 0 && idx < rest.length - 1 && (
+                  <AdSlot size="native" className="md:col-span-2 lg:col-span-3" />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </section>

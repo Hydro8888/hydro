@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import { formatDate, countryLabel, categoryLabel, timeAgo, getDefaultImage, getCategoryStyle, isValidArticleImage, normalizeImageUrl } from '@/lib/utils';
 import { CATEGORY_COLORS } from '@/lib/constants';
 import NewsCard from '@/components/NewsCard';
+import ShareButtons from '@/components/ShareButtons';
+import BookmarkButton from '@/components/BookmarkButton';
+import AdSlot from '@/components/AdSlot';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -110,6 +113,9 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
             {timeAgo(article.publishedAt)}
           </span>
           {article.author && <span className="text-body-md text-text-secondary">{article.author}</span>}
+          <div className="ml-auto">
+            <BookmarkButton articleId={article.id} />
+          </div>
         </div>
 
         {/* Title */}
@@ -119,10 +125,15 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
         {/* Original Title (small, subtle) */}
         {article.titleKo && article.titleKo !== article.titleOriginal && (
-          <p className="text-body-md text-text-muted mb-6 italic">
+          <p className="text-body-md text-text-muted mb-4 italic">
             {article.titleOriginal}
           </p>
         )}
+
+        {/* Share Buttons */}
+        <div className="mb-6">
+          <ShareButtons url={article.originalUrl} title={title} />
+        </div>
 
         {/* Divider */}
         <hr className="border-border mb-8" />
@@ -183,14 +194,6 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
           </a>
           <Link href="/" className="text-text-secondary hover:text-accent transition-colors">목록으로</Link>
-          <a
-            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(article.originalUrl)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-text-secondary hover:text-accent transition-colors"
-          >
-            공유
-          </a>
         </div>
 
         {/* Tags */}
@@ -208,6 +211,11 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           </div>
         )}
       </article>
+
+      {/* Banner Ad */}
+      <div className="py-6">
+        <AdSlot size="banner" />
+      </div>
 
       {/* Related Articles */}
       {related.length > 0 && (

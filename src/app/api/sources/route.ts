@@ -2,6 +2,8 @@ import prisma from '@/lib/db';
 import { getCached } from '@/lib/redis';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const sources = await getCached('sources:all', 300, async () => {

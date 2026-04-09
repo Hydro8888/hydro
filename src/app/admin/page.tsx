@@ -28,7 +28,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetch('/livenews/api/admin/stats')
       .then((r) => r.json())
-      .then(setStats);
+      .then(setStats)
+      .catch((err) => console.error('[AdminDashboard] Failed to load stats:', err));
   }, []);
 
   async function triggerCollection() {

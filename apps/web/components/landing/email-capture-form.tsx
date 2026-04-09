@@ -16,7 +16,7 @@ export function EmailCaptureForm({ variant = 'light', className }: EmailCaptureF
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !email.includes('@')) return;
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
     setStatus('submitting');
     setTimeout(() => {
       setStatus('success');

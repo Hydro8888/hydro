@@ -50,9 +50,15 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetch(apiUrl('/api/conversations'))
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => setConversations(data.conversations ?? []))
-      .catch(() => setConversations([]))
+      .catch((err) => {
+        console.error('[history] Failed to load:', err);
+        setConversations([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

@@ -186,17 +186,41 @@ export function buildSearchParams(params: Record<string, string | number | undef
   return sp.toString();
 }
 
+/** Category-specific colors for SVG placeholder images */
+const CATEGORY_PLACEHOLDER_COLORS: Record<string, { bg: string; fg: string; icon: string }> = {
+  economy: { bg: '#1e3a5f', fg: '#58a6ff', icon: '📊' },
+  market: { bg: '#1e2a4a', fg: '#818cf8', icon: '📈' },
+  politics: { bg: '#3b1c32', fg: '#f87171', icon: '🏛' },
+  sports: { bg: '#1a3329', fg: '#4ade80', icon: '⚽' },
+  'ai-tech': { bg: '#1a2e3d', fg: '#22d3ee', icon: '🤖' },
+  semiconductor: { bg: '#2d1f4e', fg: '#a78bfa', icon: '💾' },
+  automotive: { bg: '#1e2d3d', fg: '#38bdf8', icon: '🚗' },
+  energy: { bg: '#2d2a1a', fg: '#fbbf24', icon: '⚡' },
+  entertainment: { bg: '#3b1d3d', fg: '#f472b6', icon: '🎬' },
+  health: { bg: '#1a2e1a', fg: '#a3e635', icon: '🏥' },
+  business: { bg: '#1a2e2a', fg: '#34d399', icon: '💼' },
+  science: { bg: '#1a2e3d', fg: '#2dd4bf', icon: '🔬' },
+  society: { bg: '#2d2218', fg: '#fb923c', icon: '🏙' },
+  culture: { bg: '#3b1d2a', fg: '#fb7185', icon: '🎨' },
+  world: { bg: '#1e2a3d', fg: '#60a5fa', icon: '🌍' },
+  general: { bg: '#1e2530', fg: '#94a3b8', icon: '📰' },
+};
+
 /**
- * Returns a default image URL for articles without photos.
- * Uses Lorem Picsum (free, no API key, always works).
- * Article ID determines which image is shown (consistent per article).
+ * Returns a self-contained SVG data URI as default image for articles without photos.
+ * No external service dependency — always works offline.
  */
 export function getDefaultImage(category: string | null, articleId: number | string): string {
-  const id = typeof articleId === 'string' ? parseInt(articleId) || 0 : articleId;
   const cat = (category || 'general').toLowerCase();
-  const seeds = CATEGORY_IMAGE_SEEDS[cat] || CATEGORY_IMAGE_SEEDS['general'];
-  const keyword = seeds[id % seeds.length];
-  return `https://picsum.photos/seed/${keyword}-${id}/800/500`;
+  const colors = CATEGORY_PLACEHOLDER_COLORS[cat] || CATEGORY_PLACEHOLDER_COLORS['general'];
+  const label = categoryLabel(cat) || cat.toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+    <rect width="800" height="500" fill="${colors.bg}"/>
+    <text x="400" y="220" text-anchor="middle" font-size="64">${colors.icon}</text>
+    <text x="400" y="300" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" font-weight="600" fill="${colors.fg}">${label}</text>
+    <text x="400" y="340" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="${colors.fg}" opacity="0.5">LiveNews</text>
+  </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 // ---------------------------------------------------------------------------

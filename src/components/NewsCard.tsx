@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl, estimateReadingTime } from '@/lib/utils';
@@ -12,6 +13,9 @@ export default function NewsCard({ article }: { article: Article }) {
   const catStyle = getCategoryStyle(article.categoryPrimary || 'general');
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
   const readMin = estimateReadingTime(article.contentOriginal || article.summaryKo);
+  const fallback = getDefaultImage(article.categoryPrimary, article.id);
+  const initial = isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : fallback;
+  const [imgSrc, setImgSrc] = useState(initial);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-card bg-surface-card border border-border-muted hover:border-border hover:shadow-elevated transition-all duration-300">
@@ -19,12 +23,13 @@ export default function NewsCard({ article }: { article: Article }) {
       <div className="relative">
         <Link href={`/article/${article.id}`} className="relative block h-[160px] sm:h-[180px] w-full overflow-hidden bg-surface-elevated">
           <Image
-            src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : getDefaultImage(article.categoryPrimary, article.id)}
+            src={imgSrc}
             alt={title}
             fill
             unoptimized
             sizes="(max-width: 768px) 100vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgSrc(fallback)}
           />
         </Link>
         <div className="absolute top-2 right-2 z-10">

@@ -7,6 +7,7 @@ import NewsCard from '@/components/NewsCard';
 import ShareButtons from '@/components/ShareButtons';
 import BookmarkButton from '@/components/BookmarkButton';
 import AdSlot from '@/components/AdSlot';
+import ArticleHeroImage from '@/components/ArticleHeroImage';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -91,11 +92,11 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
       <article>
         {/* Hero Image */}
-        <div className="mb-8 rounded-card overflow-hidden shadow-elevated">
-          <img
+        <div className="mb-8 rounded-card overflow-hidden shadow-elevated bg-surface-elevated">
+          <ArticleHeroImage
             src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : getDefaultImage(article.categoryPrimary, article.id)}
+            fallback={getDefaultImage(article.categoryPrimary, article.id)}
             alt={title}
-            className="w-full h-auto max-h-[280px] sm:max-h-[450px] object-cover"
           />
         </div>
 

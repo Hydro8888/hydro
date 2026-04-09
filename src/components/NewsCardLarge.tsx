@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl, estimateReadingTime } from '@/lib/utils';
@@ -12,6 +13,9 @@ export default function NewsCardLarge({ article }: { article: Article }) {
   const catStyle = getCategoryStyle(article.categoryPrimary || 'general');
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
   const readMin = estimateReadingTime(article.contentOriginal || article.summaryKo);
+  const fallback = getDefaultImage(article.categoryPrimary, article.id);
+  const initial = isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : fallback;
+  const [imgSrc, setImgSrc] = useState(initial);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-card bg-surface-card border border-border-muted hover:border-border hover:shadow-elevated transition-all duration-300">
@@ -19,12 +23,13 @@ export default function NewsCardLarge({ article }: { article: Article }) {
       <div className="relative">
         <Link href={`/article/${article.id}`} className="relative block h-[200px] sm:h-[260px] w-full overflow-hidden bg-surface-elevated">
           <Image
-            src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : getDefaultImage(article.categoryPrimary, article.id)}
+            src={imgSrc}
             alt={title}
             fill
             unoptimized
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgSrc(fallback)}
           />
           {/* Gradient overlay from dark surface */}
           <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-surface-card/40 to-transparent" />

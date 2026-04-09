@@ -162,9 +162,15 @@ async def list_jobs(
     if status:
         stmt = stmt.where(JobPosting.status == status)
 
-    total = (await db.execute(select(func.count()).select_from(
-        select(JobPosting).where(JobPosting.status == status if status else True).subquery()
-    ))).scalar()
+    count_stmt = select(func.count()).select_from(JobPosting)
+    if q:
+        like = f"%{q}%"
+        count_stmt = count_stmt.join(Company, JobPosting.company_id == Company.id, isouter=True).where(
+            or_(JobPosting.title.ilike(like), Company.company_name.ilike(like))
+        )
+    if status:
+        count_stmt = count_stmt.where(JobPosting.status == status)
+    total = (await db.execute(count_stmt)).scalar()
 
     stmt = stmt.order_by(desc(JobPosting.created_at)).offset((page - 1) * size).limit(size)
     rows = (await db.execute(stmt)).all()

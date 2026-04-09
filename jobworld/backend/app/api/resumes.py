@@ -83,7 +83,7 @@ async def update_resume(
     resume = result.scalar_one_or_none()
     if not resume:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
-    for field, value in body.model_dump().items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         setattr(resume, field, value)
     await db.commit()
     await db.refresh(resume)

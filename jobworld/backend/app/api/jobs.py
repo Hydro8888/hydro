@@ -132,14 +132,14 @@ async def update_job(
     user: User = Depends(require_employer),
 ):
     result = await db.execute(
-        select(JobPosting, Company.user_id)
+        select(JobPosting, Company.user_id, Company.company_name)
         .join(Company, JobPosting.company_id == Company.id)
         .where(JobPosting.id == job_id)
     )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="채용공고를 찾을 수 없습니다.")
-    job, company_user_id = row
+    job, company_user_id, company_name = row
     if company_user_id != user.id and user.user_type != "admin":
         raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
 
@@ -147,7 +147,7 @@ async def update_job(
         setattr(job, field, value)
     await db.commit()
     await db.refresh(job)
-    return job_to_dict(job)
+    return job_to_dict(job, company_name)
 
 
 @router.delete("/{job_id}")

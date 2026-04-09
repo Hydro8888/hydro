@@ -17,20 +17,28 @@ export default function Header() {
           <span className="text-lg font-bold text-[#1c1c1c] tracking-tight">JobWorld</span>
         </Link>
 
-        {/* 데스크탑 nav — 중앙 */}
+        {/* 데스크탑 nav — 중앙 (역할별) */}
         <nav className="hidden sm:flex items-center gap-1 text-sm absolute left-1/2 -translate-x-1/2">
-          <Link href="/jobs" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">
-            채용공고
-          </Link>
-          <Link href="/search?q=개발자&type=구인" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">
-            AI 검색
-          </Link>
-          <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">
-            채용 등록
-          </Link>
-          <Link href="/resume/new" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">
-            이력서 등록
-          </Link>
+          {user?.user_type === 'employer' ? (
+            <>
+              <Link href="/search?q=개발자&type=구직" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">인재 검색</Link>
+              <Link href="/jobs" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">채용 관리</Link>
+              <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">채용 등록</Link>
+            </>
+          ) : user?.user_type === 'admin' ? (
+            <>
+              <Link href="/jobs" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">채용공고</Link>
+              <Link href="/search?q=개발자&type=구인" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">AI 검색</Link>
+              <Link href="/admin" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">관리자</Link>
+            </>
+          ) : (
+            <>
+              <Link href="/jobs" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">채용공고</Link>
+              <Link href="/search?q=개발자&type=구인" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">AI 검색</Link>
+              <Link href="/jobs/post" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">채용 등록</Link>
+              <Link href="/resume/new" className="px-3 py-1.5 text-[#5f6368] hover:text-[#1c1c1c] transition-colors rounded">이력서 등록</Link>
+            </>
+          )}
         </nav>
 
         {/* 우측 액션 */}

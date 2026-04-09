@@ -12,6 +12,7 @@ import {
   ExternalJobResult,
   ExternalMarketResult,
 } from '@/lib/api'
+import { useAuthStore } from '@/lib/store'
 
 function safeArr<T>(val: unknown): T[] {
   return Array.isArray(val) ? (val as T[]) : []
@@ -146,6 +147,7 @@ function ExternalMarketCard({ item }: { item: ExternalMarketResult }) {
 function SearchContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { user } = useAuthStore()
   const q = searchParams.get('q') || ''
   const typeParam = searchParams.get('type') as '구인' | '구직' | null
 
@@ -154,6 +156,7 @@ function SearchContent() {
   const [results, setResults] = useState<AISearchResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showReasoning, setShowReasoning] = useState(false)
 
   const doSearch = useCallback(async (searchQuery: string, type: '구인' | '구직') => {
     setLoading(true)
@@ -352,13 +355,35 @@ function SearchContent() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {externalResults.map((item, i) =>
-                    isExternalJob(item) ? (
-                      <ExternalJobCard key={`ext-job-${i}`} job={item as ExternalJobResult} />
-                    ) : (
-                      <ExternalMarketCard key={`ext-market-${i}`} item={item as ExternalMarketResult} />
-                    )
+                <div className="relative">
+                  <div className="space-y-2">
+                    {externalResults.slice(0, user ? externalResults.length : 2).map((item, i) =>
+                      isExternalJob(item) ? (
+                        <ExternalJobCard key={`ext-job-${i}`} job={item as ExternalJobResult} />
+                      ) : (
+                        <ExternalMarketCard key={`ext-market-${i}`} item={item as ExternalMarketResult} />
+                      )
+                    )}
+                  </div>
+                  {!user && externalResults.length > 2 && (
+                    <div className="relative mt-2">
+                      <div className="space-y-2 blur-sm pointer-events-none">
+                        {externalResults.slice(2, 4).map((item, i) =>
+                          isExternalJob(item) ? (
+                            <ExternalJobCard key={`ext-blur-${i}`} job={item as ExternalJobResult} />
+                          ) : (
+                            <ExternalMarketCard key={`ext-blur-${i}`} item={item as ExternalMarketResult} />
+                          )
+                        )}
+                      </div>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 rounded-xl">
+                        <p className="text-sm font-medium text-[#1c1c1c] mb-1">외부 채용정보 {externalResults.length - 2}건 더 보기</p>
+                        <p className="text-xs text-[#5f6368] mb-3">무료 가입하면 모든 결과를 볼 수 있습니다</p>
+                        <Link href="/register" className="px-5 py-2 bg-[#1a73e8] text-white text-sm font-medium rounded-lg hover:bg-[#1557b0] transition-colors">
+                          무료 가입하기
+                        </Link>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -401,6 +426,22 @@ function SearchContent() {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+                  {results.ai_reasoning && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowReasoning(!showReasoning)}
+                        className="text-xs text-[#1a73e8] hover:underline font-medium"
+                      >
+                        {showReasoning ? 'AI 분석 과정 숨기기 ▲' : 'AI 분석 과정 보기 ▼'}
+                      </button>
+                      {showReasoning && (
+                        <p className="mt-2 text-xs text-[#5f6368] leading-relaxed bg-[#f5f7fa] rounded-lg p-3">
+                          {results.ai_reasoning}
+                        </p>
+                      )}
                     </div>
                   )}
                   {results.ai_error && (

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl, estimateReadingTime } from '@/lib/utils';
+import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl, estimateReadingTime, proxyImageUrl } from '@/lib/utils';
 import type { Article } from '@/lib/types';
 import BookmarkButton from './BookmarkButton';
 
@@ -14,7 +14,8 @@ export default function NewsCardLarge({ article }: { article: Article }) {
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
   const readMin = estimateReadingTime(article.contentOriginal || article.summaryKo);
   const fallback = getDefaultImage(article.categoryPrimary, article.id);
-  const initial = isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : fallback;
+  const normalized = normalizeImageUrl(article.imageUrl);
+  const initial = isValidArticleImage(normalized) ? proxyImageUrl(normalized!) : fallback;
   const [imgSrc, setImgSrc] = useState(initial);
 
   return (

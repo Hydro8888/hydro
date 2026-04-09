@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/db';
-import { formatDate, countryLabel, categoryLabel, timeAgo, getDefaultImage, getCategoryStyle, isValidArticleImage, normalizeImageUrl } from '@/lib/utils';
+import { formatDate, countryLabel, categoryLabel, timeAgo, getDefaultImage, getCategoryStyle, isValidArticleImage, normalizeImageUrl, proxyImageUrl } from '@/lib/utils';
 import { CATEGORY_COLORS } from '@/lib/constants';
 import NewsCard from '@/components/NewsCard';
 import ShareButtons from '@/components/ShareButtons';
@@ -94,7 +94,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
         {/* Hero Image */}
         <div className="mb-8 rounded-card overflow-hidden shadow-elevated bg-surface-elevated">
           <ArticleHeroImage
-            src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? normalizeImageUrl(article.imageUrl)! : getDefaultImage(article.categoryPrimary, article.id)}
+            src={isValidArticleImage(normalizeImageUrl(article.imageUrl)) ? proxyImageUrl(normalizeImageUrl(article.imageUrl)!) : getDefaultImage(article.categoryPrimary, article.id)}
             fallback={getDefaultImage(article.categoryPrimary, article.id)}
             alt={title}
           />

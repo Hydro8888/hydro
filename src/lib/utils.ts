@@ -100,6 +100,16 @@ export function normalizeImageUrl(url: string | null | undefined): string | null
   return trimmed;
 }
 
+/**
+ * Wraps an external image URL through our image proxy to avoid
+ * CORS, hotlink blocking, and mixed content issues.
+ * Only proxies external URLs — data URIs and relative paths pass through.
+ */
+export function proxyImageUrl(url: string): string {
+  if (!url || url.startsWith('data:') || url.startsWith('/')) return url;
+  return `/livenews/api/img?url=${encodeURIComponent(url)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Category image seed keywords for default/fallback images
 // ---------------------------------------------------------------------------

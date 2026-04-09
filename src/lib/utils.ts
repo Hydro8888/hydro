@@ -186,41 +186,41 @@ export function buildSearchParams(params: Record<string, string | number | undef
   return sp.toString();
 }
 
-/** Category-specific colors for SVG placeholder images */
-const CATEGORY_PLACEHOLDER_COLORS: Record<string, { bg: string; fg: string; icon: string }> = {
-  economy: { bg: '#1e3a5f', fg: '#58a6ff', icon: '📊' },
-  market: { bg: '#1e2a4a', fg: '#818cf8', icon: '📈' },
-  politics: { bg: '#3b1c32', fg: '#f87171', icon: '🏛' },
-  sports: { bg: '#1a3329', fg: '#4ade80', icon: '⚽' },
-  'ai-tech': { bg: '#1a2e3d', fg: '#22d3ee', icon: '🤖' },
-  semiconductor: { bg: '#2d1f4e', fg: '#a78bfa', icon: '💾' },
-  automotive: { bg: '#1e2d3d', fg: '#38bdf8', icon: '🚗' },
-  energy: { bg: '#2d2a1a', fg: '#fbbf24', icon: '⚡' },
-  entertainment: { bg: '#3b1d3d', fg: '#f472b6', icon: '🎬' },
-  health: { bg: '#1a2e1a', fg: '#a3e635', icon: '🏥' },
-  business: { bg: '#1a2e2a', fg: '#34d399', icon: '💼' },
-  science: { bg: '#1a2e3d', fg: '#2dd4bf', icon: '🔬' },
-  society: { bg: '#2d2218', fg: '#fb923c', icon: '🏙' },
-  culture: { bg: '#3b1d2a', fg: '#fb7185', icon: '🎨' },
-  world: { bg: '#1e2a3d', fg: '#60a5fa', icon: '🌍' },
-  general: { bg: '#1e2530', fg: '#94a3b8', icon: '📰' },
+/**
+ * Curated Unsplash photo IDs per category — permanent, high-quality editorial photos.
+ * Each photo ID resolves to: https://images.unsplash.com/{id}?w=800&h=500&fit=crop
+ * These are royalty-free photos from Unsplash's permanent CDN.
+ */
+const CATEGORY_PHOTOS: Record<string, string[]> = {
+  economy:       ['photo-1611974789855-9c2a0a7236a3', 'photo-1590283603385-17ffb3a7f29f', 'photo-1526304640581-d334cdbbf45e', 'photo-1579532537598-459ecdaf39cc'],
+  market:        ['photo-1611974789855-9c2a0a7236a3', 'photo-1535320903710-d946a44237ab', 'photo-1642790106117-e829e14a795f', 'photo-1468254095679-bbcba94a7066'],
+  politics:      ['photo-1529107386315-e1a2ed48a620', 'photo-1555848962-6e79363ec58f', 'photo-1541872703-74c5e44368f9', 'photo-1575320181282-9afab399332c'],
+  sports:        ['photo-1461896836934-bd45ba43fcee', 'photo-1579952363873-27f3bade9f55', 'photo-1517649763962-0c623066013b', 'photo-1574629810360-7efbbe195018'],
+  'ai-tech':     ['photo-1677442136019-21780ecad995', 'photo-1620712943543-bcc4688e7485', 'photo-1555255707-c07966088b7b', 'photo-1518770660439-4636190af475'],
+  semiconductor: ['photo-1518770660439-4636190af475', 'photo-1555255707-c07966088b7b', 'photo-1640955014216-7d4be39b5f94', 'photo-1558494949-ef010cbdcc31'],
+  automotive:    ['photo-1492144534655-ae79c964c9d7', 'photo-1503376780353-7e6692767b70', 'photo-1549317661-bd32c8ce0abe', 'photo-1552519507-da3b142c6e3d'],
+  energy:        ['photo-1466611653911-95081537e5b7', 'photo-1509391366360-2e959784a276', 'photo-1473341304170-971dccb5ac1e', 'photo-1532601224476-15c79f2f7a51'],
+  entertainment: ['photo-1603190287605-e6ade32fa852', 'photo-1514533212735-5df27d970db0', 'photo-1470229722913-7c0e2dbbafd3', 'photo-1524368535928-5b5e00ddc76b'],
+  health:        ['photo-1576091160399-112ba8d25d1d', 'photo-1559757148-5c350d0d3c56', 'photo-1530497610245-94d3c16cda28', 'photo-1505751172876-fa1923c5c528'],
+  business:      ['photo-1486406146926-c627a92ad1ab', 'photo-1454165804606-c3d57bc86b40', 'photo-1507679799987-c73779587ccf', 'photo-1560179707-f14e90ef3623'],
+  science:       ['photo-1507413245164-6160d8298b31', 'photo-1532094349884-543bc11b234d', 'photo-1451187580459-43490279c0fa', 'photo-1564325724739-bae0bd08762c'],
+  society:       ['photo-1477959858617-67f85cf4f1df', 'photo-1480714378408-67cf0d13bc1b', 'photo-1519389950473-47ba0277781c', 'photo-1444723121867-7a241cacace9'],
+  culture:       ['photo-1544967082-d9d25d867d66', 'photo-1518998053901-5348d3961a04', 'photo-1499781350541-7783f6c6a0c8', 'photo-1513364776144-60967b0f800f'],
+  world:         ['photo-1451187580459-43490279c0fa', 'photo-1526778548025-fa2f459cd5c1', 'photo-1488085061387-422e29b40080', 'photo-1504198322253-cfa87a0ff25f'],
+  general:       ['photo-1504711434969-e33886168d4c', 'photo-1495020689067-958852a7765e', 'photo-1585829365295-ab7cd400c167', 'photo-1586339949216-35c2747cc36d'],
 };
 
 /**
- * Returns a self-contained SVG data URI as default image for articles without photos.
- * No external service dependency — always works offline.
+ * Returns a real photograph URL from Unsplash CDN for articles without photos.
+ * Uses curated, permanent photo IDs — no API key needed, always available.
+ * Article ID determines which photo is shown (consistent per article).
  */
 export function getDefaultImage(category: string | null, articleId: number | string): string {
+  const id = typeof articleId === 'string' ? parseInt(articleId) || 0 : articleId;
   const cat = (category || 'general').toLowerCase();
-  const colors = CATEGORY_PLACEHOLDER_COLORS[cat] || CATEGORY_PLACEHOLDER_COLORS['general'];
-  const label = categoryLabel(cat) || cat.toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-    <rect width="800" height="500" fill="${colors.bg}"/>
-    <text x="400" y="220" text-anchor="middle" font-size="64">${colors.icon}</text>
-    <text x="400" y="300" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" font-weight="600" fill="${colors.fg}">${label}</text>
-    <text x="400" y="340" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="${colors.fg}" opacity="0.5">LiveNews</text>
-  </svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  const photos = CATEGORY_PHOTOS[cat] || CATEGORY_PHOTOS['general'];
+  const photoId = photos[id % photos.length];
+  return `https://images.unsplash.com/${photoId}?w=800&h=500&fit=crop&auto=format&q=75`;
 }
 
 // ---------------------------------------------------------------------------

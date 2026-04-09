@@ -41,9 +41,10 @@ export async function generateImages(
 
   for (const article of articlesWithoutImage) {
     try {
+      const imageModel = process.env.XAI_IMAGE_MODEL || 'grok-2-image';
       const url = await xaiImageBreaker.execute(async () => {
         const res = await client.images.generate({
-          model: 'grok-2-image',
+          model: imageModel,
           prompt: `Professional news article header image for: "${article.titleOriginal}". Category: ${article.categoryPrimary || 'general news'}. Style: photojournalism, realistic, high quality, editorial photo. No text overlays.`,
           n: 1,
           size: '1024x1024',

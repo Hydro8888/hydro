@@ -77,21 +77,57 @@ function extractFromJsonLd(html: string): string {
 }
 
 /**
+ * Extract image URL from JSON-LD structured data.
+ */
+function extractImageFromJsonLd(html: string): string {
+  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  while ((match = jsonLdRegex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        const nodes = [item, ...(Array.isArray(item['@graph']) ? item['@graph'] : [])];
+        for (const node of nodes) {
+          if (!node || typeof node !== 'object') continue;
+          // Check image field (can be string, object, or array)
+          const img = node.image || node.thumbnailUrl;
+          if (!img) continue;
+          const url = typeof img === 'string' ? img
+            : Array.isArray(img) ? (typeof img[0] === 'string' ? img[0] : img[0]?.url)
+            : img.url || img.contentUrl;
+          if (url && typeof url === 'string' && isValidArticleImage(url)) return url;
+        }
+      }
+    } catch { /* invalid JSON */ }
+  }
+  return '';
+}
+
+/**
  * Extract og:image or twitter:image from HTML meta tags.
+ * Falls back to JSON-LD image, then first large <img> in the article.
  */
 function extractOgImage(html: string): string {
+  // 1. og:image meta tag
   const ogMatch = html.match(/<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
     || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
   if (ogMatch?.[1] && isValidArticleImage(ogMatch[1])) return ogMatch[1];
 
+  // 2. twitter:image meta tag
   const twMatch = html.match(/<meta\s[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
     || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
   if (twMatch?.[1] && isValidArticleImage(twMatch[1])) return twMatch[1];
 
+  // 3. name="image" meta tag
   const imgMeta = html.match(/<meta\s[^>]*name=["']image["'][^>]*content=["']([^"']+)["']/i);
   if (imgMeta?.[1] && isValidArticleImage(imgMeta[1])) return imgMeta[1];
 
-  // First large image in article
+  // 4. JSON-LD structured data image
+  const jsonLdImage = extractImageFromJsonLd(html);
+  if (jsonLdImage) return jsonLdImage;
+
+  // 5. First large <img> in article
   const imgTag = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*(?:width=["'](\d+)["'])?/gi);
   if (imgTag) {
     for (const tag of imgTag) {

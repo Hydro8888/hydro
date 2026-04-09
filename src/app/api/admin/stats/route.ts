@@ -59,12 +59,12 @@ export async function GET() {
         totalArticles,
         articlesToday,
         activeSources,
-        failedSources: failedSourceIds.length,
-        articlesByCountry: articlesByCountry.map((r) => ({
+        failedCollections: failedSourceIds.length,
+        byCountry: articlesByCountry.map((r) => ({
           country: r.country,
           count: r._count.id,
         })),
-        articlesByCategory: articlesByCategory
+        byCategory: articlesByCategory
           .filter((r) => r.categoryPrimary !== null)
           .map((r) => ({
             category: r.categoryPrimary as string,

@@ -8,8 +8,8 @@ interface Stats {
   articlesToday: number;
   activeSources: number;
   failedCollections: number;
-  byCountry: Array<{ country: string; _count: number }>;
-  byCategory: Array<{ categoryPrimary: string; _count: number }>;
+  byCountry: Array<{ country: string; count: number }>;
+  byCategory: Array<{ category: string; count: number }>;
   recentLogs: Array<{
     id: number;
     status: string;
@@ -93,7 +93,7 @@ export default function AdminDashboard() {
             {stats.byCountry.map((item) => (
               <div key={item.country} className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">{item.country}</span>
-                <span className="text-sm font-medium text-text">{item._count.toLocaleString()}</span>
+                <span className="text-sm font-medium text-text">{item.count.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -104,9 +104,9 @@ export default function AdminDashboard() {
           <h2 className="font-bold mb-4 text-text">카테고리별 기사 수</h2>
           <div className="space-y-3">
             {stats.byCategory.slice(0, 10).map((item) => (
-              <div key={item.categoryPrimary} className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">{item.categoryPrimary || '미분류'}</span>
-                <span className="text-sm font-medium text-text">{item._count.toLocaleString()}</span>
+              <div key={item.category} className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">{item.category || '미분류'}</span>
+                <span className="text-sm font-medium text-text">{item.count.toLocaleString()}</span>
               </div>
             ))}
           </div>

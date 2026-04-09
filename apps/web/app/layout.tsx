@@ -4,9 +4,33 @@ import { AuthProvider } from '@/components/auth-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AI Portal Pro - One Dashboard, All Premium AI',
+  title: {
+    default: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
+    template: '%s | AI Portal Pro',
+  },
   description:
-    '전세계 TOP 10 유료 LLM을 단일 인터페이스에서 선택, 비교, 사용하세요.',
+    'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요. 무료로 시작하세요.',
+  keywords: ['AI', 'ChatGPT', 'Claude', 'Gemini', 'Grok', 'LLM', 'AI 비교', 'AI 포털', 'AI 채팅', '인공지능'],
+  authors: [{ name: 'AI Portal Pro' }],
+  creator: 'AI Portal Pro',
+  openGraph: {
+    type: 'website',
+    locale: 'ko_KR',
+    siteName: 'AI Portal Pro',
+    title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
+    description:
+      'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
+    description:
+      'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: [
       { url: '/freeai/favicon.ico', sizes: 'any' },

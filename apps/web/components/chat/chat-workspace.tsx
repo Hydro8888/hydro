@@ -5,6 +5,7 @@ import { useChatStream } from '@/hooks/use-chat-stream';
 import { useModelStore } from '@/stores/model-store';
 import { MessageBubble } from './message-bubble';
 import { ChatInput } from './chat-input';
+import { SamplePrompts } from '@/components/dashboard/sample-prompts';
 import { ChevronDown } from 'lucide-react';
 
 interface ChatWorkspaceProps {
@@ -49,21 +50,13 @@ export function ChatWorkspace({
         onScroll={handleScroll}
       >
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-primary-500">AI</span>
-              </div>
-              <h2 className="text-lg font-semibold mb-2">
-                AI Portal Pro
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-                전세계 TOP 10 LLM 중 원하는 모델을 선택하고
-                <br />
-                대화를 시작하세요.
-              </p>
-            </div>
-          </div>
+          <SamplePrompts
+            onSelectPrompt={(prompt) => {
+              handleInputChange({
+                target: { value: prompt },
+              } as React.ChangeEvent<HTMLTextAreaElement>);
+            }}
+          />
         ) : (
           <div className="max-w-3xl mx-auto py-4">
             {messages.map((message, index) => (

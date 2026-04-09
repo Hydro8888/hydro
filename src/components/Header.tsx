@@ -42,6 +42,48 @@ function LiveClock() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Live stats counter (fetches from /api/admin/stats)                 */
+/* ------------------------------------------------------------------ */
+function LiveStats() {
+  const [stats, setStats] = useState<{ today: number; total: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/admin/stats', { next: { revalidate: 120 } } as RequestInit);
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        if (!cancelled) {
+          setStats({
+            today: data.articlesToday ?? 0,
+            total: data.totalArticles ?? 0,
+          });
+        }
+      } catch {
+        // Fallback: show nothing — the slot will be hidden
+        if (!cancelled) setStats(null);
+      }
+    }
+    fetchStats();
+    // Refresh every 5 minutes
+    const id = setInterval(fetchStats, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  if (!stats) return null;
+
+  return (
+    <span className="hidden sm:inline-flex items-center gap-1.5 text-caption text-text-secondary tabular-nums select-none">
+      <span className="inline-block h-1 w-1 rounded-full bg-accent animate-pulse-dot" />
+      오늘 <span className="font-semibold text-accent">{stats.today.toLocaleString('ko-KR')}</span>건 업데이트
+      <span className="text-text-muted mx-0.5">·</span>
+      전체 <span className="font-semibold text-text">{stats.total.toLocaleString('ko-KR')}</span>건
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Desktop nav items (exclude search, ranking from main strip)        */
 /* ------------------------------------------------------------------ */
 const NAV_ITEMS = MAIN_MENU.filter(
@@ -115,13 +157,9 @@ export default function Header() {
               <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent-red animate-pulse-dot" />
             </Link>
 
-            {/* Scrolling slogan */}
-            <div className="hidden sm:block ml-3 flex-1 max-w-[200px] overflow-hidden relative">
-              <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-surface to-transparent z-10" />
-              <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-surface to-transparent z-10" />
-              <p className="whitespace-nowrap text-caption font-medium text-accent/70 animate-[slogan_8s_linear_infinite]">
-                전세계 뉴스를 한눈에 &nbsp;&nbsp;&nbsp; 전세계 뉴스를 한눈에 &nbsp;&nbsp;&nbsp;
-              </p>
+            {/* Live stats counter */}
+            <div className="hidden sm:flex ml-3 flex-1 max-w-[320px] items-center">
+              <LiveStats />
             </div>
 
             {/* Right cluster */}

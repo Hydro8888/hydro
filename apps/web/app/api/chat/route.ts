@@ -24,7 +24,10 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const body = await req.json();
+  let body;
+  try { body = await req.json(); } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
   const parsed = chatRequestSchema.safeParse(body);
   if (!parsed.success) {
     return new Response(JSON.stringify({ error: parsed.error.issues }), {
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
         // Save assistant message
         memoryStore.addMessage({
           id: crypto.randomUUID(),
-          conversationId: convId!,
+          conversationId: convId ?? '',
           role: 'assistant',
           modelId,
           content: text,

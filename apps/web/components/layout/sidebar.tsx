@@ -46,7 +46,7 @@ export function Sidebar() {
     fetch(apiUrl('/api/conversations'))
       .then((r) => r.json())
       .then((d) => setConversations(d.conversations ?? []))
-      .catch(() => {});
+      .catch((err) => console.error('[sidebar] Failed to load conversations:', err));
   }, [sidebarOpen]);
 
   if (!sidebarOpen) return null;

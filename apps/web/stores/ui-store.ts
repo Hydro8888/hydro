@@ -29,7 +29,7 @@ export const useUIStore = create<UIStore>()(
     }),
     {
       name: 'ui-store',
-      partialize: (state) => ({ theme: state.theme, sidebarOpen: state.sidebarOpen }),
+      partialize: (state) => ({ theme: state.theme, sidebarOpen: state.sidebarOpen, contextPanelOpen: state.contextPanelOpen }),
     }
   )
 );

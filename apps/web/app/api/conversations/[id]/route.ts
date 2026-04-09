@@ -1,5 +1,13 @@
 import { getAuthUserId } from '@/lib/auth';
 import { memoryStore } from '@/lib/memory-store';
+import { z } from 'zod';
+
+const updateSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  pinned: z.boolean().optional(),
+  archived: z.boolean().optional(),
+  mode: z.enum(['single', 'dual', 'multi']).optional(),
+});
 
 export async function GET(
   _req: Request,
@@ -41,8 +49,17 @@ export async function PATCH(
     return new Response('Forbidden', { status: 403 });
   }
 
-  const body = await req.json();
-  const updated = memoryStore.updateConversation(params.id, body);
+  let body;
+  try { body = await req.json(); } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues }, { status: 400 });
+  }
+
+  const updated = memoryStore.updateConversation(params.id, parsed.data);
   return Response.json({ conversation: updated });
 }
 

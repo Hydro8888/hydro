@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { jobsAPI } from '@/lib/api'
+import { useAuthStore } from '@/lib/store'
 
 const inputCls = 'w-full border border-[#dadce0] rounded px-4 py-2.5 text-sm text-[#202124] placeholder-[#9aa0a6] focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition-colors'
 
@@ -18,6 +19,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function PostJobPage() {
   const router = useRouter()
+  const { user } = useAuthStore()
+
+  useEffect(() => {
+    if (!user) router.push('/login')
+  }, [user, router])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({

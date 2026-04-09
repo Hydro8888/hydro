@@ -49,6 +49,7 @@ export default function JobDetailPage() {
   const { user } = useAuthStore()
   const [job, setJob] = useState<JobDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [resumes, setResumes] = useState<Resume[]>([])
@@ -56,16 +57,13 @@ export default function JobDetailPage() {
   const [similarJobs, setSimilarJobs] = useState<SimilarJob[]>([])
 
   useEffect(() => {
-    jobsAPI.get(Number(id)).then(res => {
+    const jobId = Array.isArray(id) ? Number(id[0]) : Number(id)
+    jobsAPI.get(jobId).then(res => {
       setJob(res.data)
-      // 비슷한 채용공고 가져오기
-      const keyword = res.data.title?.split(' ')[0]
-      if (keyword) {
-        jobsAPI.list({ limit: 4 }).then(r => {
-          setSimilarJobs((r.data.jobs || []).filter((j: SimilarJob) => j.id !== Number(id)).slice(0, 3))
-        }).catch(() => {})
-      }
-    }).catch(() => {}).finally(() => setLoading(false))
+      jobsAPI.list({ limit: 4 }).then(r => {
+        setSimilarJobs((r.data.jobs || []).filter((j: SimilarJob) => j.id !== jobId).slice(0, 3))
+      }).catch(() => {})
+    }).catch(() => setFetchError(true)).finally(() => setLoading(false))
 
     // 로그인 사용자의 이력서 가져오기
     if (user) {
@@ -110,7 +108,12 @@ export default function JobDetailPage() {
     <div className="min-h-screen bg-white">
       <Header />
       <div className="max-w-2xl mx-auto px-4 py-12 text-center text-[#80868b] text-sm">
-        채용공고를 찾을 수 없습니다.
+        <p>{fetchError ? '채용공고를 불러오는 중 오류가 발생했습니다.' : '채용공고를 찾을 수 없습니다.'}</p>
+        {fetchError && (
+          <button onClick={() => window.location.reload()} className="mt-3 text-xs text-[#1a73e8] hover:underline">
+            다시 시도
+          </button>
+        )}
       </div>
     </div>
   )

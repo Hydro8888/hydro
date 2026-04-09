@@ -20,7 +20,7 @@ api.interceptors.response.use(
   async (err) => {
     if (err.response?.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('access_token')
-      window.location.href = '/jobworld/login'
+      window.location.href = '/login'
     }
     return Promise.reject(err)
   }

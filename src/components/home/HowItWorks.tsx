@@ -2,6 +2,7 @@ import React from 'react';
 
 interface Step {
   number: number;
+  numberLabel: string;
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -10,11 +11,12 @@ interface Step {
 const STEPS: Step[] = [
   {
     number: 1,
+    numberLabel: '01',
     title: '요청 등록',
     description:
-      '필요한 심부름을 자연어로 작성하세요. AI가 자동으로 카테고리를 분류하고 적정 예산을 제안합니다.',
+      '필요한 심부름을 자연어로 입력하세요. AI가 자동으로 분류하고 예산을 추천합니다.',
     icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -26,27 +28,29 @@ const STEPS: Step[] = [
   },
   {
     number: 2,
+    numberLabel: '02',
     title: 'AI 매칭',
     description:
-      'AI가 위치, 전문성, 평점, 가용 시간 등을 종합 분석하여 가장 적합한 헬퍼를 추천합니다.',
+      '거리, 평판, 전문성을 종합 분석하여 가장 적합한 헬퍼를 추천합니다.',
     icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={1.5}
-          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
         />
       </svg>
     ),
   },
   {
     number: 3,
+    numberLabel: '03',
     title: '안전하게 완료',
     description:
-      '실시간 채팅으로 소통하고, 안전 결제로 거래를 보호합니다. 완료 후 양방향 리뷰를 남기세요.',
+      '플랫폼 내 소통, 안전 결제, 양방향 리뷰로 안심하고 이용하세요.',
     icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -60,45 +64,56 @@ const STEPS: Step[] = [
 
 export default function HowItWorks() {
   return (
-    <section className="py-16 sm:py-24 bg-gray-50">
+    <section className="py-24 bg-warm-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-            이렇게 간단해요
-          </h2>
-          <p className="mt-3 text-lg text-gray-500">
+        <div className="text-center mb-20">
+          <h2 className="section-header">이렇게 간단해요</h2>
+          <p className="section-subtitle">
             3단계로 심부름을 맡기고 안전하게 완료하세요
           </p>
         </div>
 
         {/* Steps */}
         <div className="relative">
-          {/* Connector Line - Desktop */}
-          <div className="hidden lg:block absolute top-24 left-[16.7%] right-[16.7%] h-0.5 bg-gray-200" aria-hidden="true">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 rounded-full" />
-          </div>
+          {/* Connecting dashed line - Desktop */}
+          <div
+            className="hidden lg:block absolute top-1/2 left-[20%] right-[20%] border-t-2 border-dashed border-indigo-200 -translate-y-1/2"
+            aria-hidden="true"
+          />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10">
             {STEPS.map((step) => (
-              <div key={step.number} className="relative text-center">
-                {/* Step Number Circle */}
-                <div className="relative inline-flex items-center justify-center mb-6">
-                  <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-200">
+              <div key={step.number} className="relative">
+                {/* Card with top gradient border */}
+                <div className="relative bg-white rounded-2xl p-8 shadow-sm border border-warm-100 overflow-hidden">
+                  {/* Top gradient accent */}
+                  <div
+                    className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-teal-500"
+                    aria-hidden="true"
+                  />
+
+                  {/* Large background number */}
+                  <span
+                    className="absolute top-4 right-6 text-6xl font-black text-indigo-100 select-none leading-none"
+                    aria-hidden="true"
+                  >
+                    {step.numberLabel}
+                  </span>
+
+                  {/* Icon circle */}
+                  <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 mb-6">
                     {step.icon}
                   </div>
-                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-white border-2 border-primary-600 rounded-full flex items-center justify-center text-xs font-bold text-primary-600">
-                    {step.number}
-                  </span>
-                </div>
 
-                {/* Content */}
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
-                  {step.description}
-                </p>
+                  {/* Content */}
+                  <h3 className="relative text-xl font-bold text-warm-900 mb-3">
+                    {step.title}
+                  </h3>
+                  <p className="relative text-sm text-warm-500 leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

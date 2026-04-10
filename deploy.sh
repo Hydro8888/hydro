@@ -114,79 +114,72 @@ echo "  방화벽 규칙 완료"
 # 7. Docker nginx 설정 업데이트
 echo ""
 echo "[8/8] Nginx 설정 업데이트..."
-# Docker nginx 컨테이너의 default.conf에 simburum location 블록 추가
+
+# 현재 nginx 설정에서 simburum 존재 여부 확인
 NGINX_CONF=$(docker exec $NGINX_CONTAINER cat /etc/nginx/conf.d/default.conf 2>/dev/null)
 
 if echo "$NGINX_CONF" | grep -q "location /simburum"; then
     echo "  Nginx simburum 설정 이미 존재"
 else
     echo "  Nginx에 simburum location 블록 추가..."
+    echo ""
+    echo "  현재 서버 nginx 구조:"
+    echo "  - default.conf: server 블록 + freeai 등 location 블록들"
+    echo "  - freeai와 동일한 패턴으로 추가합니다"
+    echo ""
 
-    # 안전한 방식: 별도 conf 파일로 추가 (기존 default.conf 수정하지 않음)
-    docker exec $NGINX_CONTAINER sh -c "cat > /etc/nginx/conf.d/simburum.conf << 'NGINXEOF'
-# Simburum 서비스 설정 - 기존 설정과 독립
-# 이 파일은 default.conf와 별도로 로드됩니다
+    # 1단계: 백업 (가장 중요)
+    echo "  [안전장치] default.conf 백업 생성..."
+    docker exec $NGINX_CONTAINER cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak.$(date +%Y%m%d%H%M%S)
+    echo "  백업 완료"
 
-# 주의: 이 파일은 server 블록이 없으므로
-# default.conf의 server 블록 안에 include하거나,
-# default.conf에 직접 location을 추가해야 합니다.
-NGINXEOF"
+    # 2단계: freeai와 동일한 패턴으로 default.conf 끝에 append
+    # (이 서버에서는 location 블록을 server 블록 뒤에 추가하는 패턴 사용 중)
+    docker exec $NGINX_CONTAINER sh -c "cat >> /etc/nginx/conf.d/default.conf << 'SIMEOF'
 
-    # default.conf를 안전하게 수정하기 위해 먼저 백업
-    echo "  default.conf 백업 중..."
-    docker exec $NGINX_CONTAINER cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
-
-    # simburum location 블록을 별도 파일로 생성
-    docker exec $NGINX_CONTAINER sh -c "cat > /tmp/simburum_location.txt << 'LOCEOF'
-
-    # === Simburum 서비스 ===
+    # Simburum - AI 기반 생활대행 매칭 플랫폼
     location /simburum {
-        proxy_pass http://172.17.0.1:$PORT;
+        proxy_pass http://172.17.0.1:4200;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection \"upgrade\";
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
-        proxy_read_timeout 86400;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
     }
 
     location /simburum/_next/static {
-        proxy_pass http://172.17.0.1:$PORT/simburum/_next/static;
+        proxy_pass http://172.17.0.1:4200/simburum/_next/static;
         proxy_cache_bypass \$http_upgrade;
         expires 365d;
         add_header Cache-Control \"public, immutable\";
     }
-    # === Simburum 서비스 끝 ===
-LOCEOF"
+SIMEOF"
 
-    # default.conf의 마지막 server 블록의 닫는 } 바로 앞에 삽입
-    # 방법: python으로 정확한 위치에 삽입 (sed보다 안전)
-    docker exec $NGINX_CONTAINER sh -c "
-    python3 -c \"
-import sys
-conf = open('/etc/nginx/conf.d/default.conf').read()
-loc = open('/tmp/simburum_location.txt').read()
-# 마지막 } 위치를 찾아서 그 앞에 삽입
-last_brace = conf.rfind('}')
-if last_brace != -1:
-    new_conf = conf[:last_brace] + loc + '\n' + conf[last_brace:]
-    open('/etc/nginx/conf.d/default.conf', 'w').write(new_conf)
-    print('  location 블록 삽입 완료')
-else:
-    print('  오류: server 블록 닫는 중괄호를 찾을 수 없습니다')
-    sys.exit(1)
-\" 2>&1" || {
-        # python3이 없으면 대안: 수동 안내
+    # 3단계: nginx 설정 테스트
+    echo "  Nginx 설정 테스트 중..."
+    if docker exec $NGINX_CONTAINER nginx -t 2>&1; then
+        # 테스트 통과 → graceful reload (기존 연결 끊김 없음)
+        docker exec $NGINX_CONTAINER nginx -s reload 2>&1
+        echo "  Nginx 리로드 완료 (기존 서비스 영향 없음)"
+    else
+        # 테스트 실패 → 방금 추가한 내용 제거 (백업에서 복원)
+        echo ""
+        echo "  !! Nginx 설정 테스트 실패! 백업에서 복원합니다..."
+        LATEST_BAK=$(docker exec $NGINX_CONTAINER sh -c "ls -t /etc/nginx/conf.d/default.conf.bak.* 2>/dev/null | head -1")
+        if [ -n "$LATEST_BAK" ]; then
+            docker exec $NGINX_CONTAINER cp "$LATEST_BAK" /etc/nginx/conf.d/default.conf
+            echo "  복원 완료. 기존 서비스에 영향 없습니다."
+        fi
         echo ""
         echo "  ====================================================="
-        echo "  자동 nginx 설정 실패. 수동으로 추가해주세요:"
-        echo "  ====================================================="
-        echo "  docker exec -it $NGINX_CONTAINER vi /etc/nginx/conf.d/default.conf"
-        echo ""
-        echo "  server 블록의 마지막 } 앞에 아래 내용을 추가:"
+        echo "  수동으로 nginx 설정을 추가해주세요:"
+        echo "  docker exec -it $NGINX_CONTAINER sh"
+        echo "  그 후 /etc/nginx/conf.d/default.conf 에 아래 추가:"
         echo ""
         echo "    location /simburum {"
         echo "        proxy_pass http://172.17.0.1:$PORT;"
@@ -196,24 +189,6 @@ else:
         echo "        proxy_cache_bypass \$http_upgrade;"
         echo "    }"
         echo "  ====================================================="
-        echo ""
-    }
-
-    # nginx 설정 테스트
-    echo "  Nginx 설정 테스트 중..."
-    if docker exec $NGINX_CONTAINER nginx -t 2>&1; then
-        # 테스트 통과 시에만 reload (graceful - 기존 연결 유지)
-        docker exec $NGINX_CONTAINER nginx -s reload 2>&1
-        echo "  Nginx 리로드 완료 (기존 서비스 영향 없음)"
-        # 백업 파일 정리
-        docker exec $NGINX_CONTAINER rm -f /etc/nginx/conf.d/simburum.conf
-    else
-        # 테스트 실패 시 백업에서 복원
-        echo "  경고: Nginx 설정 테스트 실패! 백업에서 복원합니다..."
-        docker exec $NGINX_CONTAINER cp /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
-        docker exec $NGINX_CONTAINER rm -f /etc/nginx/conf.d/simburum.conf
-        echo "  복원 완료. 기존 서비스에 영향 없습니다."
-        echo "  수동으로 nginx 설정을 추가해주세요."
     fi
 fi
 

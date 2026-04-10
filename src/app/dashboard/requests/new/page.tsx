@@ -99,7 +99,7 @@ export default function NewRequestPage() {
         return;
       }
 
-      router.push(`/dashboard/requests/${data.id}`);
+      router.push(`/simburum/dashboard/requests/${data.id}`);
     } catch {
       setSubmitError('요청 생성 중 오류가 발생했습니다.');
     } finally {

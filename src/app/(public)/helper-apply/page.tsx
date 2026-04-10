@@ -82,7 +82,7 @@ export default function HelperApplyPage() {
           name: form.name,
           email: form.email,
           phone: form.phone,
-          password: 'temp-' + Date.now(),
+          password: crypto.randomUUID().replace(/-/g, '').slice(0, 16),
           roleHint: 'HELPER',
           categories: form.categories.join(','),
           bio: form.bio,

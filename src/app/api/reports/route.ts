@@ -50,6 +50,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (reportedId === userId) {
+      return NextResponse.json(
+        { error: '자기 자신을 신고할 수 없습니다.' },
+        { status: 400 }
+      );
+    }
+
     const validTypes = ['FRAUD', 'ABUSE', 'NO_SHOW', 'QUALITY', 'OTHER'];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: '유효하지 않은 신고 유형입니다.' }, { status: 400 });

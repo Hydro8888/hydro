@@ -46,8 +46,8 @@ export const authOptions: NextAuthOptions = {
   },
 
   pages: {
-    signIn: '/login',
-    newUser: '/register',
+    signIn: '/simburum/login',
+    newUser: '/simburum/register',
   },
 
   callbacks: {

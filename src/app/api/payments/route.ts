@@ -43,6 +43,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (parseFloat(String(amount)) <= 0) {
+      return NextResponse.json(
+        { error: '금액은 0보다 커야 합니다.' },
+        { status: 400 }
+      );
+    }
+
     const userId = (session.user as { id: string }).id;
 
     const request = await prisma.request.findUnique({

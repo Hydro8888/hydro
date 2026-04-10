@@ -12,6 +12,9 @@ export async function GET(
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
   }
 
+  const userId = (session.user as { id: string; role?: string }).id;
+  const userRole = (session.user as { role?: string }).role;
+
   const request = await prisma.request.findUnique({
     where: { id: params.id },
     include: {
@@ -30,6 +33,10 @@ export async function GET(
     return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 });
   }
 
+  if (request.requesterId !== userId && request.helperId !== userId && userRole !== 'ADMIN') {
+    return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+  }
+
   return NextResponse.json(request);
 }
 
@@ -42,9 +49,18 @@ export async function PUT(
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
   }
 
-  const userId = (session.user as { id: string }).id;
+  const userId = (session.user as { id: string; role?: string }).id;
+  const userRole = (session.user as { role?: string }).role;
 
   try {
+    const existingRequest = await prisma.request.findUnique({ where: { id: params.id } });
+    if (!existingRequest) {
+      return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    if (existingRequest.requesterId !== userId && existingRequest.helperId !== userId && userRole !== 'ADMIN') {
+      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+    }
+
     const body = await req.json();
 
     if (body.message) {

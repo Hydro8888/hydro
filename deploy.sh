@@ -213,7 +213,7 @@ echo "  PM2 로그:  pm2 logs simburum"
 echo "  PM2 재시작: pm2 restart simburum"
 echo "  DB 위치:   $APP_DIR/prisma/simburum.db"
 echo ""
-echo "  관리자: admin@simburum.com / admin1234"
+echo "  관리자: 시드 데이터로 생성된 계정 사용"
 echo "============================================"
 echo ""
 

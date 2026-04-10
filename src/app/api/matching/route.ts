@@ -20,12 +20,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userId = (session.user as { id: string }).id;
+
     const request = await prisma.request.findUnique({
       where: { id: requestId },
     });
 
     if (!request) {
       return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    if (request.requesterId !== userId) {
+      return NextResponse.json({ error: '본인의 요청만 매칭할 수 있습니다.' }, { status: 403 });
     }
 
     if (request.status !== 'PENDING' && request.status !== 'AI_REVIEWED') {
@@ -78,6 +84,8 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
+    const userId = (session.user as { id: string; role?: string }).id;
+    const userRole = (session.user as { role?: string }).role;
     const body = await req.json();
     const { requestId, status } = body;
 
@@ -91,6 +99,14 @@ export async function PUT(req: NextRequest) {
     const validStatuses = ['IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'DISPUTED'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: '유효하지 않은 상태입니다.' }, { status: 400 });
+    }
+
+    const request = await prisma.request.findUnique({ where: { id: requestId } });
+    if (!request) {
+      return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    if (request.requesterId !== userId && request.helperId !== userId && userRole !== 'ADMIN') {
+      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = { status };

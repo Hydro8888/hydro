@@ -43,12 +43,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userId = (session.user as { id: string }).id;
+
     const request = await prisma.request.findUnique({
       where: { id: requestId },
     });
 
     if (!request) {
       return NextResponse.json({ error: '요청을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    if (request.requesterId !== userId) {
+      return NextResponse.json({ error: '본인의 요청에만 결제할 수 있습니다.' }, { status: 403 });
     }
 
     const existingPayment = await prisma.payment.findUnique({
@@ -97,6 +103,11 @@ export async function PUT(req: NextRequest) {
         { error: '결제 ID와 상태가 필요합니다.' },
         { status: 400 }
       );
+    }
+
+    const userRole = (session.user as { role?: string }).role;
+    if (userRole !== 'ADMIN') {
+      return NextResponse.json({ error: '관리자만 결제 상태를 변경할 수 있습니다.' }, { status: 403 });
     }
 
     const validStatuses = ['RELEASED', 'REFUNDED'];

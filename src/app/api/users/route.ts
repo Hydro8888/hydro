@@ -63,9 +63,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: '비밀번호는 최소 6자 이상이어야 합니다.' },
+        { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
         { status: 400 }
       );
     }

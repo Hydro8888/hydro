@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { SearchBar } from '@/components/history/search-bar';
 import { ConversationList } from '@/components/history/conversation-list';
 import { apiUrl } from '@/lib/api-url';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ConversationItem {
   id: string;
@@ -94,57 +95,84 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6 overflow-y-auto h-full">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">대화 히스토리</h1>
-        <p className="text-sm text-gray-500">
-          이전 대화를 검색하고 관리하세요.
-        </p>
+    <div className="p-8 max-w-4xl mx-auto space-y-8 overflow-y-auto h-full">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight mb-1">
+            대화 히스토리
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            이전 대화를 검색하고 관리하세요
+          </p>
+        </div>
+        <Button href="/chat" variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
+          새 대화
+        </Button>
       </div>
 
       <SearchBar value={search} onChange={setSearch} />
 
       {loading ? (
-        <div className="text-center py-12 text-gray-400">불러오는 중...</div>
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center text-sm text-gray-500">
+          불러오는 중...
+        </div>
       ) : conversations.length === 0 ? (
-        <div className="text-center py-16">
-          <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500 mb-4">아직 대화 기록이 없습니다.</p>
-          <Link
-            href="/chat"
-            className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors"
-          >
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-16 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <MessageSquare className="w-6 h-6 text-gray-400" />
+          </div>
+          <p className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+            아직 대화 기록이 없습니다
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            첫 대화를 시작하고 AI와 만나보세요
+          </p>
+          <Button href="/chat" variant="primary" size="lg" leftIcon={<Plus className="w-4 h-4" />}>
             새 대화 시작하기
-          </Link>
+          </Button>
         </div>
       ) : filtered !== null ? (
-        <ConversationList
-          conversations={filtered}
-          onDelete={handleDelete}
-          onPin={handlePin}
-        />
+        filtered.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center text-sm text-gray-500">
+            검색 결과가 없습니다
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+            <ConversationList
+              conversations={filtered}
+              onDelete={handleDelete}
+              onPin={handlePin}
+            />
+          </div>
+        )
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {pinned.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">📌 고정됨</p>
-              <ConversationList
-                conversations={pinned}
-                onDelete={handleDelete}
-                onPin={handlePin}
-              />
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-1">
+                📌 고정됨
+              </p>
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                <ConversationList
+                  conversations={pinned}
+                  onDelete={handleDelete}
+                  onPin={handlePin}
+                />
+              </div>
             </div>
           )}
           {groupByDate(unpinned).map((group) => (
             <div key={group.label}>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-1">
                 {group.label}
               </p>
-              <ConversationList
-                conversations={group.items}
-                onDelete={handleDelete}
-                onPin={handlePin}
-              />
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                <ConversationList
+                  conversations={group.items}
+                  onDelete={handleDelete}
+                  onPin={handlePin}
+                />
+              </div>
             </div>
           ))}
         </div>

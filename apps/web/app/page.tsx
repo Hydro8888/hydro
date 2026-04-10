@@ -1,11 +1,13 @@
 import { LandingHeader } from '@/components/landing/landing-header';
 import { HeroSection } from '@/components/landing/hero-section';
-import { SocialProofBar } from '@/components/landing/social-proof-bar';
+import { LogoCloud } from '@/components/landing/logo-cloud';
 import { FeaturesSection } from '@/components/landing/features-section';
+import { StatsBlock } from '@/components/landing/stats-block';
+import { UseCases } from '@/components/landing/use-cases';
 import { ModelShowcase } from '@/components/landing/model-showcase';
-import { HowItWorks } from '@/components/landing/how-it-works';
 import { PricingPreview } from '@/components/landing/pricing-preview';
 import { TestimonialsSection } from '@/components/landing/testimonials-section';
+import { FaqSection } from '@/components/landing/faq-section';
 import { FinalCta } from '@/components/landing/final-cta';
 import { LandingFooter } from '@/components/landing/landing-footer';
 
@@ -15,12 +17,14 @@ export default function LandingPage() {
       <LandingHeader />
       <main>
         <HeroSection />
-        <SocialProofBar />
+        <LogoCloud />
         <FeaturesSection />
+        <StatsBlock />
+        <UseCases />
         <ModelShowcase />
-        <HowItWorks />
-        <PricingPreview />
         <TestimonialsSection />
+        <PricingPreview />
+        <FaqSection />
         <FinalCta />
       </main>
       <LandingFooter />

@@ -58,18 +58,18 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex flex-col shrink-0">
-      <div className="p-3">
+    <aside className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-25 dark:bg-gray-950 flex flex-col shrink-0">
+      <div className="p-3 border-b border-gray-100 dark:border-gray-800">
         <Link
           href="/chat"
-          className="flex items-center gap-2 px-3 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors w-full justify-center"
+          className="flex items-center gap-2 px-3 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors w-full justify-center shadow-xs ring-1 ring-gray-900/10 dark:ring-white/10"
         >
           <Plus className="w-4 h-4" />
           새 대화
         </Link>
       </div>
 
-      <nav className="px-3 space-y-1">
+      <nav className="p-3 space-y-0.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.endsWith(item.href);
           return (
@@ -77,10 +77,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
               )}
             >
               <item.icon className="w-4 h-4" />
@@ -90,27 +90,33 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="flex-1 overflow-y-auto mt-4 px-3">
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider px-3 mb-2">
+      <div className="flex-1 overflow-y-auto px-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-500 uppercase tracking-wider px-3 mb-3">
           최근 대화
         </p>
         {sorted.length === 0 ? (
-          <div className="text-center py-8">
-            <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-            <p className="text-xs text-gray-400">아직 대화가 없습니다.</p>
-            <p className="text-xs text-gray-400">새 대화를 시작해보세요!</p>
+          <div className="text-center py-10 px-3">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              대화가 없습니다
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              위 &ldquo;새 대화&rdquo;를 눌러 시작하세요
+            </p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5 pb-4">
             {sorted.map((conv) => (
               <Link
                 key={conv.id}
                 href={`/chat/${conv.id}`}
                 title={conv.title}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors group"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors group"
               >
                 {conv.pinned && (
-                  <Pin className="w-3 h-3 text-primary-400 shrink-0" />
+                  <Pin className="w-3 h-3 text-gray-500 shrink-0" />
                 )}
                 {conv.modelIds[0] && (
                   <span

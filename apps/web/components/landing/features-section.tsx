@@ -1,4 +1,5 @@
-import { Layers, Shield, Zap, BarChart3 } from 'lucide-react';
+import { Layers, Shield, Zap, BarChart3, Users, Sparkles } from 'lucide-react';
+import { Section } from '@/components/ui/section';
 
 const features = [
   {
@@ -21,41 +22,49 @@ const features = [
     title: '사용량 분석',
     description: '토큰 사용량, 비용, 모델별 성능을 한눈에 확인하고 관리하세요.',
   },
+  {
+    icon: Users,
+    title: '팀 협업',
+    description: '팀원들과 대화를 공유하고 함께 AI를 활용하세요. 워크스페이스 지원.',
+  },
+  {
+    icon: Sparkles,
+    title: '스마트 템플릿',
+    description: '미리 준비된 프롬프트 템플릿으로 빠르게 시작하세요. 코드, 글쓰기, 분석 등.',
+  },
 ];
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-20 md:py-28">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-14">
-          <span className="inline-block px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-950 text-primary-600 dark:text-primary-400 text-xs font-medium mb-4">
-            Why AI Portal Pro
-          </span>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            하나의 플랫폼, 무한한 가능성
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-            복잡한 AI 구독을 하나로 통합하세요
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="group p-6 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-primary-200 dark:hover:border-primary-800 hover:shadow-lg hover:shadow-primary-500/5 transition-all duration-300"
-            >
-              <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-950 flex items-center justify-center mb-4 group-hover:bg-primary-100 dark:group-hover:bg-primary-900 transition-colors">
-                <feature.icon className="w-6 h-6 text-primary-500" />
+    <Section
+      id="features"
+      variant="white"
+      eyebrow="Features"
+      title="하나의 플랫폼, 무한한 가능성"
+      subtitle="복잡한 AI 구독을 통합하고 팀의 생산성을 높이는 모든 기능"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map((feature) => (
+          <div
+            key={feature.title}
+            className="flex gap-4 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md transition-shadow duration-200"
+          >
+            <div className="shrink-0">
+              <div className="w-11 h-11 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 flex items-center justify-center shadow-xs">
+                <feature.icon className="w-5 h-5 text-gray-900 dark:text-white" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+                {feature.title}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 {feature.description}
               </p>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-    </section>
+    </Section>
   );
 }

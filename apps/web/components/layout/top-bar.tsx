@@ -2,8 +2,21 @@
 
 import Link from 'next/link';
 import { useRef, useState, useEffect } from 'react';
-import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, Monitor, User, Settings, CreditCard, ChevronDown, Sparkles } from 'lucide-react';
+import {
+  Menu,
+  PanelRightClose,
+  PanelRightOpen,
+  Moon,
+  Sun,
+  Monitor,
+  User,
+  Settings,
+  CreditCard,
+  ChevronDown,
+  Sparkles,
+} from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
+import { Button } from '@/components/ui/button';
 
 export function TopBar() {
   const {
@@ -24,7 +37,6 @@ export function TopBar() {
     }
   }
 
-  // Close dropdown on Escape key
   useEffect(() => {
     if (!dropdownOpen) return;
     function handleEsc(e: KeyboardEvent) {
@@ -35,40 +47,43 @@ export function TopBar() {
   }, [dropdownOpen]);
 
   return (
-    <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-950 shrink-0">
+    <header className="h-16 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-950 shrink-0">
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-lg transition-colors"
           aria-label="Toggle sidebar"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="w-7 h-7 bg-primary-500 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xs">F</span>
+        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 rounded-lg bg-gray-900 dark:bg-white flex items-center justify-center shadow-xs">
+            <span className="text-white dark:text-gray-900 font-bold text-xs">AI</span>
           </div>
-          <span className="font-bold text-sm hidden sm:block">
-            Free.ai.kr
+          <span className="font-semibold text-base hidden sm:block text-gray-900 dark:text-white">
+            AI Portal Pro
           </span>
         </Link>
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Pro 업그레이드 버튼 — Kimi 스타일 */}
-        <Link
+        {/* Pro upgrade — Untitled UI style */}
+        <Button
           href="/billing"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-500 to-indigo-600 text-white text-xs font-semibold hover:from-primary-600 hover:to-indigo-700 shadow-md shadow-primary-500/20 transition-all"
+          variant="primary"
+          size="sm"
+          leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+          className="hidden sm:inline-flex"
         >
-          <Sparkles className="w-3.5 h-3.5" />
           Pro 업그레이드
-        </Link>
+        </Button>
+
         <button
           onClick={() => {
             const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
             setTheme(next);
           }}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-lg transition-colors"
           aria-label="Toggle theme"
           title={`테마: ${theme === 'light' ? '라이트' : theme === 'dark' ? '다크' : '시스템'}`}
         >
@@ -82,7 +97,7 @@ export function TopBar() {
         </button>
         <button
           onClick={toggleContextPanel}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-lg transition-colors hidden md:block"
           aria-label="Toggle context panel"
         >
           {contextPanelOpen ? (
@@ -93,27 +108,29 @@ export function TopBar() {
         </button>
 
         {/* User dropdown */}
-        <div
-          ref={dropdownRef}
-          className="relative ml-1"
-          onBlur={handleBlur}
-        >
+        <div ref={dropdownRef} className="relative ml-1" onBlur={handleBlur}>
           <button
             onClick={() => setDropdownOpen((o) => !o)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-1 p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+            aria-label="User menu"
+            aria-expanded={dropdownOpen}
           >
-            <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-              <User className="w-4 h-4 text-primary-500" />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 dark:from-gray-200 dark:to-white flex items-center justify-center">
+              <User className="w-4 h-4 text-white dark:text-gray-900" />
             </div>
             <ChevronDown className="w-3 h-3 text-gray-500" />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 z-50">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-50">
+              <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 mb-1">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">사용자</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Free 플랜</p>
+              </div>
               <Link
                 href="/settings"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md mx-1"
               >
                 <Settings className="w-4 h-4" />
                 설정
@@ -121,14 +138,13 @@ export function TopBar() {
               <Link
                 href="/billing"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md mx-1"
               >
                 <CreditCard className="w-4 h-4" />
                 요금제
               </Link>
-              <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-              <div className="px-3 py-2 text-xs text-gray-400">
-                로그아웃 (준비 중)
+              <div className="border-t border-gray-100 dark:border-gray-800 mt-1 pt-1">
+                <div className="px-3 py-2 text-xs text-gray-400">로그아웃 (준비 중)</div>
               </div>
             </div>
           )}

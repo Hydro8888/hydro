@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: '/simburum',
-  output: 'standalone',
   reactStrictMode: true,
   images: {
     unoptimized: true,
   },
+  trailingSlash: false,
 };
 
 module.exports = nextConfig;

@@ -82,7 +82,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-warm-400">&copy; {new Date().getFullYear()} Simburum. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-teal-600 font-semibold bg-teal-50 px-2.5 py-1 rounded-full">수수료 0원</span>
+            <span className="text-xs text-teal-600 font-semibold bg-teal-50 px-2.5 py-1 rounded-full">플랫폼 이용료 무료</span>
             <span className="text-xs text-warm-400">help@simburum.com</span>
             <span className="text-xs text-warm-400">1588-0000</span>
           </div>

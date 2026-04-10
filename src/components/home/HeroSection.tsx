@@ -36,7 +36,7 @@ export default function HeroSection() {
 
             <p className="mt-4 text-base sm:text-lg text-warm-500 leading-relaxed max-w-lg">
               AI가 가장 적합한 헬퍼를 매칭해 드립니다.
-              <span className="text-teal-600 font-semibold"> 수수료 0원.</span>
+              <span className="text-teal-600 font-semibold"> 플랫폼 이용료 무료.</span>
             </p>
 
             {/* Search bar */}
@@ -77,23 +77,53 @@ export default function HeroSection() {
           <div className="lg:w-[40%] flex flex-col gap-4">
             {/* Promotion card */}
             <div className="bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl p-6 text-white">
-              <p className="text-sm opacity-90">새로 가입하면</p>
-              <p className="text-xl font-bold mt-1">14일간 프리미엄 매칭 무료</p>
-              <p className="text-sm opacity-80 mt-2">AI가 최적의 헬퍼를 추천해 드립니다</p>
+              <p className="text-sm opacity-90">지금 가입하면</p>
+              <p className="text-xl font-bold mt-1">AI 프리미엄 매칭 무료</p>
+              <p className="text-sm opacity-80 mt-2">플랫폼 이용료 무료 · 헬퍼 보수만 지불</p>
               <Link
                 href="/register"
                 className="inline-block mt-4 px-6 py-2.5 bg-white text-teal-700 font-bold rounded-xl hover:bg-teal-50 transition-colors text-sm"
               >
-                가입하기
+                무료로 시작하기
               </Link>
             </div>
 
-            {/* Login prompt card */}
-            <div className="bg-white rounded-2xl border border-warm-200 p-6">
-              <p className="text-warm-700 font-semibold text-center">로그인하고 다양한 서비스를 이용해보세요</p>
+            {/* Fee clarification card */}
+            <div className="bg-white rounded-2xl border border-warm-200 p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-warm-800">요금 안내</p>
+                  <p className="text-xs text-warm-500 mt-0.5">플랫폼 수수료와 심부름 비용은 달라요</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between py-1.5 border-b border-warm-100">
+                  <span className="text-warm-600">플랫폼 이용료</span>
+                  <span className="font-bold text-teal-600">무료</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-warm-100">
+                  <span className="text-warm-600">AI 매칭 수수료</span>
+                  <span className="font-bold text-teal-600">무료</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-warm-600">심부름 비용</span>
+                  <span className="font-semibold text-warm-800">헬퍼와 협의</span>
+                </div>
+              </div>
+              <Link href="/pricing" className="block mt-3 text-xs text-teal-600 hover:text-teal-700 font-medium text-center">
+                자세한 요금 안내 &rarr;
+              </Link>
+            </div>
+
+            {/* Login prompt */}
+            <div className="bg-white rounded-2xl border border-warm-200 p-5">
+              <p className="text-warm-700 font-semibold text-center text-sm">로그인하고 다양한 서비스를 이용해보세요</p>
               <Link
                 href="/login"
-                className="block mt-4 w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-center transition-colors"
+                className="block mt-3 w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-center transition-colors text-sm"
               >
                 로그인
               </Link>
@@ -103,7 +133,7 @@ export default function HeroSection() {
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white rounded-xl border border-warm-200 p-3 text-center">
                 <p className="text-lg font-bold text-teal-600">0원</p>
-                <p className="text-xs text-warm-500 mt-0.5">수수료</p>
+                <p className="text-xs text-warm-500 mt-0.5">플랫폼 이용료</p>
               </div>
               <div className="bg-white rounded-xl border border-warm-200 p-3 text-center">
                 <p className="text-lg font-bold text-indigo-600">5,000+</p>

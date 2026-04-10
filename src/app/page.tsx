@@ -139,7 +139,8 @@ export default async function HomePage() {
       <section className="bg-gradient-to-r from-teal-600 to-teal-800 py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">지금 시작하세요</h2>
-          <p className="text-lg text-teal-100 mb-8">수수료 0원으로 AI 매칭 서비스를 경험하세요</p>
+          <p className="text-lg text-teal-100 mb-2">플랫폼 이용료 무료 · AI 매칭 서비스를 경험하세요</p>
+          <p className="text-sm text-teal-200 mb-8">심부름 비용은 헬퍼와 협의하여 결정합니다</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-white text-teal-700 font-bold rounded-xl hover:bg-teal-50 transition-colors text-center">
               무료로 시작하기

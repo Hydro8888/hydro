@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: '%s | AI Portal Pro',
   },
   description:
-    'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요. 무료로 시작하세요.',
+    'GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요. 무료로 시작하세요.',
   keywords: ['AI', 'ChatGPT', 'Claude', 'Gemini', 'Grok', 'LLM', 'AI 비교', 'AI 포털', 'AI 채팅', '인공지능'],
   authors: [{ name: 'AI Portal Pro' }],
   creator: 'AI Portal Pro',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: 'AI Portal Pro',
     title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
     description:
-      'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+      'GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
     images: [
       {
         url: '/freeai/icon-512.png',
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
     description:
-      'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+      'GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
     images: ['/freeai/icon-512.png'],
   },
   robots: {

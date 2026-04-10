@@ -33,9 +33,9 @@ export interface ModelConfig {
 
 export const MODEL_CATALOG: ModelConfig[] = [
   {
-    id: 'openai/gpt-5.2-pro',
+    id: 'openai/gpt-5.4',
     provider: 'openai',
-    displayName: 'GPT-5.2 Pro',
+    displayName: 'GPT-5.4',
     description: '최고 성능의 복잡 추론 모델',
     maxContextTokens: 128_000,
     pricing: { inputPerMillionTokens: 21, outputPerMillionTokens: 168 },
@@ -63,9 +63,9 @@ export const MODEL_CATALOG: ModelConfig[] = [
     tags: ['popular', 'long-context'],
   },
   {
-    id: 'google/gemini-2.5-pro',
+    id: 'google/gemini-3.1-pro',
     provider: 'google',
-    displayName: 'Gemini 2.5 Pro',
+    displayName: 'Gemini 3.1 Pro',
     description: '멀티모달, 대용량 컨텍스트',
     maxContextTokens: 2_000_000,
     pricing: { inputPerMillionTokens: 1.25, outputPerMillionTokens: 10 },

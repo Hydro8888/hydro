@@ -48,9 +48,9 @@ function createProviders() {
   });
 
   const modelMap: Record<string, () => LanguageModel> = {
-    'openai/gpt-5.2-pro': () => openai('gpt-5.2-pro'),
+    'openai/gpt-5.4': () => openai('gpt-5.4'),
     'anthropic/claude-opus-4.6': () => anthropic('claude-opus-4-6'),
-    'google/gemini-2.5-pro': () => google('gemini-2.5-pro'),
+    'google/gemini-3.1-pro': () => google('gemini-3.1-pro'),
     'xai/grok-4': () => xai('grok-4'),
     'meta/llama-3.1-405b': () => together('meta-llama/Llama-3.1-405B-Instruct-Turbo'),
     'cohere/command-r-plus': () => cohere('command-r-plus'),

@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./simburum.db"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  role          String    @default("USER")
+  verified      Boolean   @default(false)
+  trustScore    Float     @default(0)
+  profileImage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  requestsMade     Request[]       @relation("Requester")
+  requestsHelped   Request[]       @relation("Helper")
+  reviewsGiven     Review[]        @relation("ReviewAuthor")
+  reviewsReceived  Review[]        @relation("ReviewTarget")
+  reportsMade      Report[]        @relation("Reporter")
+  reportsReceived  Report[]        @relation("Reported")
+  messages         Message[]
+  helperProfile    HelperProfile?
+}
+
+model HelperProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  categories      String
+  bio             String?
+  completedCount  Int      @default(0)
+  onTimeRate      Float    @default(100)
+  avgRating       Float    @default(0)
+  available       Boolean  @default(true)
+  badges          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Request {
+  id            String    @id @default(cuid())
+  requesterId   String
+  requester     User      @relation("Requester", fields: [requesterId], references: [id])
+  helperId      String?
+  helper        User?     @relation("Helper", fields: [helperId], references: [id])
+
+  title         String
+  description   String
+  naturalInput  String?
+  category      String
+  urgency       String    @default("NORMAL")
+  status        String    @default("PENDING")
+
+  budget        Float?
+  suggestedMin  Float?
+  suggestedMax  Float?
+  location      String?
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  attachments   String?
+
+  aiCategory    String?
+  aiConfidence  Float?
+  riskLevel     String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  messages      Message[]
+  reviews       Review[]
+  reports       Report[]
+  payment       Payment?
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     Request  @relation(fields: [requestId], references: [id])
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id])
+  content     String
+  type        String   @default("TEXT")
+  createdAt   DateTime @default(now())
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     Request  @relation(fields: [requestId], references: [id])
+  authorId    String
+  author      User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetId    String
+  target      User     @relation("ReviewTarget", fields: [targetId], references: [id])
+
+  rating      Float
+  punctuality Int?
+  accuracy    Int?
+  kindness    Int?
+  comment     String?
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  requestId   String   @unique
+  request     Request  @relation(fields: [requestId], references: [id])
+  amount      Float
+  platformFee Float    @default(0)
+  status      String   @default("PENDING")
+  method      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  requestId   String?
+  request     Request? @relation(fields: [requestId], references: [id])
+  reporterId  String
+  reporter    User     @relation("Reporter", fields: [reporterId], references: [id])
+  reportedId  String
+  reported    User     @relation("Reported", fields: [reportedId], references: [id])
+  type        String
+  description String
+  evidence    String?
+  status      String   @default("PENDING")
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SuccessCase {
+  id           String   @id @default(cuid())
+  category     String
+  title        String
+  summary      String
+  duration     String?
+  satisfaction Float?
+  reused       Boolean  @default(false)
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}

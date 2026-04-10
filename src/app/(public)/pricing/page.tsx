@@ -183,7 +183,7 @@ export default function PricingPage() {
             숨겨진 비용 없이 투명하게. 지금 바로 경험해보세요.
           </p>
           <Link
-            href="/simburum/register"
+            href="/register"
             className="inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-indigo-700 bg-white hover:bg-indigo-50 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-0.5"
           >
             무료로 시작하기

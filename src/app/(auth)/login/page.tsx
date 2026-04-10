@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       } else {
-        router.push('/simburum/dashboard');
+        router.push('/dashboard');
         router.refresh();
       }
     } catch {
@@ -44,7 +44,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <Link href="/simburum" className="flex items-center gap-2.5 mb-10 group">
+          <Link href="/" className="flex items-center gap-2.5 mb-10 group">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-base">S</span>
             </div>
@@ -143,7 +143,7 @@ export default function LoginPage() {
 
           {/* Forgot Password */}
           <div className="mt-4 text-center">
-            <Link href="/simburum/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors">
+            <Link href="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors">
               비밀번호를 잊으셨나요?
             </Link>
           </div>
@@ -157,7 +157,7 @@ export default function LoginPage() {
 
           {/* Register Link */}
           <Link
-            href="/simburum/register"
+            href="/register"
             className="block w-full text-center py-3.5 px-7 bg-white hover:bg-warm-50 text-indigo-700 font-semibold rounded-xl border-2 border-indigo-200 hover:border-indigo-400 transition-all duration-300"
           >
             회원가입하기

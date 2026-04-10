@@ -175,13 +175,13 @@ export default function HeroSection() {
             }`}
           >
             <Link
-              href="/simburum/dashboard/requests/new"
+              href="/dashboard/requests/new"
               className="w-full sm:w-auto px-8 py-4 text-base font-bold text-indigo-700 bg-white hover:bg-indigo-50 rounded-xl shadow-lg shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl text-center"
             >
               지금 요청하기
             </Link>
             <Link
-              href="/simburum/helper-apply"
+              href="/helper-apply"
               className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/30 rounded-xl transition-all duration-300 hover:-translate-y-1 text-center"
             >
               헬퍼로 시작하기

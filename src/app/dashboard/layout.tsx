@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 
 const SIDEBAR_ITEMS = [
   {
-    href: '/simburum/dashboard',
+    href: '/dashboard',
     label: '대시보드',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -16,7 +16,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/requests/new',
+    href: '/dashboard/requests/new',
     label: '새 요청',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -25,7 +25,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/requests',
+    href: '/dashboard/requests',
     label: '내 요청',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -34,7 +34,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/matching',
+    href: '/dashboard/matching',
     label: '매칭',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -43,7 +43,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/payments',
+    href: '/dashboard/payments',
     label: '결제',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -52,7 +52,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/reviews',
+    href: '/dashboard/reviews',
     label: '리뷰',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -61,7 +61,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/verification',
+    href: '/dashboard/verification',
     label: '인증',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -70,7 +70,7 @@ const SIDEBAR_ITEMS = [
     ),
   },
   {
-    href: '/simburum/dashboard/reports',
+    href: '/dashboard/reports',
     label: '신고',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -94,12 +94,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!session) {
-    router.push('/simburum/login');
+    router.push('/login');
     return null;
   }
 
   function isActive(href: string) {
-    if (href === '/simburum/dashboard') return pathname === '/simburum/dashboard';
+    if (href === '/dashboard') return pathname === '/simburum/dashboard';
     return pathname.startsWith(href);
   }
 

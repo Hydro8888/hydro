@@ -12,7 +12,7 @@ export default function NotFound() {
           요청하신 페이지가 존재하지 않거나 이동되었습니다.
         </p>
         <Link
-          href="/simburum"
+          href="/"
           className="btn-primary"
         >
           홈으로 돌아가기

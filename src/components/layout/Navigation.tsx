@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
-  { label: '홈', href: '/simburum' },
-  { label: '서비스 소개', href: '/simburum/services' },
-  { label: '우수 사례', href: '/simburum/cases' },
-  { label: '안전·신뢰', href: '/simburum/trust' },
-  { label: '요금 안내', href: '/simburum/pricing' },
-  { label: '헬퍼 지원', href: '/simburum/helper-apply' },
-  { label: '고객지원', href: '/simburum/support' },
+  { label: '홈', href: '/' },
+  { label: '서비스 소개', href: '/services' },
+  { label: '우수 사례', href: '/cases' },
+  { label: '안전·신뢰', href: '/safety' },
+  { label: '요금 안내', href: '/pricing' },
+  { label: '헬퍼 지원', href: '/helper-apply' },
+  { label: '고객지원', href: '/support' },
 ];
 
 export default function Navigation() {

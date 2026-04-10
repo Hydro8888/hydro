@@ -6,11 +6,11 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
-  { label: '홈', href: '/simburum' },
-  { label: '서비스 소개', href: '/simburum/services' },
-  { label: '우수 사례', href: '/simburum/cases' },
-  { label: '안전·신뢰', href: '/simburum/trust' },
-  { label: '요금 안내', href: '/simburum/pricing' },
+  { label: '홈', href: '/' },
+  { label: '서비스 소개', href: '/services' },
+  { label: '우수 사례', href: '/cases' },
+  { label: '안전·신뢰', href: '/safety' },
+  { label: '요금 안내', href: '/pricing' },
 ];
 
 export default function Header() {
@@ -26,7 +26,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
-            href="/simburum"
+            href="/"
             className="flex items-center gap-2.5 shrink-0 group"
           >
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-indigo transition-shadow duration-300">
@@ -72,7 +72,7 @@ export default function Header() {
             {user ? (
               <div className="flex items-center gap-3">
                 <Link
-                  href="/simburum/dashboard"
+                  href="/dashboard"
                   className="text-sm font-medium text-warm-600 hover:text-indigo-600 transition-colors"
                 >
                   대시보드
@@ -94,13 +94,13 @@ export default function Header() {
             ) : (
               <>
                 <Link
-                  href="/simburum/login"
+                  href="/login"
                   className="px-4 py-2 text-sm font-medium text-warm-600 hover:text-indigo-600 transition-colors"
                 >
                   로그인
                 </Link>
                 <Link
-                  href="/simburum/register"
+                  href="/register"
                   className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-coral-500 to-coral-600 hover:from-coral-600 hover:to-coral-700 rounded-xl shadow-sm hover:shadow-coral transition-all duration-300 hover:-translate-y-0.5"
                 >
                   무료 시작하기
@@ -169,7 +169,7 @@ export default function Header() {
                   </span>
                 </div>
                 <Link
-                  href="/simburum/dashboard"
+                  href="/dashboard"
                   onClick={() => setMobileOpen(false)}
                   className="block w-full text-center px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl transition-all"
                 >
@@ -179,14 +179,14 @@ export default function Header() {
             ) : (
               <>
                 <Link
-                  href="/simburum/login"
+                  href="/login"
                   onClick={() => setMobileOpen(false)}
                   className="block w-full text-center px-4 py-3 text-sm font-medium text-warm-700 border border-warm-200 hover:bg-warm-50 rounded-xl transition-colors"
                 >
                   로그인
                 </Link>
                 <Link
-                  href="/simburum/register"
+                  href="/register"
                   onClick={() => setMobileOpen(false)}
                   className="block w-full text-center px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-coral-500 to-coral-600 rounded-xl transition-all"
                 >

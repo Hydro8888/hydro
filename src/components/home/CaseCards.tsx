@@ -194,7 +194,7 @@ export default function CaseCards({ cases }: CaseCardsProps) {
         {/* More link */}
         <div className="mt-10 text-center">
           <Link
-            href="/simburum/cases"
+            href="/cases"
             className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
           >
             우수 사례 더 보기

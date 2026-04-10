@@ -2,18 +2,18 @@ import React from 'react';
 import Link from 'next/link';
 
 const SERVICE_LINKS = [
-  { label: '생활대행', href: '/simburum/services#daily' },
-  { label: '구매대행', href: '/simburum/services#delivery' },
-  { label: '방문대행', href: '/simburum/services#visit' },
-  { label: '거래대행', href: '/simburum/services#trade' },
-  { label: '헬퍼 지원', href: '/simburum/helper-apply' },
+  { label: '생활대행', href: '/services#daily' },
+  { label: '구매대행', href: '/services#delivery' },
+  { label: '방문대행', href: '/services#visit' },
+  { label: '거래대행', href: '/services#trade' },
+  { label: '헬퍼 지원', href: '/helper-apply' },
 ];
 
 const SUPPORT_LINKS = [
-  { label: '자주 묻는 질문', href: '/simburum/support/faq' },
-  { label: '신고센터', href: '/simburum/support/report' },
-  { label: '이용약관', href: '/simburum/terms' },
-  { label: '개인정보처리방침', href: '/simburum/privacy' },
+  { label: '자주 묻는 질문', href: '/support' },
+  { label: '신고센터', href: '/support#contact' },
+  { label: '이용약관', href: '/support#terms' },
+  { label: '개인정보처리방침', href: '/support#privacy' },
 ];
 
 export default function Footer() {
@@ -29,7 +29,7 @@ export default function Footer() {
             Simburum과 함께하세요
           </p>
           <Link
-            href="/simburum/register"
+            href="/register"
             className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 rounded-xl shadow-lg shadow-indigo-900/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
           >
             무료로 시작하기
@@ -45,7 +45,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {/* Col 1: Logo & Description */}
           <div>
-            <Link href="/simburum" className="flex items-center gap-2.5 mb-5 group">
+            <Link href="/" className="flex items-center gap-2.5 mb-5 group">
               <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
                 <span className="text-white font-bold text-base">S</span>
               </div>

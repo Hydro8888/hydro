@@ -84,7 +84,7 @@ export default function RegisterPage() {
       if (result?.error) {
         setError('회원가입은 완료되었으나 자동 로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.');
       } else {
-        router.push('/simburum/dashboard');
+        router.push('/dashboard');
         router.refresh();
       }
     } catch {
@@ -100,7 +100,7 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Logo */}
-          <Link href="/simburum" className="flex items-center gap-2.5 mb-10 group">
+          <Link href="/" className="flex items-center gap-2.5 mb-10 group">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-base">S</span>
             </div>
@@ -257,9 +257,9 @@ export default function RegisterPage() {
                 className="mt-0.5 w-4 h-4 text-indigo-600 border-warm-300 rounded focus:ring-indigo-500 cursor-pointer"
               />
               <label htmlFor="terms" className="text-sm text-warm-600 leading-relaxed cursor-pointer">
-                <Link href="/simburum/terms" className="text-indigo-600 hover:text-indigo-700 font-medium">이용약관</Link>
+                <Link href="/terms" className="text-indigo-600 hover:text-indigo-700 font-medium">이용약관</Link>
                 {' 및 '}
-                <Link href="/simburum/privacy" className="text-indigo-600 hover:text-indigo-700 font-medium">개인정보처리방침</Link>
+                <Link href="/privacy" className="text-indigo-600 hover:text-indigo-700 font-medium">개인정보처리방침</Link>
                 에 동의합니다
               </label>
             </div>
@@ -287,7 +287,7 @@ export default function RegisterPage() {
           {/* Login Link */}
           <p className="mt-8 text-center text-sm text-warm-500">
             이미 계정이 있으신가요?{' '}
-            <Link href="/simburum/login" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
               로그인
             </Link>
           </p>

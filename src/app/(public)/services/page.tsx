@@ -174,7 +174,7 @@ export default function ServicesPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/simburum/register"
+              href="/register"
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-indigo-700 bg-white hover:bg-indigo-50 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-0.5"
             >
               무료로 시작하기
@@ -183,7 +183,7 @@ export default function ServicesPage() {
               </svg>
             </Link>
             <Link
-              href="/simburum/pricing"
+              href="/pricing"
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-white border-2 border-white/30 hover:border-white/60 hover:bg-white/10 rounded-xl transition-all duration-300"
             >
               요금 안내 보기

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRef, useState, useEffect } from 'react';
-import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, Monitor, User, Settings, CreditCard, ChevronDown } from 'lucide-react';
+import { Menu, PanelRightClose, PanelRightOpen, Moon, Sun, Monitor, User, Settings, CreditCard, ChevronDown, Sparkles } from 'lucide-react';
 import { useUIStore } from '@/stores/ui-store';
 
 export function TopBar() {
@@ -55,6 +55,14 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Pro 업그레이드 버튼 — Kimi 스타일 */}
+        <Link
+          href="/billing"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-500 to-indigo-600 text-white text-xs font-semibold hover:from-primary-600 hover:to-indigo-700 shadow-md shadow-primary-500/20 transition-all"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Pro 업그레이드
+        </Link>
         <button
           onClick={() => {
             const next = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';

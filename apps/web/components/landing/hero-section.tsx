@@ -1,6 +1,7 @@
 import { Sparkles, ArrowRight, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HeroChatDemo } from './hero-chat-demo';
 
 export function HeroSection() {
   return (
@@ -57,46 +58,8 @@ export function HeroSection() {
           </span>
         </div>
 
-        {/* Product preview mockup — Untitled UI style with subtle shadow */}
-        <div className="relative max-w-4xl mx-auto">
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
-            {/* Browser chrome */}
-            <div className="h-9 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 flex items-center px-4 gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-700" />
-              <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-700" />
-              <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-700" />
-              <div className="mx-auto h-5 w-56 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-400 flex items-center justify-center">
-                free.ai.kr
-              </div>
-            </div>
-            {/* App UI */}
-            <div className="flex h-72">
-              {/* Sidebar */}
-              <div className="w-44 border-r border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-3 space-y-2">
-                <div className="h-8 bg-gray-900 dark:bg-white rounded-md" />
-                <div className="space-y-1 pt-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-6 bg-gray-200 dark:bg-gray-800 rounded" />
-                  ))}
-                </div>
-              </div>
-              {/* Main */}
-              <div className="flex-1 p-6 space-y-4">
-                <div className="text-center space-y-2">
-                  <div className="h-4 w-32 mx-auto bg-gray-200 dark:bg-gray-800 rounded" />
-                  <div className="h-8 w-56 mx-auto bg-gray-900 dark:bg-white rounded" />
-                </div>
-                <div className="grid grid-cols-4 gap-2 pt-4">
-                  {['from-amber-400 to-orange-500', 'from-blue-500 to-indigo-600', 'from-emerald-500 to-teal-600', 'from-pink-500 to-rose-500'].map((g, i) => (
-                    <div key={i} className={`aspect-[4/5] rounded-lg bg-gradient-to-br ${g}`} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* Subtle glow */}
-          <div className="absolute -inset-x-10 -bottom-6 h-24 bg-gradient-to-t from-primary-500/10 to-transparent blur-2xl -z-10" />
-        </div>
+        {/* Animated AI chat demo */}
+        <HeroChatDemo />
       </div>
     </section>
   );

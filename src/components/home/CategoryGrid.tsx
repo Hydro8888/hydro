@@ -1,170 +1,57 @@
 import React from 'react';
 import Link from 'next/link';
 
-interface CategoryItem {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  color: string;
-  bgColor: string;
-  href: string;
-}
-
-const CATEGORIES: CategoryItem[] = [
+const CATEGORIES = [
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-        />
-      </svg>
-    ),
-    title: '배달 대행',
-    description: '서류, 소포, 음식 등 원하는 것을 빠르고 안전하게 배달해 드립니다.',
-    color: 'border-l-blue-500',
-    bgColor: 'bg-blue-100 text-blue-600',
-    href: '/simburum/services?category=delivery',
+    label: '배달대행',
+    bg: 'bg-blue-100',
+    color: 'text-blue-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0H6.375c-.621 0-1.125-.504-1.125-1.125V14.25m17.25 0V6.169a2.25 2.25 0 00-.659-1.591l-2.67-2.67a2.25 2.25 0 00-1.59-.659H5.25A2.25 2.25 0 003 3.494v10.756" /></svg>,
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-        />
-      </svg>
-    ),
-    title: '구매 대행',
-    description: '마트, 약국, 한정판 매장 등 원하는 물품을 대신 구매해 드립니다.',
-    color: 'border-l-coral-500',
-    bgColor: 'bg-coral-100 text-coral-600',
-    href: '/simburum/services?category=shopping',
+    label: '구매대행',
+    bg: 'bg-coral-100',
+    color: 'text-coral-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>,
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-    title: '줄서기 대행',
-    description: '맛집, 관공서, 병원 등 줄서기가 필요한 곳에 대신 줄 서 드립니다.',
-    color: 'border-l-purple-500',
-    bgColor: 'bg-purple-100 text-purple-600',
-    href: '/simburum/services?category=waiting',
+    label: '줄서기',
+    bg: 'bg-purple-100',
+    color: 'text-purple-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        />
-      </svg>
-    ),
-    title: '방문 대행',
-    description: '관공서, 은행, 우체국 등 방문이 필요한 업무를 대신 처리합니다.',
-    color: 'border-l-teal-500',
-    bgColor: 'bg-teal-100 text-teal-600',
-    href: '/simburum/services?category=visit',
+    label: '방문대행',
+    bg: 'bg-teal-100',
+    color: 'text-teal-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>,
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"
-        />
-      </svg>
-    ),
-    title: '거래 대행',
-    description: '중고거래 직거래, 물품 수령 및 전달 등을 안전하게 대행합니다.',
-    color: 'border-l-amber-500',
-    bgColor: 'bg-amber-100 text-amber-600',
-    href: '/simburum/services?category=trade',
+    label: '거래대행',
+    bg: 'bg-amber-100',
+    color: 'text-amber-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>,
   },
   {
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-        />
-      </svg>
-    ),
-    title: '기타 서비스',
-    description: '반려동물 돌봄, 청소, 짐 옮기기 등 다양한 생활 심부름을 맡겨보세요.',
-    color: 'border-l-indigo-500',
-    bgColor: 'bg-indigo-100 text-indigo-600',
-    href: '/simburum/services?category=other',
+    label: '전체보기',
+    bg: 'bg-warm-100',
+    color: 'text-warm-600',
+    icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>,
   },
 ];
 
 export default function CategoryGrid() {
   return (
-    <section className="py-16 sm:py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center mb-14">
-          <h2 className="section-header">어떤 심부름이 필요하세요?</h2>
-          <p className="section-subtitle">
-            다양한 카테고리에서 원하는 서비스를 찾아보세요
-          </p>
-        </div>
-
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CATEGORIES.map((category) => (
-            <Link
-              key={category.title}
-              href={category.href}
-              className={`group block bg-white rounded-2xl border-l-4 ${category.color} p-6 shadow-sm border-y border-r border-warm-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl ${category.bgColor}`}
-                >
-                  {category.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-warm-900 group-hover:text-indigo-600 transition-colors">
-                      {category.title}
-                    </h3>
-                    <svg
-                      className="w-5 h-5 text-warm-300 opacity-0 group-hover:opacity-100 group-hover:text-indigo-500 transition-all duration-300 transform group-hover:translate-x-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="mt-1.5 text-sm text-warm-500 leading-relaxed">
-                    {category.description}
-                  </p>
-                </div>
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 mb-10">
+      <div className="bg-white rounded-2xl shadow-sm border border-warm-100 p-6">
+        <h2 className="text-sm font-semibold text-warm-500 mb-4">바로가기</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+          {CATEGORIES.map((cat) => (
+            <Link key={cat.label} href="/services" className="flex flex-col items-center gap-2 group">
+              <div className={`w-14 h-14 rounded-full ${cat.bg} ${cat.color} flex items-center justify-center transition-transform group-hover:scale-110`}>
+                {cat.icon}
               </div>
+              <span className="text-sm font-medium text-warm-700 group-hover:text-teal-600 transition-colors">{cat.label}</span>
             </Link>
           ))}
         </div>

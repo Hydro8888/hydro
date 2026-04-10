@@ -22,7 +22,9 @@ export default async function middleware(request: NextRequest) {
         await auth.protect();
       }
     });
-    return handler(request, {} as any);
+    // Clerk middleware returns a Next.js middleware function that accepts a request and a NextFetchEvent.
+    // We pass an empty event since we don't need to wait for async tasks.
+    return handler(request, { waitUntil: () => undefined } as never);
   }
 
   return NextResponse.next();

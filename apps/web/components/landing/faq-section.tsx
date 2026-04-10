@@ -58,9 +58,11 @@ export function FaqSection() {
           return (
             <div key={faq.q}>
               <button
+                type="button"
                 onClick={() => setOpenIndex(isOpen ? null : i)}
-                className="w-full py-6 flex items-start justify-between gap-6 text-left hover:opacity-80 transition-opacity"
+                className="w-full py-6 flex items-start justify-between gap-6 text-left hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary-500/30 rounded-lg"
                 aria-expanded={isOpen}
+                aria-label={`질문 ${isOpen ? '닫기' : '열기'}: ${faq.q}`}
               >
                 <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
                   {faq.q}

@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { Sparkles, ArrowRight, Check } from 'lucide-react';
-import { EmailCaptureForm } from './email-capture-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 

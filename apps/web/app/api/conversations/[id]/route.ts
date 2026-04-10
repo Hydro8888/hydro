@@ -7,6 +7,7 @@ const updateSchema = z.object({
   pinned: z.boolean().optional(),
   archived: z.boolean().optional(),
   mode: z.enum(['single', 'dual', 'multi']).optional(),
+  modelIds: z.array(z.string()).max(4).optional(),
 });
 
 export async function GET(
@@ -14,17 +15,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   let userId: string;
-  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
+  try { userId = await getAuthUserId(); } catch { return Response.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const conversation = memoryStore.getConversation(params.id);
   if (!conversation) {
-    return new Response(JSON.stringify({ error: 'Conversation not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Conversation not found' }, { status: 404 });
   }
   if (conversation.userId !== userId) {
-    return new Response('Forbidden', { status: 403 });
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const messages = memoryStore.getMessages(params.id);
@@ -36,17 +34,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   let userId: string;
-  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
+  try { userId = await getAuthUserId(); } catch { return Response.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const conv = memoryStore.getConversation(params.id);
   if (!conv) {
-    return new Response(JSON.stringify({ error: 'Conversation not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Conversation not found' }, { status: 404 });
   }
   if (conv.userId !== userId) {
-    return new Response('Forbidden', { status: 403 });
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   let body;
@@ -68,11 +63,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   let userId: string;
-  try { userId = await getAuthUserId(); } catch { return new Response('Unauthorized', { status: 401 }); }
+  try { userId = await getAuthUserId(); } catch { return Response.json({ error: 'Unauthorized' }, { status: 401 }); }
 
   const conv = memoryStore.getConversation(params.id);
-  if (conv && conv.userId !== userId) {
-    return new Response('Forbidden', { status: 403 });
+  if (!conv) {
+    return Response.json({ error: 'Conversation not found' }, { status: 404 });
+  }
+  if (conv.userId !== userId) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   memoryStore.deleteConversation(params.id);

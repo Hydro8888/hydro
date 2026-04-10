@@ -3,9 +3,9 @@ import { memoryStore } from '@/lib/memory-store';
 import { z } from 'zod';
 
 const createConversationSchema = z.object({
-  title: z.string().optional(),
+  title: z.string().min(1).max(255).optional(),
   mode: z.enum(['single', 'dual', 'multi']).optional(),
-  modelIds: z.array(z.string()).optional(),
+  modelIds: z.array(z.string()).max(4).optional(),
 });
 
 export async function GET() {

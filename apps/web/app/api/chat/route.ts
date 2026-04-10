@@ -1,19 +1,22 @@
 import { streamText } from 'ai';
-import { getModel } from '@ai-portal/providers';
+import { getModel, isModelAvailable } from '@ai-portal/providers';
 import { getModelConfig } from '@ai-portal/shared';
 import { getAuthUserId } from '@/lib/auth';
 import { memoryStore } from '@/lib/memory-store';
 import { z } from 'zod';
 
 const chatRequestSchema = z.object({
-  modelId: z.string(),
-  messages: z.array(
-    z.object({
-      role: z.enum(['user', 'assistant', 'system']),
-      content: z.string(),
-    })
-  ),
-  conversationId: z.string().optional(),
+  modelId: z.string().min(1).max(100),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().min(1).max(100_000, '메시지가 너무 깁니다.'),
+      })
+    )
+    .min(1)
+    .max(200, '대화가 너무 깁니다.'),
+  conversationId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -40,10 +43,13 @@ export async function POST(req: Request) {
 
   const modelConfig = getModelConfig(modelId);
   if (!modelConfig) {
-    return new Response(JSON.stringify({ error: 'Unknown model' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Unknown model' }, { status: 400 });
+  }
+  if (!isModelAvailable(modelId)) {
+    return Response.json(
+      { error: '선택한 모델의 API 키가 서버에 설정되지 않았습니다. 다른 모델을 선택해주세요.' },
+      { status: 503 }
+    );
   }
 
   // Auto-create conversation if none provided

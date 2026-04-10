@@ -20,12 +20,21 @@ export const metadata: Metadata = {
     title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
     description:
       'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+    images: [
+      {
+        url: '/freeai/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'AI Portal Pro',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'AI Portal Pro - 하나의 대시보드, 모든 프리미엄 AI',
     description:
       'GPT-5, Claude, Gemini, Grok 등 전세계 TOP 10 프리미엄 AI를 하나의 대시보드에서 비교하고 사용하세요.',
+    images: ['/freeai/icon-512.png'],
   },
   robots: {
     index: true,

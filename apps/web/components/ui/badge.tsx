@@ -19,8 +19,8 @@ const variantStyles: Record<Variant, string> = {
 };
 
 const dotStyles: Record<Variant, string> = {
-  gray: 'bg-gray-500',
-  primary: 'bg-primary-500',
+  gray: 'bg-gray-500 dark:bg-gray-400',
+  primary: 'bg-primary-500 dark:bg-primary-400',
   success: 'bg-success-500',
   warning: 'bg-warning-500',
   error: 'bg-error-500',

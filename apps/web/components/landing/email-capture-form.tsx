@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,19 +8,32 @@ import { cn } from '@/lib/utils';
 interface EmailCaptureFormProps {
   variant?: 'light' | 'dark';
   className?: string;
+  placeholder?: string;
 }
 
-export function EmailCaptureForm({ variant = 'light', className }: EmailCaptureFormProps) {
+export function EmailCaptureForm({ variant = 'light', className, placeholder }: EmailCaptureFormProps) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
     setStatus('submitting');
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setStatus('success');
-      localStorage.setItem('waitlist-email', email);
+      try {
+        localStorage.setItem('waitlist-email', email);
+      } catch (err) {
+        console.warn('[email-capture] localStorage failed:', err);
+      }
     }, 800);
   }
 
@@ -59,7 +72,7 @@ export function EmailCaptureForm({ variant = 'light', className }: EmailCaptureF
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="이메일 주소를 입력하세요"
+        placeholder={placeholder ?? '이메일 주소를 입력하세요'}
         required
         aria-label="이메일"
         className={cn(

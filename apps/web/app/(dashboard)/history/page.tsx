@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { SearchBar } from '@/components/history/search-bar';
 import { ConversationList } from '@/components/history/conversation-list';
 import { apiUrl } from '@/lib/api-url';
 import { MessageSquare, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface ConversationItem {
   id: string;
@@ -48,6 +48,7 @@ export default function HistoryPage() {
   const [search, setSearch] = useState('');
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { error: toastError } = useToast();
 
   useEffect(() => {
     fetch(apiUrl('/api/conversations'))
@@ -73,24 +74,39 @@ export default function HistoryPage() {
       )
     : null;
 
-  function handleDelete(id: string) {
-    fetch(apiUrl(`/api/conversations/${id}`), { method: 'DELETE' }).then(() => {
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-    });
+  async function handleDelete(id: string) {
+    // 낙관적 업데이트 + 실패 시 롤백
+    const previous = conversations;
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    try {
+      const res = await fetch(apiUrl(`/api/conversations/${id}`), { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('[history] Delete failed:', err);
+      setConversations(previous); // 롤백
+      toastError('대화 삭제에 실패했습니다.');
+    }
   }
 
-  function handlePin(id: string) {
+  async function handlePin(id: string) {
     const conv = conversations.find((c) => c.id === id);
-    if (conv) {
-      fetch(apiUrl(`/api/conversations/${id}`), {
+    if (!conv) return;
+    const previous = conversations;
+    // 낙관적 업데이트
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
+    );
+    try {
+      const res = await fetch(apiUrl(`/api/conversations/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pinned: !conv.pinned }),
-      }).then(() => {
-        setConversations((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c))
-        );
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('[history] Pin failed:', err);
+      setConversations(previous); // 롤백
+      toastError('고정 상태 변경에 실패했습니다.');
     }
   }
 

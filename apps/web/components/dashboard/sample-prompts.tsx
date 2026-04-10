@@ -156,7 +156,9 @@ export function SamplePrompts({ onSelectPrompt }: SamplePromptsProps) {
           {templates.map((t) => (
             <button
               key={t.label}
+              type="button"
               onClick={() => onSelectPrompt(t.prompt)}
+              aria-label={`${t.label} 템플릿 사용하기`}
               className="group text-left p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-primary-500/12"
             >
               <div

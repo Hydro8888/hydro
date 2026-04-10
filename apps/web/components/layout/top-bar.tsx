@@ -110,9 +110,11 @@ export function TopBar() {
         {/* User dropdown */}
         <div ref={dropdownRef} className="relative ml-1" onBlur={handleBlur}>
           <button
+            type="button"
             onClick={() => setDropdownOpen((o) => !o)}
-            className="flex items-center gap-1 p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-            aria-label="User menu"
+            className="flex items-center gap-1 p-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors focus:outline-none focus:ring-4 focus:ring-primary-500/12"
+            aria-label="사용자 메뉴"
+            aria-haspopup="menu"
             aria-expanded={dropdownOpen}
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 dark:from-gray-200 dark:to-white flex items-center justify-center">

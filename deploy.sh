@@ -89,7 +89,10 @@ fi
 
 echo ""
 echo "[6/8] Next.js 빌드..."
-npm run build 2>&1 | tail -5
+echo "  주의: 빌드 중 CPU/메모리 사용량이 높아질 수 있습니다."
+echo "  기존 서비스에 일시적 영향이 있을 수 있습니다."
+# 메모리 제한을 두고 빌드 (기존 서비스 보호)
+NODE_OPTIONS="--max-old-space-size=512" npm run build 2>&1 | tail -5
 
 # 5. 로그 디렉토리 생성
 mkdir -p $APP_DIR/logs
@@ -118,35 +121,100 @@ if echo "$NGINX_CONF" | grep -q "location /simburum"; then
     echo "  Nginx simburum 설정 이미 존재"
 else
     echo "  Nginx에 simburum location 블록 추가..."
-    # default.conf의 마지막 } 앞에 location 블록 삽입
-    docker exec $NGINX_CONTAINER sh -c "
-    sed -i '/^}/i \\
-    \\
-    location /simburum {\\
-        proxy_pass http://172.17.0.1:$PORT;\\
-        proxy_http_version 1.1;\\
-        proxy_set_header Upgrade \\\$http_upgrade;\\
-        proxy_set_header Connection '\"'\"'upgrade'\"'\"';\\
-        proxy_set_header Host \\\$host;\\
-        proxy_set_header X-Real-IP \\\$remote_addr;\\
-        proxy_set_header X-Forwarded-For \\\$proxy_add_x_forwarded_for;\\
-        proxy_set_header X-Forwarded-Proto \\\$scheme;\\
-        proxy_cache_bypass \\\$http_upgrade;\\
-        proxy_read_timeout 86400;\\
-    }\\
-    \\
-    location /simburum/_next/static {\\
-        proxy_pass http://172.17.0.1:$PORT/simburum/_next/static;\\
-        proxy_cache_bypass \\\$http_upgrade;\\
-        expires 365d;\\
-        add_header Cache-Control \"public, immutable\";\\
-    }' /etc/nginx/conf.d/default.conf
-    "
 
-    # nginx 설정 테스트 및 리로드
-    docker exec $NGINX_CONTAINER nginx -t 2>&1
-    docker exec $NGINX_CONTAINER nginx -s reload 2>&1
-    echo "  Nginx 리로드 완료"
+    # 안전한 방식: 별도 conf 파일로 추가 (기존 default.conf 수정하지 않음)
+    docker exec $NGINX_CONTAINER sh -c "cat > /etc/nginx/conf.d/simburum.conf << 'NGINXEOF'
+# Simburum 서비스 설정 - 기존 설정과 독립
+# 이 파일은 default.conf와 별도로 로드됩니다
+
+# 주의: 이 파일은 server 블록이 없으므로
+# default.conf의 server 블록 안에 include하거나,
+# default.conf에 직접 location을 추가해야 합니다.
+NGINXEOF"
+
+    # default.conf를 안전하게 수정하기 위해 먼저 백업
+    echo "  default.conf 백업 중..."
+    docker exec $NGINX_CONTAINER cp /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak
+
+    # simburum location 블록을 별도 파일로 생성
+    docker exec $NGINX_CONTAINER sh -c "cat > /tmp/simburum_location.txt << 'LOCEOF'
+
+    # === Simburum 서비스 ===
+    location /simburum {
+        proxy_pass http://172.17.0.1:$PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 86400;
+    }
+
+    location /simburum/_next/static {
+        proxy_pass http://172.17.0.1:$PORT/simburum/_next/static;
+        proxy_cache_bypass \$http_upgrade;
+        expires 365d;
+        add_header Cache-Control \"public, immutable\";
+    }
+    # === Simburum 서비스 끝 ===
+LOCEOF"
+
+    # default.conf의 마지막 server 블록의 닫는 } 바로 앞에 삽입
+    # 방법: python으로 정확한 위치에 삽입 (sed보다 안전)
+    docker exec $NGINX_CONTAINER sh -c "
+    python3 -c \"
+import sys
+conf = open('/etc/nginx/conf.d/default.conf').read()
+loc = open('/tmp/simburum_location.txt').read()
+# 마지막 } 위치를 찾아서 그 앞에 삽입
+last_brace = conf.rfind('}')
+if last_brace != -1:
+    new_conf = conf[:last_brace] + loc + '\n' + conf[last_brace:]
+    open('/etc/nginx/conf.d/default.conf', 'w').write(new_conf)
+    print('  location 블록 삽입 완료')
+else:
+    print('  오류: server 블록 닫는 중괄호를 찾을 수 없습니다')
+    sys.exit(1)
+\" 2>&1" || {
+        # python3이 없으면 대안: 수동 안내
+        echo ""
+        echo "  ====================================================="
+        echo "  자동 nginx 설정 실패. 수동으로 추가해주세요:"
+        echo "  ====================================================="
+        echo "  docker exec -it $NGINX_CONTAINER vi /etc/nginx/conf.d/default.conf"
+        echo ""
+        echo "  server 블록의 마지막 } 앞에 아래 내용을 추가:"
+        echo ""
+        echo "    location /simburum {"
+        echo "        proxy_pass http://172.17.0.1:$PORT;"
+        echo "        proxy_http_version 1.1;"
+        echo "        proxy_set_header Host \$host;"
+        echo "        proxy_set_header X-Real-IP \$remote_addr;"
+        echo "        proxy_cache_bypass \$http_upgrade;"
+        echo "    }"
+        echo "  ====================================================="
+        echo ""
+    }
+
+    # nginx 설정 테스트
+    echo "  Nginx 설정 테스트 중..."
+    if docker exec $NGINX_CONTAINER nginx -t 2>&1; then
+        # 테스트 통과 시에만 reload (graceful - 기존 연결 유지)
+        docker exec $NGINX_CONTAINER nginx -s reload 2>&1
+        echo "  Nginx 리로드 완료 (기존 서비스 영향 없음)"
+        # 백업 파일 정리
+        docker exec $NGINX_CONTAINER rm -f /etc/nginx/conf.d/simburum.conf
+    else
+        # 테스트 실패 시 백업에서 복원
+        echo "  경고: Nginx 설정 테스트 실패! 백업에서 복원합니다..."
+        docker exec $NGINX_CONTAINER cp /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
+        docker exec $NGINX_CONTAINER rm -f /etc/nginx/conf.d/simburum.conf
+        echo "  복원 완료. 기존 서비스에 영향 없습니다."
+        echo "  수동으로 nginx 설정을 추가해주세요."
+    fi
 fi
 
 # 8. PM2 시작/재시작

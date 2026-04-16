@@ -412,73 +412,118 @@ fi
 
 # -------------------------- [9/10] nginx 설정 -------------------------------
 hr
-log "[9/10] jobworld-nginx 컨테이너에 /paperclip/ location 추가"
+log "[9/10] jobworld-nginx 컨테이너에 /paperclip location 추가"
 hr
 
-# 컨테이너 안의 현재 conf 를 호스트로 백업
-NGINX_BACKUP="${HOST_BACKUP_DIR}/default.conf.before-paperclip-$(date +%Y%m%d-%H%M%S)"
-docker exec "${NGINX_CONTAINER}" cat "${NGINX_CONF_IN_CONTAINER}" > "${NGINX_BACKUP}"
+# 컨테이너가 실제로 로딩한 server 블록이 들어있는 conf 파일 찾기
+#  (default.conf 가 아닐 수 있으므로 nginx -T 출력으로 탐색)
+NGINX_CONF_CANDIDATE="${NGINX_CONF_IN_CONTAINER}"
+if ! docker exec "${NGINX_CONTAINER}" test -f "${NGINX_CONF_CANDIDATE}" 2>/dev/null; then
+  NGINX_CONF_CANDIDATE="$(docker exec "${NGINX_CONTAINER}" sh -c '
+    nginx -T 2>/dev/null \
+      | awk "/^# configuration file/ {sub(/:$/, \"\", \$4); print \$4}" \
+      | while read f; do
+          if grep -qE "^[[:space:]]*server[[:space:]]*\{" "\$f"; then
+            echo "\$f"; break
+          fi
+        done
+  ')"
+fi
+if [[ -z "${NGINX_CONF_CANDIDATE}" ]]; then
+  err "nginx server 블록을 가진 설정 파일을 찾지 못했습니다"
+  exit 1
+fi
+log "  사용할 nginx 설정 파일 (컨테이너 내부): ${NGINX_CONF_CANDIDATE}"
+
+NGINX_BACKUP="${HOST_BACKUP_DIR}/nginx.conf.before-paperclip-$(date +%Y%m%d-%H%M%S)"
+docker exec "${NGINX_CONTAINER}" cat "${NGINX_CONF_CANDIDATE}" > "${NGINX_BACKUP}"
 ok "nginx 설정 백업: ${NGINX_BACKUP}"
 
-if docker exec "${NGINX_CONTAINER}" grep -q "location /paperclip" "${NGINX_CONF_IN_CONTAINER}" 2>/dev/null; then
-  log "  이미 /paperclip location 존재 → skip (idempotent)"
-else
-  LOCATION_SNIPPET="$(cat <<EOF
+NEW_CONF="${HOST_BACKUP_DIR}/nginx.conf.new-$(date +%s)"
+cp "${NGINX_BACKUP}" "${NEW_CONF}"
 
-    # === paperclip (자동추가 $(date -Iseconds)) ===
-    location /paperclip/ {
-        proxy_pass http://${DOCKER_HOST_IP}:${PAPERCLIP_PORT}/;
+# Python 으로 안전하게: 기존 paperclip 블록 제거 후 첫 server { } 내부 말미에 삽입
+PAPERCLIP_MARK_START="# === paperclip (auto) ==="
+PAPERCLIP_MARK_END="# === /paperclip end ==="
+
+export PAPERCLIP_PORT DOCKER_HOST_IP PAPERCLIP_MARK_START PAPERCLIP_MARK_END
+python3 - "${NEW_CONF}" <<'PYEOF'
+import os, re, sys
+path = sys.argv[1]
+with open(path, 'r') as f:
+    data = f.read()
+
+start_mark = os.environ['PAPERCLIP_MARK_START']
+end_mark   = os.environ['PAPERCLIP_MARK_END']
+port       = os.environ['PAPERCLIP_PORT']
+host_ip    = os.environ['DOCKER_HOST_IP']
+
+# 1) 기존 paperclip 블록 전부 제거 (재실행 시 갱신)
+pat = re.compile(
+    re.escape(start_mark) + r'.*?' + re.escape(end_mark) + r'\s*',
+    re.DOTALL)
+data = pat.sub('', data)
+
+snippet = f"""
+    {start_mark}
+    location = /paperclip {{
+        return 301 /paperclip/;
+    }}
+    location /paperclip/ {{
+        proxy_pass http://{host_ip}:{port}/;
         proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Prefix /paperclip;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
         client_max_body_size 50m;
-    }
-    # === /paperclip end ===
-EOF
-)"
-
-  # 호스트에 새 파일 만든 뒤 컨테이너로 복사 (sed 안에서 개행 다루기 번거로움 회피)
-  NEW_CONF="${HOST_BACKUP_DIR}/default.conf.new-$(date +%s)"
-  cp "${NGINX_BACKUP}" "${NEW_CONF}"
-
-  # 마지막 '}' 앞에 스니펫 삽입 (Python 한 줄로 안정 처리)
-  python3 - "${NEW_CONF}" <<PYEOF
-import sys
-path = sys.argv[1]
-with open(path, 'r') as f:
-    data = f.read()
-snippet = """${LOCATION_SNIPPET//\"/\\\"}
+    }}
+    {end_mark}
 """
-idx = data.rfind('}')
-if idx == -1:
-    sys.stderr.write("no closing brace found\\n"); sys.exit(1)
-new = data[:idx] + snippet + data[idx:]
+
+# 2) 첫 번째 "server {" 블록의 매칭 '}' 찾기 (중괄호 카운트)
+m = re.search(r'\bserver\s*\{', data)
+if not m:
+    sys.stderr.write("no server { block found\n"); sys.exit(1)
+i = m.end()
+depth = 1
+while i < len(data) and depth > 0:
+    c = data[i]
+    if c == '{': depth += 1
+    elif c == '}': depth -= 1
+    i += 1
+if depth != 0:
+    sys.stderr.write("unbalanced braces in server block\n"); sys.exit(1)
+close = i - 1   # 위치: 매칭되는 닫는 '}' 인덱스
+
+new = data[:close] + snippet + data[close:]
 with open(path, 'w') as f:
     f.write(new)
 PYEOF
 
-  # 컨테이너로 복사
-  docker cp "${NEW_CONF}" "${NGINX_CONTAINER}:${NGINX_CONF_IN_CONTAINER}"
+# 컨테이너로 복사
+docker cp "${NEW_CONF}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
 
-  # 문법 검사 → 실패 시 원복
-  if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
-    err "nginx 문법 오류 — 백업으로 복원"
-    docker cp "${NGINX_BACKUP}" "${NGINX_CONTAINER}:${NGINX_CONF_IN_CONTAINER}"
-    exit 1
-  fi
-
-  register_rollback "docker cp '${NGINX_BACKUP}' '${NGINX_CONTAINER}:${NGINX_CONF_IN_CONTAINER}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
-
-  docker exec "${NGINX_CONTAINER}" nginx -s reload
-  ok "nginx reload 완료"
+# 문법 검사 → 실패 시 원복
+if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
+  err "nginx 문법 오류 — 백업으로 복원"
+  docker cp "${NGINX_BACKUP}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
+  exit 1
 fi
+
+register_rollback "docker cp '${NGINX_BACKUP}' '${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
+
+docker exec "${NGINX_CONTAINER}" nginx -s reload
+ok "nginx reload 완료"
+
+# 실제 적용된 블록 확인
+log "  적용 결과 확인:"
+docker exec "${NGINX_CONTAINER}" sh -c "nginx -T 2>/dev/null | grep -E 'location.*paperclip|proxy_pass.*${PAPERCLIP_PORT}' || true" | sed 's/^/    /'
 
 # -------------------------- [10/10] 검증 ------------------------------------
 hr
@@ -496,10 +541,13 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 LOCAL_STATUS="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PAPERCLIP_PORT}/" || echo 000)"
-GATE_STATUS="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1/paperclip/" || echo 000)"
+GATE_STATUS_SLASH="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1/paperclip/" || echo 000)"
+GATE_STATUS_BARE="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1/paperclip"  || echo 000)"
 
-log "  로컬 앱 응답:     ${LOCAL_STATUS}"
-log "  게이트웨이 응답:  ${GATE_STATUS}"
+log "  로컬 앱 응답:              ${LOCAL_STATUS}     (http://127.0.0.1:${PAPERCLIP_PORT}/)"
+log "  게이트웨이 응답 (/ 포함): ${GATE_STATUS_SLASH}  (http://127.0.0.1/paperclip/)"
+log "  게이트웨이 응답 (/ 없음): ${GATE_STATUS_BARE}   (http://127.0.0.1/paperclip)"
+GATE_STATUS="${GATE_STATUS_SLASH}"
 
 # -------------------------- 최종 요약 ---------------------------------------
 trap - ERR

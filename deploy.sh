@@ -483,8 +483,131 @@ fi
 
 # -------------------------- [9/10] nginx 설정 -------------------------------
 hr
-log "[9/10] jobworld-nginx 컨테이너에 /paperclip location 추가"
+log "[9/10] nginx 게이트웨이에 /paperclip location 추가"
 hr
+
+# 우선순위:
+#   1) 호스트 systemd nginx 가 active 면 → /etc/nginx/sites-enabled/{hydro,multi-service}
+#      에 직접 삽입 (proxy_pass http://127.0.0.1:PORT/)
+#   2) 호스트 nginx 가 없으면 → 기존 Docker 컨테이너 로직으로 fallback
+
+NGINX_MODE="docker"
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
+  NGINX_MODE="host"
+  log "  호스트 systemd nginx 가 active → 호스트 설정 모드"
+else
+  log "  호스트 systemd nginx 비활성 → Docker 컨테이너 모드"
+fi
+
+if [[ "${NGINX_MODE}" == "host" ]]; then
+  # ===== 호스트 nginx 모드 =====
+  HYDRO_CONF="/etc/nginx/sites-enabled/hydro"
+  MULTI_LINK="/etc/nginx/sites-enabled/multi-service"
+  if [[ -L "${MULTI_LINK}" ]]; then
+    MULTI_CONF="$(readlink -f "${MULTI_LINK}")"
+  else
+    MULTI_CONF="${MULTI_LINK}"
+  fi
+
+  # 두 파일 중 어느 한쪽이라도 없으면 fallback
+  if [[ ! -f "${HYDRO_CONF}" || ! -f "${MULTI_CONF}" ]]; then
+    warn "  hydro 또는 multi-service 설정 파일을 찾지 못함 → Docker 모드로 fallback"
+    NGINX_MODE="docker"
+  fi
+fi
+
+if [[ "${NGINX_MODE}" == "host" ]]; then
+  log "  대상 파일: ${HYDRO_CONF}"
+  log "  대상 파일: ${MULTI_CONF}"
+
+  HYDRO_BACKUP="${HOST_BACKUP_DIR}/hydro.before-paperclip-$(date +%Y%m%d-%H%M%S)"
+  MULTI_BACKUP="${HOST_BACKUP_DIR}/multi-service.before-paperclip-$(date +%Y%m%d-%H%M%S)"
+  cp -a "${HYDRO_CONF}" "${HYDRO_BACKUP}"
+  cp -a "${MULTI_CONF}" "${MULTI_BACKUP}"
+
+  # 헬퍼: 한 파일에 paperclip 블록 삽입 (selector 가 있는 server{} 의 끝에)
+  insert_paperclip_block() {
+    local target="$1" selector="$2"
+    TARGET_FILE="${target}" SELECTOR="${selector}" PORT="${PAPERCLIP_PORT}" \
+      python3 <<'PYEOF'
+import os, re, sys
+path = os.environ['TARGET_FILE']
+selector = os.environ['SELECTOR']
+port = os.environ['PORT']
+START = "# === paperclip (auto) ==="
+END   = "# === /paperclip end ==="
+
+data = open(path).read()
+data = re.sub(r'\s*' + re.escape(START) + r'.*?' + re.escape(END) + r'\s*',
+              '\n', data, flags=re.DOTALL)
+
+snippet = f"""
+    {START}
+    location = /paperclip {{
+        return 301 /paperclip/;
+    }}
+    location /paperclip/ {{
+        proxy_pass http://127.0.0.1:{port}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /paperclip;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        client_max_body_size 50m;
+    }}
+    {END}
+"""
+
+pos = 0; blocks = []
+while True:
+    m = re.search(r'\bserver\s*\{', data[pos:])
+    if not m: break
+    s = pos + m.start(); i = pos + m.end(); depth = 1
+    while i < len(data) and depth > 0:
+        if data[i] == '{': depth += 1
+        elif data[i] == '}': depth -= 1
+        i += 1
+    if depth != 0: sys.exit(f"unbalanced in {path}")
+    blocks.append((s, i)); pos = i
+
+target = None
+for s, e in blocks:
+    if selector in data[s:e]:
+        target = (s, e); break
+if target is None:
+    sys.exit(f"no server block with '{selector}' in {path}")
+
+s, e = target
+open(path, 'w').write(data[:s] + data[s:e-1] + snippet + data[e-1:])
+PYEOF
+  }
+
+  insert_paperclip_block "${HYDRO_CONF}" "default_server"
+  insert_paperclip_block "${MULTI_CONF}" "211.198.54.207"
+
+  # nginx -t 실패 시 두 파일 모두 원복
+  if ! nginx -t 2>&1; then
+    err "nginx 문법 오류 — 두 파일 모두 백업으로 복원"
+    cp -a "${HYDRO_BACKUP}" "${HYDRO_CONF}"
+    cp -a "${MULTI_BACKUP}" "${MULTI_CONF}"
+    exit 1
+  fi
+  register_rollback "cp -a '${HYDRO_BACKUP}' '${HYDRO_CONF}' && cp -a '${MULTI_BACKUP}' '${MULTI_CONF}' && systemctl reload nginx"
+
+  systemctl reload nginx
+  ok "systemctl reload nginx 완료"
+  log "  적용 결과 확인 (paperclip 라인):"
+  grep -n "paperclip\|:${PAPERCLIP_PORT}" "${HYDRO_CONF}" "${MULTI_CONF}" 2>/dev/null \
+    | head -20 | sed 's/^/    /' || true
+fi
+
+if [[ "${NGINX_MODE}" == "docker" ]]; then
+  # ===== Docker 컨테이너 fallback 모드 =====
 
 # 컨테이너 경로 → 호스트 bind-mount 경로 해석
 # (bind-mount 된 파일은 컨테이너 내부 Read-only 또는 docker cp unlink 실패
@@ -658,10 +781,11 @@ ok "nginx reload 완료"
 # 실제 적용된 블록 확인
 log "  적용 결과 확인:"
 docker exec "${NGINX_CONTAINER}" sh -c "nginx -T 2>/dev/null | grep -E 'location.*paperclip|proxy_pass.*${PAPERCLIP_PORT}' || true" | sed 's/^/    /'
+fi  # end of NGINX_MODE == "docker" block
 
 # 기존 서비스 회귀 확인 — 게이트웨이 응답코드가 변경되지 않았는지
 log "  기존 서비스 응답코드 (paperclip 외에는 이전과 동일해야 함):"
-for probe_path in /jobworld/ /jobworld/health /livenews/ /; do
+for probe_path in /jobworld/ /jobworld/health /livenews/ /hacker/ /agentbook/; do
   code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1${probe_path}" || echo 000)"
   printf '    %-30s %s\n' "${probe_path}" "${code}"
 done

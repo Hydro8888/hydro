@@ -316,25 +316,53 @@ log "[7/10] PM2 로 ${APP_NAME} 기동"
 hr
 
 # package.json 의 start 스크립트 존재 여부 확인 → fallback 결정
-START_CMD="pnpm"
-START_ARGS="start"
-if ! sudo -u "${APP_USER}" -H bash -lc "cd '${APP_DIR}' && node -e 'const p=require(\"./package.json\"); process.exit(p.scripts && p.scripts.start ? 0 : 1)'" 2>/dev/null; then
-  warn "package.json 에 scripts.start 가 없습니다. fallback 탐색"
-  # 자주 쓰이는 후보 순차 시도
-  if sudo -u "${APP_USER}" -H bash -lc "cd '${APP_DIR}' && node -e 'const p=require(\"./package.json\"); process.exit(p.scripts && p.scripts[\"start:prod\"] ? 0 : 1)'" 2>/dev/null; then
-    START_ARGS="run start:prod"
-  elif sudo -u "${APP_USER}" -H bash -lc "cd '${APP_DIR}' && node -e 'const p=require(\"./package.json\"); process.exit(p.scripts && p.scripts[\"serve\"] ? 0 : 1)'" 2>/dev/null; then
-    START_ARGS="run serve"
-  elif [[ -f "${APP_DIR}/dist/index.js" ]]; then
-    START_CMD="node"; START_ARGS="dist/index.js"
-  elif [[ -f "${APP_DIR}/packages/server/dist/index.js" ]]; then
-    START_CMD="node"; START_ARGS="packages/server/dist/index.js"
-  else
-    warn "기동 명령을 자동 판별하지 못했습니다. 일단 'pnpm start' 로 시도합니다."
-  fi
+# paperclip 은 monorepo 라 root 에 start 가 없을 수 있음 → server 워크스페이스 검사
+START_CMD=""
+START_ARGS=""
+
+has_script() {
+  # $1 = package.json 경로, $2 = 스크립트명
+  [[ -f "$1" ]] || return 1
+  node -e "try{const p=require('$1');process.exit(p.scripts&&p.scripts['$2']?0:1)}catch(e){process.exit(1)}" 2>/dev/null
+}
+
+if has_script "${APP_DIR}/package.json" "start"; then
+  START_CMD="pnpm"; START_ARGS="start"
+elif has_script "${APP_DIR}/server/package.json" "start"; then
+  # @paperclipai/server 패턴 (paperclipai/paperclip)
+  START_CMD="pnpm"; START_ARGS="--filter @paperclipai/server start"
+  log "  server 워크스페이스의 start 스크립트 사용"
+elif has_script "${APP_DIR}/server/package.json" "start:prod"; then
+  START_CMD="pnpm"; START_ARGS="--filter @paperclipai/server start:prod"
+elif has_script "${APP_DIR}/package.json" "start:prod"; then
+  START_CMD="pnpm"; START_ARGS="run start:prod"
+elif has_script "${APP_DIR}/package.json" "serve"; then
+  START_CMD="pnpm"; START_ARGS="run serve"
+elif [[ -f "${APP_DIR}/server/dist/index.js" ]]; then
+  START_CMD="node"; START_ARGS="server/dist/index.js"
+elif [[ -f "${APP_DIR}/server/dist/src/index.js" ]]; then
+  START_CMD="node"; START_ARGS="server/dist/src/index.js"
+elif [[ -f "${APP_DIR}/dist/index.js" ]]; then
+  START_CMD="node"; START_ARGS="dist/index.js"
+elif [[ -f "${APP_DIR}/packages/server/dist/index.js" ]]; then
+  START_CMD="node"; START_ARGS="packages/server/dist/index.js"
+elif has_script "${APP_DIR}/package.json" "paperclipai"; then
+  # paperclipai CLI 를 통해 기동 (serve 서브커맨드 가정)
+  START_CMD="pnpm"; START_ARGS="paperclipai serve"
+  warn "  'paperclipai serve' fallback 사용 — 실행 실패 시 CLI 인자 조정 필요"
+else
+  err "기동 명령을 판별할 수 없습니다."
+  err "  ${APP_DIR}/server/package.json 의 scripts 를 확인해 주세요."
+  exit 1
 fi
 
-ECO_FILE="${APP_DIR}/ecosystem.paperclip.config.js"
+log "  기동 명령: ${START_CMD} ${START_ARGS}"
+
+# PM2 ecosystem 파일: paperclip root 가 "type":"module" 이면 .js 는 ESM 으로 파싱됨
+# → CommonJS(module.exports) 를 유지하기 위해 확장자를 .cjs 로 강제
+ECO_FILE="${APP_DIR}/ecosystem.paperclip.config.cjs"
+# 이전 실행이 남긴 .js 버전 제거 (혼선 방지)
+rm -f "${APP_DIR}/ecosystem.paperclip.config.js"
 cat > "${ECO_FILE}" <<EOF
 module.exports = {
   apps: [{
@@ -359,14 +387,17 @@ module.exports = {
 EOF
 chown "${APP_USER}:${APP_USER}" "${ECO_FILE}"
 
-sudo -u "${APP_USER}" -H bash -lc "
+if ! sudo -u "${APP_USER}" -H bash -lc "
   export NVM_DIR=\"\$HOME/.nvm\"
   [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
   cd '${APP_DIR}'
   pm2 delete '${APP_NAME}' 2>/dev/null || true
-  pm2 start '${ECO_FILE}'
+  pm2 start '${ECO_FILE}' --update-env
   pm2 save
-"
+"; then
+  err "pm2 start 실패 — 위 에러 메시지 확인"
+  exit 1
+fi
 register_rollback "sudo -u ${APP_USER} -H bash -lc 'pm2 delete ${APP_NAME} 2>/dev/null; pm2 save'"
 ok "PM2 ${APP_NAME} 기동 요청 완료"
 

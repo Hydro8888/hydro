@@ -325,8 +325,39 @@ ok "PAPERCLIP_HOME: ${PAPERCLIP_HOME_DIR}"
 
 # -------------------------- [6/10] 의존성 / 빌드 -----------------------------
 hr
-log "[6/10] pnpm install & build"
+log "[6/10] pnpm install & build (subpath 대응)"
 hr
+
+# paperclip UI 는 Vite 기본 `base: '/'` 라서 subpath 서빙 시 asset 이 깨진다.
+# 빌드 전에 ui/vite.config 에 `base: '/paperclip/'` 를 idempotent 하게 주입.
+PAPERCLIP_SUBPATH="${PAPERCLIP_SUBPATH:-/paperclip/}"
+VITE_CONFIG=""
+for f in "${APP_DIR}/ui/vite.config.ts" "${APP_DIR}/ui/vite.config.js" "${APP_DIR}/ui/vite.config.mjs"; do
+  if [[ -f "$f" ]]; then VITE_CONFIG="$f"; break; fi
+done
+if [[ -n "${VITE_CONFIG}" ]]; then
+  log "  Vite config 패치: ${VITE_CONFIG} → base='${PAPERCLIP_SUBPATH}'"
+  cp -a "${VITE_CONFIG}" "${VITE_CONFIG}.bak.$(date +%s)"
+  SUBPATH="${PAPERCLIP_SUBPATH}" TARGET="${VITE_CONFIG}" python3 <<'PYEOF'
+import os, re, sys
+path = os.environ['TARGET']
+base = os.environ['SUBPATH']
+data = open(path).read()
+m = re.search(r'(^[ \t]*base\s*:\s*)(["\'])[^"\']*\2', data, re.MULTILINE)
+if m:
+    data = data[:m.start()] + m.group(1) + "'" + base + "'" + data[m.end():]
+else:
+    m = re.search(r'defineConfig\s*\(\s*\{', data) or re.search(r'export\s+default\s*\{', data)
+    if not m:
+        sys.exit("defineConfig/export default not found in vite.config")
+    data = data[:m.end()] + f"\n  base: '{base}'," + data[m.end():]
+open(path, 'w').write(data)
+PYEOF
+  chown "${APP_USER}:${APP_USER}" "${VITE_CONFIG}"
+else
+  warn "  ui/vite.config.* 없음 — subpath base 패치 skip"
+fi
+
 sudo -u "${APP_USER}" -H bash -lc "
   export NVM_DIR=\"\$HOME/.nvm\"
   [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
@@ -340,6 +371,20 @@ sudo -u "${APP_USER}" -H bash -lc "
     pnpm build || { echo 'build 실패 (계속 진행)'; exit 0; }
   fi
 " || warn "install/build 중 일부 경고 — 로그 확인 필요"
+
+# 빌드 결과 검증: UI HTML 에 subpath prefix 가 들어갔는지
+UI_DIST_HTML=""
+for cand in "${APP_DIR}/ui/dist/index.html" "${APP_DIR}/server/ui-dist/index.html"; do
+  [[ -f "$cand" ]] && { UI_DIST_HTML="$cand"; break; }
+done
+if [[ -n "${UI_DIST_HTML}" ]]; then
+  if grep -qE "src=\"${PAPERCLIP_SUBPATH%/}/assets/" "${UI_DIST_HTML}"; then
+    ok "  UI 빌드 결과가 '${PAPERCLIP_SUBPATH}' subpath 로 빌드됨 (${UI_DIST_HTML})"
+  else
+    warn "  UI HTML 의 asset 이 subpath prefix 를 포함하지 않음 — 렌더가 깨질 수 있음"
+    warn "  수동 확인: grep 'src=' ${UI_DIST_HTML} | head"
+  fi
+fi
 
 # DB 마이그레이션 (있을 때만)
 sudo -u "${APP_USER}" -H bash -lc "

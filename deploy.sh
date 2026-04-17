@@ -263,6 +263,27 @@ PAPERCLIP_HOME_DIR="${APP_HOME}/.paperclip-data"
 install -d -o "${APP_USER}" -g "${APP_USER}" -m 755 "${PAPERCLIP_HOME_DIR}"
 install -d -o "${APP_USER}" -g "${APP_USER}" -m 755 "${PAPERCLIP_HOME_DIR}/instances/default"
 
+# BETTER_AUTH_SECRET 은 세션/토큰 서명용 — 한번 생성하면 재사용해야 세션 유지
+SECRET_FILE="${PAPERCLIP_HOME_DIR}/.better-auth-secret"
+if [[ -s "${SECRET_FILE}" ]]; then
+  BETTER_AUTH_SECRET="$(tr -d '[:space:]' < "${SECRET_FILE}")"
+  log "  기존 BETTER_AUTH_SECRET 재사용 (${SECRET_FILE})"
+else
+  # 기존 .env 에 이미 있으면 거기서 복구
+  if [[ -f "${ENV_FILE}" ]] && grep -q '^BETTER_AUTH_SECRET=' "${ENV_FILE}" 2>/dev/null; then
+    BETTER_AUTH_SECRET="$(grep '^BETTER_AUTH_SECRET=' "${ENV_FILE}" | head -1 | cut -d= -f2-)"
+    log "  이전 .env 의 BETTER_AUTH_SECRET 복구"
+  else
+    BETTER_AUTH_SECRET="$(openssl rand -hex 32 2>/dev/null \
+                          || head -c 48 /dev/urandom | base64 | tr -d '/+=\n')"
+    log "  새 BETTER_AUTH_SECRET 생성 (영속화: ${SECRET_FILE})"
+  fi
+  umask 077
+  printf '%s\n' "${BETTER_AUTH_SECRET}" > "${SECRET_FILE}"
+  chown "${APP_USER}:${APP_USER}" "${SECRET_FILE}"
+  chmod 600 "${SECRET_FILE}"
+fi
+
 cat > "${ENV_FILE}" <<EOF
 # 자동 생성됨 - $(date -Iseconds)
 NODE_ENV=production
@@ -277,6 +298,10 @@ PAPERCLIP_CONFIG=${PAPERCLIP_HOME_DIR}/instances/default/config.json
 PAPERCLIP_DEPLOYMENT_MODE=authenticated
 PAPERCLIP_DEPLOYMENT_EXPOSURE=private
 OPENCODE_ALLOW_ALL_MODELS=true
+
+# 인증 시크릿 (better-auth 서명키, 한번 생성 후 고정)
+BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+PAPERCLIP_AGENT_JWT_SECRET=${BETTER_AUTH_SECRET}
 
 # 서브경로 배포 힌트 (앱이 지원할 경우)
 BASE_URL=/paperclip

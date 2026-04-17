@@ -165,12 +165,14 @@ if diff -u "${GOLD_NGINX}" "${NEW_NGINX}" | head -80; then
 fi
 
 # ---------- 5) 컨테이너 반영 + 문법 검사 + reload ----------
+# docker cp 은 bind-mount 된 파일에 대해 unlink 실패함 (device or resource busy)
+# → tee 로 inode 유지한 채 내용만 덮어쓰기
 hr; log "[5/7] 적용 → nginx -t → reload"; hr
-docker cp "${NEW_NGINX}" "${NGINX_CONTAINER}:/etc/nginx/nginx.conf"
+docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/nginx.conf" < "${NEW_NGINX}"
 
 if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
   err "nginx -t 실패 — 원복합니다"
-  docker cp "${GOLD_NGINX}" "${NGINX_CONTAINER}:/etc/nginx/nginx.conf"
+  docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/nginx.conf" < "${GOLD_NGINX}"
   exit 1
 fi
 docker exec "${NGINX_CONTAINER}" nginx -s reload
@@ -196,10 +198,10 @@ PYEOF
   if diff -q "${CUR_DEFAULT}" "${NEW_DEFAULT}" >/dev/null; then
     log "  default.conf 에 제거할 paperclip 블록 없음 (skip)"
   else
-    docker cp "${NEW_DEFAULT}" "${NGINX_CONTAINER}:/etc/nginx/conf.d/default.conf"
+    docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/conf.d/default.conf" < "${NEW_DEFAULT}"
     if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
       warn "default.conf 정리 후 -t 실패 → 원본 복원"
-      docker cp "${CUR_DEFAULT}" "${NGINX_CONTAINER}:/etc/nginx/conf.d/default.conf"
+      docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/conf.d/default.conf" < "${CUR_DEFAULT}"
     else
       docker exec "${NGINX_CONTAINER}" nginx -s reload
       ok "default.conf 위생 정리 + reload 완료"
@@ -238,5 +240,5 @@ fi
 
 echo
 ok "복구 완료. 문제 발생 시 원복:"
-echo "   sudo docker cp '${GOLD_NGINX}' '${NGINX_CONTAINER}:/etc/nginx/nginx.conf' \\"
+echo "   sudo docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > /etc/nginx/nginx.conf' < '${GOLD_NGINX}' \\"
 echo "     && sudo docker exec '${NGINX_CONTAINER}' nginx -s reload"

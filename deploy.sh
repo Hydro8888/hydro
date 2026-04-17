@@ -611,16 +611,18 @@ open(path, 'w').write(data[:insert_at] + snippet + data[insert_at:])
 PYEOF
 
 # 컨테이너로 복사
-docker cp "${NEW_CONF}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
+# bind-mount 된 파일은 docker cp 의 unlink+replace 가 "device or resource busy"
+# 로 실패함 → tee 로 inode 유지한 채 내용만 덮어쓰기
+docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${NGINX_CONF_CANDIDATE}'" < "${NEW_CONF}"
 
 # 문법 검사 → 실패 시 즉시 원복
 if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
   err "nginx 문법 오류 — 백업으로 복원"
-  docker cp "${NGINX_BACKUP}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
+  docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${NGINX_CONF_CANDIDATE}'" < "${NGINX_BACKUP}"
   exit 1
 fi
 
-register_rollback "docker cp '${NGINX_BACKUP}' '${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
+register_rollback "docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > ${NGINX_CONF_CANDIDATE}' < '${NGINX_BACKUP}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
 
 docker exec "${NGINX_CONTAINER}" nginx -s reload
 ok "nginx reload 완료"

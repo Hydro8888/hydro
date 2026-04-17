@@ -486,6 +486,31 @@ hr
 log "[9/10] jobworld-nginx 컨테이너에 /paperclip location 추가"
 hr
 
+# 컨테이너 경로 → 호스트 bind-mount 경로 해석
+# (bind-mount 된 파일은 컨테이너 내부 Read-only 또는 docker cp unlink 실패
+#  가능성이 있으므로, 호스트 원본에 직접 쓴다)
+resolve_host_path() {
+  local cpath="$1" cparent cbase hpath hparent
+  hpath="$(docker inspect "${NGINX_CONTAINER}" \
+    --format "{{range .Mounts}}{{if eq .Destination \"${cpath}\"}}{{.Source}}{{end}}{{end}}")"
+  if [[ -n "${hpath}" ]]; then echo "${hpath}"; return 0; fi
+  cparent="$(dirname "${cpath}")"; cbase="$(basename "${cpath}")"
+  hparent="$(docker inspect "${NGINX_CONTAINER}" \
+    --format "{{range .Mounts}}{{if eq .Destination \"${cparent}\"}}{{.Source}}{{end}}{{end}}")"
+  if [[ -n "${hparent}" ]]; then echo "${hparent}/${cbase}"; return 0; fi
+  echo ""
+}
+
+write_container_file() {
+  local cpath="$1" src="$2" hpath
+  hpath="$(resolve_host_path "${cpath}")"
+  if [[ -n "${hpath}" ]]; then
+    cp -f "${src}" "${hpath}"
+  else
+    docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${cpath}'" < "${src}"
+  fi
+}
+
 # 실제 외부 트래픽을 받는 설정 파일 탐색:
 #   nginx -T 의 "# configuration file <path>:" 중에서
 #   'default_server' 가 포함된 server{} 를 가진 파일을 선택한다.
@@ -610,19 +635,22 @@ insert_at = e - 1   # 닫는 '}' 바로 앞
 open(path, 'w').write(data[:insert_at] + snippet + data[insert_at:])
 PYEOF
 
-# 컨테이너로 복사
-# bind-mount 된 파일은 docker cp 의 unlink+replace 가 "device or resource busy"
-# 로 실패함 → tee 로 inode 유지한 채 내용만 덮어쓰기
-docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${NGINX_CONF_CANDIDATE}'" < "${NEW_CONF}"
+# 컨테이너로 복사 — bind-mount 된 파일이면 호스트 원본에 직접 쓰기
+write_container_file "${NGINX_CONF_CANDIDATE}" "${NEW_CONF}"
 
 # 문법 검사 → 실패 시 즉시 원복
 if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
   err "nginx 문법 오류 — 백업으로 복원"
-  docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${NGINX_CONF_CANDIDATE}'" < "${NGINX_BACKUP}"
+  write_container_file "${NGINX_CONF_CANDIDATE}" "${NGINX_BACKUP}"
   exit 1
 fi
 
-register_rollback "docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > ${NGINX_CONF_CANDIDATE}' < '${NGINX_BACKUP}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
+HOST_NGINX_PATH="$(resolve_host_path "${NGINX_CONF_CANDIDATE}")"
+if [[ -n "${HOST_NGINX_PATH}" ]]; then
+  register_rollback "cp -f '${NGINX_BACKUP}' '${HOST_NGINX_PATH}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
+else
+  register_rollback "docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > ${NGINX_CONF_CANDIDATE}' < '${NGINX_BACKUP}' && docker exec '${NGINX_CONTAINER}' nginx -s reload"
+fi
 
 docker exec "${NGINX_CONTAINER}" nginx -s reload
 ok "nginx reload 완료"

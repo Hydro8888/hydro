@@ -48,6 +48,53 @@ if ! docker ps --format '{{.Names}}' | grep -qx "${NGINX_CONTAINER}"; then
 fi
 mkdir -p "${BACKUP_DIR}"
 
+# -------------------------------------------------------------------
+# 컨테이너 경로 → 호스트 bind-mount 경로 해석기
+#   bind-mount 된 파일은 컨테이너 안에서 Read-only 또는 docker cp 가
+#   unlink 불가. 호스트 원본 파일에 직접 써야 반영된다.
+# -------------------------------------------------------------------
+resolve_host_path() {
+  # $1 = container absolute path
+  local cpath="$1" cparent cbase hpath hparent
+  # 1) 파일 단위 bind-mount
+  hpath="$(docker inspect "${NGINX_CONTAINER}" \
+    --format "{{range .Mounts}}{{if eq .Destination \"${cpath}\"}}{{.Source}}{{end}}{{end}}")"
+  if [[ -n "${hpath}" ]]; then
+    echo "${hpath}"; return 0
+  fi
+  # 2) 부모 디렉토리 bind-mount
+  cparent="$(dirname "${cpath}")"
+  cbase="$(basename "${cpath}")"
+  hparent="$(docker inspect "${NGINX_CONTAINER}" \
+    --format "{{range .Mounts}}{{if eq .Destination \"${cparent}\"}}{{.Source}}{{end}}{{end}}")"
+  if [[ -n "${hparent}" ]]; then
+    echo "${hparent}/${cbase}"; return 0
+  fi
+  # 3) mount 아님 (컨테이너 내부 파일)
+  echo ""
+}
+
+# 컨테이너 파일 쓰기 — host bind-mount 가 있으면 거기 쓰고,
+# 아니면 docker exec tee 사용
+write_container_file() {
+  # $1 = container path, $2 = source file on host
+  local cpath="$1" src="$2" hpath
+  hpath="$(resolve_host_path "${cpath}")"
+  if [[ -n "${hpath}" && -e "${hpath}" ]]; then
+    cp -f "${src}" "${hpath}"
+    log "    (host bind-mount 경로에 기록: ${hpath})"
+    return 0
+  fi
+  if [[ -n "${hpath}" ]]; then
+    # 부모만 mount 된 경우 등 — 파일 새로 생성
+    cp -f "${src}" "${hpath}"
+    log "    (host bind-mount 경로에 신규 생성: ${hpath})"
+    return 0
+  fi
+  docker exec -i "${NGINX_CONTAINER}" sh -c "cat > '${cpath}'" < "${src}"
+  log "    (컨테이너 내부에 docker exec tee 로 기록)"
+}
+
 # ---------- 1) 골든 백업 ----------
 hr; log "[1/7] GOLDEN 백업"; hr
 GOLD_NGINX="${BACKUP_DIR}/GOLDEN-nginx.conf.${TS}"
@@ -165,14 +212,12 @@ if diff -u "${GOLD_NGINX}" "${NEW_NGINX}" | head -80; then
 fi
 
 # ---------- 5) 컨테이너 반영 + 문법 검사 + reload ----------
-# docker cp 은 bind-mount 된 파일에 대해 unlink 실패함 (device or resource busy)
-# → tee 로 inode 유지한 채 내용만 덮어쓰기
 hr; log "[5/7] 적용 → nginx -t → reload"; hr
-docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/nginx.conf" < "${NEW_NGINX}"
+write_container_file /etc/nginx/nginx.conf "${NEW_NGINX}"
 
 if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
   err "nginx -t 실패 — 원복합니다"
-  docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/nginx.conf" < "${GOLD_NGINX}"
+  write_container_file /etc/nginx/nginx.conf "${GOLD_NGINX}"
   exit 1
 fi
 docker exec "${NGINX_CONTAINER}" nginx -s reload
@@ -198,13 +243,16 @@ PYEOF
   if diff -q "${CUR_DEFAULT}" "${NEW_DEFAULT}" >/dev/null; then
     log "  default.conf 에 제거할 paperclip 블록 없음 (skip)"
   else
-    docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/conf.d/default.conf" < "${NEW_DEFAULT}"
-    if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
-      warn "default.conf 정리 후 -t 실패 → 원본 복원"
-      docker exec -i "${NGINX_CONTAINER}" sh -c "cat > /etc/nginx/conf.d/default.conf" < "${CUR_DEFAULT}"
+    if write_container_file /etc/nginx/conf.d/default.conf "${NEW_DEFAULT}" 2>/dev/null; then
+      if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
+        warn "default.conf 정리 후 -t 실패 → 원본 복원"
+        write_container_file /etc/nginx/conf.d/default.conf "${CUR_DEFAULT}" 2>/dev/null || true
+      else
+        docker exec "${NGINX_CONTAINER}" nginx -s reload
+        ok "default.conf 위생 정리 + reload 완료"
+      fi
     else
-      docker exec "${NGINX_CONTAINER}" nginx -s reload
-      ok "default.conf 위생 정리 + reload 완료"
+      warn "default.conf 쓰기 불가(Read-only 등) — 위생 정리 skip. 운영 영향 없음(nginx 가 로드 안함)"
     fi
   fi
 else
@@ -240,5 +288,11 @@ fi
 
 echo
 ok "복구 완료. 문제 발생 시 원복:"
-echo "   sudo docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > /etc/nginx/nginx.conf' < '${GOLD_NGINX}' \\"
-echo "     && sudo docker exec '${NGINX_CONTAINER}' nginx -s reload"
+HOST_NGINX="$(resolve_host_path /etc/nginx/nginx.conf)"
+if [[ -n "${HOST_NGINX}" ]]; then
+  echo "   sudo cp '${GOLD_NGINX}' '${HOST_NGINX}' \\"
+  echo "     && sudo docker exec '${NGINX_CONTAINER}' nginx -s reload"
+else
+  echo "   sudo docker exec -i '${NGINX_CONTAINER}' sh -c 'cat > /etc/nginx/nginx.conf' < '${GOLD_NGINX}' \\"
+  echo "     && sudo docker exec '${NGINX_CONTAINER}' nginx -s reload"
+fi

@@ -645,6 +645,116 @@ PYEOF
   insert_paperclip_block "${HYDRO_CONF}" "default_server"
   insert_paperclip_block "${MULTI_CONF}" "211.198.54.207"
 
+  # paperclip-api: UI JS 가 런타임에 /health, /api/..., /auth/... 같은
+  # root 절대경로를 호출함. Vite base 는 이들까지 자동 rewrite 해주지 않아
+  # nginx 에서 :${PAPERCLIP_PORT} 으로 직접 forward 한다.
+  # 현재 이 root 경로들을 쓰는 다른 서비스가 없어 안전하지만 마커로 격리해
+  # 향후 제거하기 쉽게 유지한다.
+  insert_paperclip_api_block() {
+    local target="$1" selector="$2"
+    TARGET_FILE="${target}" SELECTOR="${selector}" PORT="${PAPERCLIP_PORT}" \
+      python3 <<'PYEOF'
+import os, re, sys
+path = os.environ['TARGET_FILE']
+selector = os.environ['SELECTOR']
+port = os.environ['PORT']
+START = "# === paperclip-api (auto) ==="
+END   = "# === /paperclip-api end ==="
+
+data = open(path).read()
+data = re.sub(r'\s*' + re.escape(START) + r'.*?' + re.escape(END) + r'\s*',
+              '\n', data, flags=re.DOTALL)
+
+snippet = f"""
+    {START}
+    # paperclip UI 의 런타임 절대경로 API 호출을 :{port} 으로 forward
+    location = /health {{
+        proxy_pass http://127.0.0.1:{port}/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /paperclip;
+    }}
+    location /api/ {{
+        proxy_pass http://127.0.0.1:{port}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /paperclip;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        client_max_body_size 50m;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }}
+    location /auth/ {{
+        proxy_pass http://127.0.0.1:{port}/auth/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /paperclip;
+    }}
+    location /socket.io/ {{
+        proxy_pass http://127.0.0.1:{port}/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }}
+    location = /ws {{
+        proxy_pass http://127.0.0.1:{port}/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }}
+    location /trpc/ {{
+        proxy_pass http://127.0.0.1:{port}/trpc/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /paperclip;
+    }}
+    {END}
+"""
+
+pos = 0; blocks = []
+while True:
+    m = re.search(r'\bserver\s*\{', data[pos:])
+    if not m: break
+    s = pos + m.start(); i = pos + m.end(); depth = 1
+    while i < len(data) and depth > 0:
+        if data[i] == '{': depth += 1
+        elif data[i] == '}': depth -= 1
+        i += 1
+    if depth != 0: sys.exit(f"unbalanced in {path}")
+    blocks.append((s, i)); pos = i
+
+target = None
+for s, e in blocks:
+    if selector in data[s:e]:
+        target = (s, e); break
+if target is None:
+    sys.exit(f"no server block with '{selector}' in {path}")
+
+s, e = target
+open(path, 'w').write(data[:s] + data[s:e-1] + snippet + data[e-1:])
+PYEOF
+  }
+
+  insert_paperclip_api_block "${HYDRO_CONF}" "default_server"
+  insert_paperclip_api_block "${MULTI_CONF}" "211.198.54.207"
+
   # nginx -t 실패 시 두 파일 모두 원복
   if ! nginx -t 2>&1; then
     err "nginx 문법 오류 — 두 파일 모두 백업으로 복원"

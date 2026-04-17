@@ -258,20 +258,32 @@ hr
 log "[5/10] .env 생성"
 hr
 ENV_FILE="${APP_DIR}/.env"
+# PAPERCLIP_HOME: paperclip 의 런타임 데이터(인스턴스/DB) 저장 위치
+PAPERCLIP_HOME_DIR="${APP_HOME}/.paperclip-data"
+install -d -o "${APP_USER}" -g "${APP_USER}" -m 755 "${PAPERCLIP_HOME_DIR}"
+install -d -o "${APP_USER}" -g "${APP_USER}" -m 755 "${PAPERCLIP_HOME_DIR}/instances/default"
+
 cat > "${ENV_FILE}" <<EOF
 # 자동 생성됨 - $(date -Iseconds)
 NODE_ENV=production
 HOST=0.0.0.0
 PORT=${PAPERCLIP_PORT}
+SERVE_UI=true
+
+# paperclip 런타임 설정 (Dockerfile ENV 에서 차용)
+PAPERCLIP_HOME=${PAPERCLIP_HOME_DIR}
+PAPERCLIP_INSTANCE_ID=default
+PAPERCLIP_CONFIG=${PAPERCLIP_HOME_DIR}/instances/default/config.json
+PAPERCLIP_DEPLOYMENT_MODE=authenticated
+PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+OPENCODE_ALLOW_ALL_MODELS=true
+
+# 서브경로 배포 힌트 (앱이 지원할 경우)
 BASE_URL=/paperclip
 PUBLIC_URL=/paperclip
 BASE_PATH=/paperclip
 
-# 내장 PostgreSQL
-DATABASE_URL=postgresql://paperclip:paperclip@127.0.0.1:${PG_PORT}/paperclip
-PGPORT=${PG_PORT}
-
-# AI (xAI Grok 4.1 Fast Reasoning)
+# AI (xAI Grok 4.1 Fast Reasoning, OpenAI 호환 엔드포인트)
 XAI_API_KEY=${XAI_API_KEY}
 XAI_MODEL=${XAI_MODEL}
 OPENAI_BASE_URL=https://api.x.ai/v1
@@ -281,6 +293,7 @@ EOF
 chown "${APP_USER}:${APP_USER}" "${ENV_FILE}"
 chmod 600 "${ENV_FILE}"
 ok ".env 작성 완료 (${ENV_FILE})"
+ok "PAPERCLIP_HOME: ${PAPERCLIP_HOME_DIR}"
 
 # -------------------------- [6/10] 의존성 / 빌드 -----------------------------
 hr
@@ -315,48 +328,30 @@ hr
 log "[7/10] PM2 로 ${APP_NAME} 기동"
 hr
 
-# package.json 의 start 스크립트 존재 여부 확인 → fallback 결정
-# paperclip 은 monorepo 라 root 에 start 가 없을 수 있음 → server 워크스페이스 검사
-START_CMD=""
-START_ARGS=""
+# paperclip 기동 명령은 Dockerfile CMD 를 그대로 따름:
+#   node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
+# 이유: workspace 패키지들이 exports 를 "./src/index.ts" 로 노출하므로
+# runtime 에 tsx loader 로 .ts 파일 transpile 이 필요.
+START_CMD="node"
+TSX_LOADER_REL="./server/node_modules/tsx/dist/loader.mjs"
+TSX_LOADER_ABS="${APP_DIR}/server/node_modules/tsx/dist/loader.mjs"
+SERVER_ENTRY_REL="server/dist/index.js"
+SERVER_ENTRY_ABS="${APP_DIR}/${SERVER_ENTRY_REL}"
 
-has_script() {
-  # $1 = package.json 경로, $2 = 스크립트명
-  [[ -f "$1" ]] || return 1
-  node -e "try{const p=require('$1');process.exit(p.scripts&&p.scripts['$2']?0:1)}catch(e){process.exit(1)}" 2>/dev/null
-}
-
-if has_script "${APP_DIR}/package.json" "start"; then
-  START_CMD="pnpm"; START_ARGS="start"
-elif has_script "${APP_DIR}/server/package.json" "start"; then
-  # @paperclipai/server 패턴 (paperclipai/paperclip)
-  START_CMD="pnpm"; START_ARGS="--filter @paperclipai/server start"
-  log "  server 워크스페이스의 start 스크립트 사용"
-elif has_script "${APP_DIR}/server/package.json" "start:prod"; then
-  START_CMD="pnpm"; START_ARGS="--filter @paperclipai/server start:prod"
-elif has_script "${APP_DIR}/package.json" "start:prod"; then
-  START_CMD="pnpm"; START_ARGS="run start:prod"
-elif has_script "${APP_DIR}/package.json" "serve"; then
-  START_CMD="pnpm"; START_ARGS="run serve"
-elif [[ -f "${APP_DIR}/server/dist/index.js" ]]; then
-  START_CMD="node"; START_ARGS="server/dist/index.js"
-elif [[ -f "${APP_DIR}/server/dist/src/index.js" ]]; then
-  START_CMD="node"; START_ARGS="server/dist/src/index.js"
-elif [[ -f "${APP_DIR}/dist/index.js" ]]; then
-  START_CMD="node"; START_ARGS="dist/index.js"
-elif [[ -f "${APP_DIR}/packages/server/dist/index.js" ]]; then
-  START_CMD="node"; START_ARGS="packages/server/dist/index.js"
-elif has_script "${APP_DIR}/package.json" "paperclipai"; then
-  # paperclipai CLI 를 통해 기동 (serve 서브커맨드 가정)
-  START_CMD="pnpm"; START_ARGS="paperclipai serve"
-  warn "  'paperclipai serve' fallback 사용 — 실행 실패 시 CLI 인자 조정 필요"
-else
-  err "기동 명령을 판별할 수 없습니다."
-  err "  ${APP_DIR}/server/package.json 의 scripts 를 확인해 주세요."
+if [[ ! -f "${SERVER_ENTRY_ABS}" ]]; then
+  err "server 빌드 산출물이 없습니다: ${SERVER_ENTRY_ABS}"
+  err "  pnpm build 재실행이 필요합니다."
+  exit 1
+fi
+if [[ ! -f "${TSX_LOADER_ABS}" ]]; then
+  err "tsx loader 가 없습니다: ${TSX_LOADER_ABS}"
+  err "  pnpm install 재실행이 필요합니다."
   exit 1
 fi
 
-log "  기동 명령: ${START_CMD} ${START_ARGS}"
+START_ARGS="--import ${TSX_LOADER_REL} ${SERVER_ENTRY_REL}"
+log "  기동 명령 (cwd=${APP_DIR}):"
+log "    ${START_CMD} ${START_ARGS}"
 
 # PM2 ecosystem 파일: paperclip root 가 "type":"module" 이면 .js 는 ESM 으로 파싱됨
 # → CommonJS(module.exports) 를 유지하기 위해 확장자를 .cjs 로 강제
@@ -369,14 +364,27 @@ module.exports = {
     name: "${APP_NAME}",
     script: "${START_CMD}",
     args: "${START_ARGS}",
+    interpreter: "none",
     cwd: "${APP_DIR}",
     env: {
       NODE_ENV: "production",
       HOST: "0.0.0.0",
       PORT: "${PAPERCLIP_PORT}",
+      SERVE_UI: "true",
+      PAPERCLIP_HOME: "${PAPERCLIP_HOME_DIR}",
+      PAPERCLIP_INSTANCE_ID: "default",
+      PAPERCLIP_CONFIG: "${PAPERCLIP_HOME_DIR}/instances/default/config.json",
+      PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: "private",
+      OPENCODE_ALLOW_ALL_MODELS: "true",
       BASE_URL: "/paperclip",
       PUBLIC_URL: "/paperclip",
-      BASE_PATH: "/paperclip"
+      BASE_PATH: "/paperclip",
+      XAI_API_KEY: "${XAI_API_KEY}",
+      XAI_MODEL: "${XAI_MODEL}",
+      OPENAI_BASE_URL: "https://api.x.ai/v1",
+      OPENAI_API_KEY: "${XAI_API_KEY}",
+      OPENAI_MODEL: "${XAI_MODEL}"
     },
     max_memory_restart: "1G",
     out_file: "${APP_HOME}/.pm2/logs/${APP_NAME}-out.log",

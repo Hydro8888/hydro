@@ -302,9 +302,12 @@ OPENCODE_ALLOW_ALL_MODELS=true
 # 인증 시크릿 (better-auth 서명키, 한번 생성 후 고정)
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 PAPERCLIP_AGENT_JWT_SECRET=${BETTER_AUTH_SECRET}
+# better-auth 는 full URL(protocol+host) 을 요구 — 상대경로 "/paperclip" 이면 ERR_INVALID_URL
+BETTER_AUTH_URL=http://${SERVER_PUBLIC_IP}/paperclip
+PAPERCLIP_PUBLIC_URL=http://${SERVER_PUBLIC_IP}/paperclip
+AUTH_TRUSTED_ORIGINS=http://${SERVER_PUBLIC_IP},http://127.0.0.1,http://localhost
 
-# 서브경로 배포 힌트 (앱이 지원할 경우)
-BASE_URL=/paperclip
+# 서브경로 배포 힌트 (앱이 지원할 경우) — 주의: BASE_URL 은 better-auth 가 상대경로로 오해하므로 제외
 PUBLIC_URL=/paperclip
 BASE_PATH=/paperclip
 
@@ -402,7 +405,11 @@ module.exports = {
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated",
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "private",
       OPENCODE_ALLOW_ALL_MODELS: "true",
-      BASE_URL: "/paperclip",
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}",
+      PAPERCLIP_AGENT_JWT_SECRET: "${BETTER_AUTH_SECRET}",
+      BETTER_AUTH_URL: "http://${SERVER_PUBLIC_IP}/paperclip",
+      PAPERCLIP_PUBLIC_URL: "http://${SERVER_PUBLIC_IP}/paperclip",
+      AUTH_TRUSTED_ORIGINS: "http://${SERVER_PUBLIC_IP},http://127.0.0.1,http://localhost",
       PUBLIC_URL: "/paperclip",
       BASE_PATH: "/paperclip",
       XAI_API_KEY: "${XAI_API_KEY}",

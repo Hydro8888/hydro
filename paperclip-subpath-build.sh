@@ -86,35 +86,34 @@ with open(path, 'r') as f:
 # 1) `base: '...'` 또는 `base: "..."` 가 이미 존재? → 값 치환
 m = re.search(r'(^[ \t]*base\s*:\s*)(["\'])[^"\']*\2', data, re.MULTILINE)
 if m:
-    start, end = m.span()
-    new = m.group(1) + "'" + base + "'"
-    data = data[:start] + new + data[end:]
+    data = data[:m.start()] + m.group(1) + "'" + base + "'" + data[m.end():]
     with open(path, 'w') as f: f.write(data)
     print(f"  기존 'base' 필드 값 치환: {base}")
     sys.exit(0)
 
-# 2) defineConfig({ ... }) 안에 base 없음 → 삽입
-#    defineConfig( ... ) 의 첫 번째 '{' 바로 뒤에 base 라인 추가
-m = re.search(r'defineConfig\s*\(\s*\{', data)
-if m:
-    ins = m.end()
-    snippet = f"\n  base: '{base}',"
-    data = data[:ins] + snippet + data[ins:]
-    with open(path, 'w') as f: f.write(data)
-    print(f"  defineConfig({{}}) 안에 'base: \"{base}\"' 삽입")
-    sys.exit(0)
+# 2) 다음 패턴들을 순서대로 시도 — 전부 object literal 의 여는 '{' 을 찾음
+#    가장 먼저 매치되는 걸 삽입 지점으로 사용
+candidates = [
+    # arrow function 반환형: `=> ({`  ← paperclip 이 이 패턴 (defineConfig(({mode}) => ({...})))
+    (re.compile(r'=>\s*\(\s*\{'), "arrow returning object (=> ({)"),
+    # 직접 객체: `defineConfig({`
+    (re.compile(r'defineConfig\s*\(\s*\{'), "defineConfig({"),
+    # 비동기 함수: `async\s+\(...\)\s*=>\s*\(\{` 은 위 1번이 이미 커버
+    # export default { ... }
+    (re.compile(r'export\s+default\s*\{'), "export default {"),
+]
 
-# 3) export default { ... } 패턴
-m = re.search(r'export\s+default\s*\{', data)
-if m:
-    ins = m.end()
-    snippet = f"\n  base: '{base}',"
-    data = data[:ins] + snippet + data[ins:]
-    with open(path, 'w') as f: f.write(data)
-    print(f"  export default {{}} 안에 'base: \"{base}\"' 삽입")
-    sys.exit(0)
+for pat, label in candidates:
+    m = pat.search(data)
+    if m:
+        ins = m.end()
+        snippet = f"\n  base: '{base}',"
+        data = data[:ins] + snippet + data[ins:]
+        with open(path, 'w') as f: f.write(data)
+        print(f"  패턴 '{label}' 뒤에 'base: \"{base}\"' 삽입")
+        sys.exit(0)
 
-sys.exit("ERROR: defineConfig 또는 export default 객체를 찾지 못함 — 수동 검토 필요")
+sys.exit("ERROR: 지원되는 Vite config 패턴을 찾지 못함 — 수동 검토 필요")
 PYEOF
 
 cp -f "${VITE_NEW}" "${VITE_CONFIG}"

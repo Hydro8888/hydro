@@ -343,13 +343,23 @@ import os, re, sys
 path = os.environ['TARGET']
 base = os.environ['SUBPATH']
 data = open(path).read()
+# 1) 이미 있는 base 값 치환
 m = re.search(r'(^[ \t]*base\s*:\s*)(["\'])[^"\']*\2', data, re.MULTILINE)
 if m:
     data = data[:m.start()] + m.group(1) + "'" + base + "'" + data[m.end():]
 else:
-    m = re.search(r'defineConfig\s*\(\s*\{', data) or re.search(r'export\s+default\s*\{', data)
+    # 2) 여러 Vite config 패턴 지원 — 가장 먼저 매치되는 object literal 여는 { 뒤에 삽입
+    patterns = [
+        r'=>\s*\(\s*\{',         # arrow returning object: `=> ({`  (paperclip 패턴)
+        r'defineConfig\s*\(\s*\{',# 직접 객체: defineConfig({
+        r'export\s+default\s*\{',# export default {
+    ]
+    m = None
+    for p in patterns:
+        m = re.search(p, data)
+        if m: break
     if not m:
-        sys.exit("defineConfig/export default not found in vite.config")
+        sys.exit("지원되는 Vite config 패턴을 찾지 못함 (vite.config 수동 검토 필요)")
     data = data[:m.end()] + f"\n  base: '{base}'," + data[m.end():]
 open(path, 'w').write(data)
 PYEOF

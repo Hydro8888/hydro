@@ -486,22 +486,31 @@ hr
 log "[9/10] jobworld-nginx 컨테이너에 /paperclip location 추가"
 hr
 
-# 컨테이너가 실제로 로딩한 server 블록이 들어있는 conf 파일 찾기
-#  (default.conf 가 아닐 수 있으므로 nginx -T 출력으로 탐색)
-NGINX_CONF_CANDIDATE="${NGINX_CONF_IN_CONTAINER}"
-if ! docker exec "${NGINX_CONTAINER}" test -f "${NGINX_CONF_CANDIDATE}" 2>/dev/null; then
-  NGINX_CONF_CANDIDATE="$(docker exec "${NGINX_CONTAINER}" sh -c '
-    nginx -T 2>/dev/null \
-      | awk "/^# configuration file/ {sub(/:$/, \"\", \$4); print \$4}" \
-      | while read f; do
-          if grep -qE "^[[:space:]]*server[[:space:]]*\{" "\$f"; then
-            echo "\$f"; break
-          fi
-        done
+# 실제 외부 트래픽을 받는 설정 파일 탐색:
+#   nginx -T 의 "# configuration file <path>:" 중에서
+#   'default_server' 가 포함된 server{} 를 가진 파일을 선택한다.
+#   (많은 환경이 conf.d/default.conf 에 include 가 안 걸려 있어
+#    그 파일에 넣어도 적용되지 않는 함정이 존재)
+NGINX_CONF_CANDIDATE="$(docker exec "${NGINX_CONTAINER}" sh -lc '
+  set -e
+  nginx -T 2>/dev/null | awk "
+    /^# configuration file/ { f=\$4; sub(/:$/, \"\", f); next }
+    /default_server/ { if (f) { print f; exit } }
+  "
+')"
+
+# fallback: default_server 가 없는 환경 → server{} 가 있는 첫 파일
+if [[ -z "${NGINX_CONF_CANDIDATE}" ]]; then
+  warn "default_server 블록을 찾지 못함 — server{} 첫 파일로 fallback"
+  NGINX_CONF_CANDIDATE="$(docker exec "${NGINX_CONTAINER}" sh -lc '
+    nginx -T 2>/dev/null | awk "
+      /^# configuration file/ { f=\$4; sub(/:$/, \"\", f); next }
+      /^[[:space:]]*server[[:space:]]*\{/ { if (f) { print f; exit } }
+    "
   ')"
 fi
 if [[ -z "${NGINX_CONF_CANDIDATE}" ]]; then
-  err "nginx server 블록을 가진 설정 파일을 찾지 못했습니다"
+  err "nginx 설정 파일을 찾지 못했습니다 (nginx -T 출력 확인 필요)"
   exit 1
 fi
 log "  사용할 nginx 설정 파일 (컨테이너 내부): ${NGINX_CONF_CANDIDATE}"
@@ -513,7 +522,7 @@ ok "nginx 설정 백업: ${NGINX_BACKUP}"
 NEW_CONF="${HOST_BACKUP_DIR}/nginx.conf.new-$(date +%s)"
 cp "${NGINX_BACKUP}" "${NEW_CONF}"
 
-# Python 으로 안전하게: 기존 paperclip 블록 제거 후 첫 server { } 내부 말미에 삽입
+# Python: 기존 paperclip 블록 제거 후 default_server 를 가진 server{} 말미에 삽입
 PAPERCLIP_MARK_START="# === paperclip (auto) ==="
 PAPERCLIP_MARK_END="# === /paperclip end ==="
 
@@ -521,8 +530,7 @@ export PAPERCLIP_PORT DOCKER_HOST_IP PAPERCLIP_MARK_START PAPERCLIP_MARK_END
 python3 - "${NEW_CONF}" <<'PYEOF'
 import os, re, sys
 path = sys.argv[1]
-with open(path, 'r') as f:
-    data = f.read()
+data = open(path, 'r').read()
 
 start_mark = os.environ['PAPERCLIP_MARK_START']
 end_mark   = os.environ['PAPERCLIP_MARK_END']
@@ -530,57 +538,82 @@ port       = os.environ['PAPERCLIP_PORT']
 host_ip    = os.environ['DOCKER_HOST_IP']
 
 # 1) 기존 paperclip 블록 전부 제거 (재실행 시 갱신)
-pat = re.compile(
-    re.escape(start_mark) + r'.*?' + re.escape(end_mark) + r'\s*',
-    re.DOTALL)
-data = pat.sub('', data)
+data = re.sub(
+    r'\s*' + re.escape(start_mark) + r'.*?' + re.escape(end_mark) + r'\s*',
+    '\n',
+    data,
+    flags=re.DOTALL,
+)
+# 옛 버전이 남긴 "자동추가 ..." 마커도 청소 (호환성)
+data = re.sub(
+    r'\s*# === paperclip \(자동추가[^=]*?=== /paperclip end ===\s*',
+    '\n',
+    data,
+    flags=re.DOTALL,
+)
 
 snippet = f"""
-    {start_mark}
-    location = /paperclip {{
-        return 301 /paperclip/;
-    }}
-    location /paperclip/ {{
-        proxy_pass http://{host_ip}:{port}/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Prefix /paperclip;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-        client_max_body_size 50m;
-    }}
-    {end_mark}
+        {start_mark}
+        location = /paperclip {{
+            return 301 /paperclip/;
+        }}
+        location /paperclip/ {{
+            proxy_pass http://{host_ip}:{port}/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Prefix /paperclip;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+            client_max_body_size 50m;
+        }}
+        {end_mark}
 """
 
-# 2) 첫 번째 "server {" 블록의 매칭 '}' 찾기 (중괄호 카운트)
-m = re.search(r'\bserver\s*\{', data)
-if not m:
-    sys.stderr.write("no server { block found\n"); sys.exit(1)
-i = m.end()
-depth = 1
-while i < len(data) and depth > 0:
-    c = data[i]
-    if c == '{': depth += 1
-    elif c == '}': depth -= 1
-    i += 1
-if depth != 0:
-    sys.stderr.write("unbalanced braces in server block\n"); sys.exit(1)
-close = i - 1   # 위치: 매칭되는 닫는 '}' 인덱스
+# 2) 모든 server{...} 블록 추출
+pos = 0
+blocks = []
+while True:
+    m = re.search(r'\bserver\s*\{', data[pos:])
+    if not m:
+        break
+    s = pos + m.start()
+    i = pos + m.end()
+    depth = 1
+    while i < len(data) and depth > 0:
+        c = data[i]
+        if c == '{': depth += 1
+        elif c == '}': depth -= 1
+        i += 1
+    if depth != 0:
+        sys.exit("ERROR: unbalanced braces in server block")
+    blocks.append((s, i))
+    pos = i
 
-new = data[:close] + snippet + data[close:]
-with open(path, 'w') as f:
-    f.write(new)
+# 3) default_server 를 가진 블록 우선 선택 (없으면 첫 블록)
+target = None
+for s, e in blocks:
+    if 'default_server' in data[s:e]:
+        target = (s, e)
+        break
+if target is None and blocks:
+    target = blocks[0]
+if target is None:
+    sys.exit("ERROR: no server{} block found")
+
+s, e = target
+insert_at = e - 1   # 닫는 '}' 바로 앞
+open(path, 'w').write(data[:insert_at] + snippet + data[insert_at:])
 PYEOF
 
 # 컨테이너로 복사
 docker cp "${NEW_CONF}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
 
-# 문법 검사 → 실패 시 원복
+# 문법 검사 → 실패 시 즉시 원복
 if ! docker exec "${NGINX_CONTAINER}" nginx -t 2>&1; then
   err "nginx 문법 오류 — 백업으로 복원"
   docker cp "${NGINX_BACKUP}" "${NGINX_CONTAINER}:${NGINX_CONF_CANDIDATE}"
@@ -595,6 +628,15 @@ ok "nginx reload 완료"
 # 실제 적용된 블록 확인
 log "  적용 결과 확인:"
 docker exec "${NGINX_CONTAINER}" sh -c "nginx -T 2>/dev/null | grep -E 'location.*paperclip|proxy_pass.*${PAPERCLIP_PORT}' || true" | sed 's/^/    /'
+
+# 기존 서비스 회귀 확인 — 게이트웨이 응답코드가 변경되지 않았는지
+log "  기존 서비스 응답코드 (paperclip 외에는 이전과 동일해야 함):"
+for probe_path in /jobworld/ /jobworld/health /livenews/ /; do
+  code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1${probe_path}" || echo 000)"
+  printf '    %-30s %s\n' "${probe_path}" "${code}"
+done
+code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: free.ai.kr' 'http://127.0.0.1/' || echo 000)"
+printf '    %-30s %s\n' '/ (Host:free.ai.kr)' "${code}"
 
 # -------------------------- [10/10] 검증 ------------------------------------
 hr

@@ -97,10 +97,13 @@ BLK
 inject_location() {
   local target_file="$1"
   local selector="$2"
-  local tmp_out
-  tmp_out="$(mktemp)"
+  local tmp_out rc=0
+  # sudo mktemp → 파일 소유자 root. Ubuntu의 fs.protected_regular 보호 때문에
+  # /tmp (root sticky) 에 ubuntu 소유 파일을 만들면 root 조차 write 불가.
+  tmp_out="$(sudo mktemp /tmp/room-deploy.XXXXXX)"
+  sudo chmod 644 "$tmp_out"
 
-  sudo python3 - "$target_file" "$selector" "$tmp_out" "$LOCATION_BLOCK" <<'PYEOF'
+  sudo python3 - "$target_file" "$selector" "$tmp_out" "$LOCATION_BLOCK" <<'PYEOF' || rc=$?
 import sys, re
 
 path, selector, out_path, block = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -170,14 +173,13 @@ with open(out_path, 'w', encoding='utf-8') as f:
     f.write(new_src)
 sys.stderr.write(f"[OK] {path}: inserted {len(block)} bytes before closing brace at {cb}\n")
 PYEOF
-  local rc=$?
 
-  if [ $rc -eq 10 ]; then
+  if [ "$rc" -eq 10 ]; then
     warn "$target_file: 이미 /room 블록 존재 → 변경 없음"
-    rm -f "$tmp_out"
+    sudo rm -f "$tmp_out"
     return 0
-  elif [ $rc -ne 0 ]; then
-    rm -f "$tmp_out"
+  elif [ "$rc" -ne 0 ]; then
+    sudo rm -f "$tmp_out"
     die "Python 삽입 실패 ($target_file, rc=$rc)"
   fi
 
@@ -186,7 +188,7 @@ PYEOF
   sudo diff -u "$target_file" "$tmp_out" || true
   # Atomic replace
   sudo install -m 0644 -o root -g root "$tmp_out" "$target_file"
-  rm -f "$tmp_out"
+  sudo rm -f "$tmp_out"
   ok "$target_file 삽입 완료"
 }
 

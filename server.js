@@ -35,11 +35,15 @@ db.exec(`
     ON reservations(date);
 `);
 
-// Migration: add password_hash column if missing (idempotent)
-try {
-  db.exec(`ALTER TABLE reservations ADD COLUMN password_hash TEXT`);
-} catch (e) {
-  if (!/duplicate column name/i.test(e.message)) throw e;
+// Idempotent migrations
+const migrations = [
+  `ALTER TABLE reservations ADD COLUMN password_hash TEXT`,
+  `ALTER TABLE reservations ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
+];
+for (const sql of migrations) {
+  try { db.exec(sql); } catch (e) {
+    if (!/duplicate column name/i.test(e.message)) throw e;
+  }
 }
 
 const app = express();
@@ -48,7 +52,7 @@ app.use(express.json({ limit: '64kb' }));
 
 const stmts = {
   list: db.prepare(`
-    SELECT id, room, date, startTime, endTime, people, reserver, created_at,
+    SELECT id, room, date, startTime, endTime, people, reserver, description, created_at,
            (password_hash IS NOT NULL) AS has_password
     FROM reservations
     ORDER BY date ASC, startTime ASC
@@ -61,11 +65,11 @@ const stmts = {
     LIMIT 1
   `),
   insert: db.prepare(`
-    INSERT INTO reservations (room, date, startTime, endTime, people, reserver, password_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO reservations (room, date, startTime, endTime, people, reserver, description, password_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
   getById: db.prepare(`
-    SELECT id, room, date, startTime, endTime, people, reserver, created_at,
+    SELECT id, room, date, startTime, endTime, people, reserver, description, created_at,
            (password_hash IS NOT NULL) AS has_password
     FROM reservations WHERE id = ?
   `),
@@ -83,6 +87,7 @@ function validateInput(body) {
   const startTime = (body.startTime || '').toString();
   const endTime = (body.endTime || '').toString();
   const reserver = (body.reserver || '').toString().trim();
+  const description = (body.description || '').toString().trim();
   const password = (body.password || '').toString();
   const people = parseInt(body.people, 10);
 
@@ -94,9 +99,10 @@ function validateInput(body) {
   if (endTime > '19:00')   return '예약 종료 시간은 19:00 이하여야 합니다';
   if (!Number.isFinite(people) || people < 1 || people > 50) return '인원은 1~50명 사이여야 합니다';
   if (!reserver || reserver.length > 50) return '예약자 이름은 1~50자여야 합니다';
+  if (description.length > 100) return '회의 내용은 100자 이내여야 합니다';
   if (!password || password.length < 4 || password.length > 20) return '비밀번호는 4~20자여야 합니다';
 
-  return { room, date, startTime, endTime, people, reserver, password };
+  return { room, date, startTime, endTime, people, reserver, description, password };
 }
 
 app.get('/api/health', (_req, res) => {
@@ -119,7 +125,10 @@ app.post('/api/reservations', (req, res) => {
       throw err;
     }
     const pwHash = hashPassword(data.password);
-    const info = stmts.insert.run(data.room, data.date, data.startTime, data.endTime, data.people, data.reserver, pwHash);
+    const info = stmts.insert.run(
+      data.room, data.date, data.startTime, data.endTime,
+      data.people, data.reserver, data.description, pwHash
+    );
     return stmts.getById.get(info.lastInsertRowid);
   });
 

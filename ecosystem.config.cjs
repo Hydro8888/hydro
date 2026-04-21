@@ -11,7 +11,7 @@ module.exports = {
       max_memory_restart: '200M',
       env: {
         NODE_ENV: 'production',
-        PORT: '5100',
+        PORT: '5110',
         DB_PATH: '/home/ubuntu/room/data/reservations.db',
       },
       out_file: '/home/ubuntu/room/logs/out.log',

@@ -3,7 +3,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const PORT = parseInt(process.env.PORT || '5100', 10);
+const PORT = parseInt(process.env.PORT || '5110', 10);
 const DB_PATH = process.env.DB_PATH || '/home/ubuntu/room/data/reservations.db';
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });

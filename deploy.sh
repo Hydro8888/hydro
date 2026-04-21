@@ -3,14 +3,14 @@
 # 회의실 예약 시스템 배포 스크립트 (v2: SQLite + PM2 백엔드)
 # 대상 서버 : 211.198.54.207 (Ubuntu, 호스트 systemd nginx)
 # 외부 URL  : http://211.198.54.207/room/
-# 백엔드   : Node.js + Express + better-sqlite3, PM2 'room', 포트 5100
+# 백엔드   : Node.js + Express + better-sqlite3, PM2 'room', 포트 5110
 # 실행 위치 : 서버의 레포 루트 (사용자가 SSH 접속한 상태)
 # 사용법   : bash deploy.sh
 # ============================================================
 set -euo pipefail
 
 APP_NAME="room"
-APP_PORT="5100"
+APP_PORT="5110"  # 5100 은 paperclip 점유 중 → 5110 사용
 APP_DIR="/home/ubuntu/${APP_NAME}"
 DATA_DIR="${APP_DIR}/data"
 LOGS_DIR="${APP_DIR}/logs"
@@ -112,12 +112,15 @@ fi
 # 포트 5100 최종 확인 — 여전히 점유되어 있으면 중단하고 정리 명령 안내
 PORT_LINE_NOW="$(sudo ss -ltnp 2>/dev/null | awk -v p=":${APP_PORT} " '$4 ~ p' || true)"
 if [ -n "$PORT_LINE_NOW" ]; then
-  warn "PM2 delete 후에도 포트 ${APP_PORT} 여전히 점유 중:"
+  warn "포트 ${APP_PORT} 가 다른 프로세스에 점유 중:"
   echo "$PORT_LINE_NOW"
-  warn "원인 프로세스가 PM2 외부에서 동작 중. 다음 명령으로 정리 후 재실행하세요:"
-  warn "  sudo fuser -k ${APP_PORT}/tcp    # 포트 강제 해제"
-  warn "  또는 위 ss 출력의 PID 를 직접 kill"
-  die "포트 ${APP_PORT} 점유 해제 필요"
+  warn "⚠️  fuser -k / kill 로 무작정 죽이지 마세요 — 다른 운영 서비스일 수 있습니다."
+  warn "먼저 PID 확인 후 어떤 서비스인지 파악하세요:"
+  warn "  pm2 list                                  # PM2 관리 프로세스인지 확인"
+  warn "  sudo lsof -i :${APP_PORT}                  # 상세 정보"
+  warn "  curl -s http://127.0.0.1:${APP_PORT}/ | head"
+  warn "파악 후 정말 room 전용이면 그 때 정리하거나, APP_PORT 를 다른 값으로 바꿔서 재실행."
+  die "포트 ${APP_PORT} 충돌 — 수동 확인 필요"
 fi
 
 log "PM2 start ecosystem.config.cjs"
@@ -251,38 +254,29 @@ if not blocks:
     sys.stderr.write(f"[ERROR] {path}: server block not found\n")
     sys.exit(2)
 
+def strip_room_blocks(body_text):
+    """Remove any previously-inserted /room, /room/api/, and '= /room' blocks
+    along with their preceding '# ── room' comment lines."""
+    body_text = re.sub(
+        r'\n\s*#[^\n]*room[^\n]*\n\s*location\s+/room/api/\s*\{[^{}]*\}\s*',
+        '\n', body_text)
+    body_text = re.sub(
+        r'\n\s*#[^\n]*room[^\n]*\n\s*location\s+/room/\s*\{[^{}]*\}\s*',
+        '\n', body_text)
+    body_text = re.sub(
+        r'\n\s*location\s+/room/api/\s*\{[^{}]*\}\s*',
+        '\n', body_text)
+    body_text = re.sub(
+        r'\n\s*location\s+/room/\s*\{[^{}]*\}\s*',
+        '\n', body_text)
+    body_text = re.sub(
+        r'\n\s*location\s*=\s*/room\s*\{[^{}]*\}\s*',
+        '\n', body_text)
+    return body_text
+
 target = None
 for (_, ob, cb) in blocks:
-    body = src[ob+1:cb]
-    if selector in body:
-        has_static = bool(re.search(r'location\s+/room/\s*\{', body))
-        has_api    = bool(re.search(r'location\s+/room/api/\s*\{', body))
-        if has_static and has_api:
-            sys.stderr.write(f"[SKIP] {path}: 'location /room/' and '/room/api/' already present\n")
-            with open(out_path, 'w', encoding='utf-8') as f:
-                f.write(src)
-            sys.exit(10)
-        if has_static or has_api:
-            # Partial install from earlier run — need clean re-insert
-            sys.stderr.write(f"[WARN] {path}: partial /room block found (static={has_static}, api={has_api}) — stripping and re-inserting\n")
-            # Remove both blocks and the redirect
-            body_new = re.sub(
-                r'\n\s*#\s*──[^\n]*\n\s*location\s+/room/api/\s*\{[^{}]*\}\s*',
-                '\n', body, flags=re.DOTALL)
-            body_new = re.sub(
-                r'\n\s*#\s*──[^\n]*\n\s*location\s+/room/\s*\{[^{}]*\}\s*',
-                '\n', body_new, flags=re.DOTALL)
-            body_new = re.sub(
-                r'\n\s*location\s*=\s*/room\s*\{[^{}]*\}\s*',
-                '\n', body_new, flags=re.DOTALL)
-            src = src[:ob+1] + body_new + src[cb:]
-            # re-scan to get new cb
-            blocks2 = find_server_blocks(src)
-            for (_, ob2, cb2) in blocks2:
-                if selector in src[ob2+1:cb2]:
-                    target = (ob2, cb2)
-                    break
-            break
+    if selector in src[ob+1:cb]:
         target = (ob, cb)
         break
 
@@ -291,10 +285,21 @@ if not target:
     sys.exit(2)
 
 ob, cb = target
-new_src = src[:cb] + block + "\n" + src[cb:]
+body = src[ob+1:cb]
+body_stripped = strip_room_blocks(body)
+# Always reinsert fresh block — ensures port / path changes are picked up
+new_body = body_stripped.rstrip() + "\n" + block + "\n"
+new_src = src[:ob+1] + new_body + src[cb:]
+
+if new_src == src:
+    sys.stderr.write(f"[SKIP] {path}: no change (already up-to-date)\n")
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write(src)
+    sys.exit(10)
+
 with open(out_path, 'w', encoding='utf-8') as f:
     f.write(new_src)
-sys.stderr.write(f"[OK] {path}: inserted {len(block)} bytes before closing brace at {cb}\n")
+sys.stderr.write(f"[OK] {path}: re-inserted /room blocks\n")
 PYEOF
 
   if [ "$rc" -eq 10 ]; then

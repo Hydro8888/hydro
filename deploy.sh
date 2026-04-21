@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 # ============================================================
-# 회의실 예약 시스템 배포 스크립트
+# 회의실 예약 시스템 배포 스크립트 (v2: SQLite + PM2 백엔드)
 # 대상 서버 : 211.198.54.207 (Ubuntu, 호스트 systemd nginx)
 # 외부 URL  : http://211.198.54.207/room/
+# 백엔드   : Node.js + Express + better-sqlite3, PM2 'room', 포트 5100
 # 실행 위치 : 서버의 레포 루트 (사용자가 SSH 접속한 상태)
 # 사용법   : bash deploy.sh
 # ============================================================
 set -euo pipefail
 
 APP_NAME="room"
+APP_PORT="5100"
 APP_DIR="/home/ubuntu/${APP_NAME}"
+DATA_DIR="${APP_DIR}/data"
+LOGS_DIR="${APP_DIR}/logs"
 BACKUP_DIR="/home/ubuntu/.${APP_NAME}-deploy-backup"
 NGX_HYDRO="/etc/nginx/sites-enabled/hydro"
 NGX_MULTI="/etc/nginx/sites-enabled/multi-service"
 TS="$(date +%Y%m%d-%H%M%S)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC_HTML="${SCRIPT_DIR}/index.html"
 
 C_RESET="\033[0m"; C_BOLD="\033[1m"
 C_GREEN="\033[32m"; C_YELLOW="\033[33m"; C_RED="\033[31m"; C_CYAN="\033[36m"
-
 log()  { printf "${C_CYAN}[*]${C_RESET} %s\n" "$*"; }
 ok()   { printf "${C_GREEN}[OK]${C_RESET} %s\n" "$*"; }
 warn() { printf "${C_YELLOW}[!]${C_RESET} %s\n" "$*"; }
@@ -27,17 +29,36 @@ die()  { printf "${C_RED}[ERR]${C_RESET} %s\n" "$*" >&2; exit 1; }
 
 # ---------- 0. 사전 점검 ----------
 log "사전 점검"
-[ -f "$SRC_HTML" ]    || die "index.html 이 스크립트와 같은 폴더에 없습니다: $SRC_HTML"
-[ -f "$NGX_HYDRO" ]   || die "nginx 설정 없음: $NGX_HYDRO"
-[ -f "$NGX_MULTI" ]   || die "nginx 설정 없음: $NGX_MULTI"
-command -v nginx >/dev/null    || die "nginx 미설치"
-command -v python3 >/dev/null  || die "python3 미설치"
-command -v curl >/dev/null     || die "curl 미설치"
+for f in index.html server.js package.json ecosystem.config.cjs; do
+  [ -f "$SCRIPT_DIR/$f" ] || die "$f 이 스크립트와 같은 폴더에 없습니다"
+done
+[ -f "$NGX_HYDRO" ] || die "nginx 설정 없음: $NGX_HYDRO"
+[ -f "$NGX_MULTI" ] || die "nginx 설정 없음: $NGX_MULTI"
+command -v nginx >/dev/null   || die "nginx 미설치"
+command -v python3 >/dev/null || die "python3 미설치"
+command -v curl >/dev/null    || die "curl 미설치"
+command -v node >/dev/null    || die "node 미설치 (기존 PM2 앱용으로 이미 있을 것)"
+command -v pm2 >/dev/null     || die "pm2 미설치"
 
-NGX_PID_LINE="$(sudo ss -ltnp 2>/dev/null | grep ':80 ' || true)"
-if ! echo "$NGX_PID_LINE" | grep -qi nginx; then
+NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
+[ "${NODE_MAJOR:-0}" -ge 18 ] || warn "Node ${NODE_MAJOR} — better-sqlite3 빌드에 18+ 권장"
+
+# :80 nginx 점유 확인
+if ! sudo ss -ltnp 2>/dev/null | grep ':80 ' | grep -qi nginx; then
     warn ":80 포트를 nginx 가 점유하고 있지 않음 — 확인 필요"
-    echo "$NGX_PID_LINE"
+    sudo ss -ltnp 2>/dev/null | grep ':80 ' || true
+fi
+
+# 5100 포트 충돌 확인 — 다른 PID 가 점유 중이면 즉시 중단 (이미 'room' 앱이
+# 점유 중인 경우는 재배포로 보고 진행)
+PORT_LINE="$(sudo ss -ltnp 2>/dev/null | awk -v p=":${APP_PORT} " '$4 ~ p' || true)"
+if [ -n "$PORT_LINE" ]; then
+  if echo "$PORT_LINE" | grep -q "node"; then
+    warn "포트 ${APP_PORT} 이미 node 프로세스 점유 중 (재배포로 간주)"
+    echo "$PORT_LINE"
+  else
+    die "포트 ${APP_PORT} 가 node 가 아닌 다른 프로세스에 점유됨:\n$PORT_LINE"
+  fi
 fi
 ok "점검 완료"
 
@@ -50,39 +71,85 @@ ENDPOINTS=(
   "/agentmarket/" "/matching/" "/simburum/" "/aimarketer/" "/care/health"
   "/signal-test/" "/freeai/" "/halfplaza/" "/luxury/" "/yeoujob/" "/fundmanager/"
 )
-: > "$BASELINE_FILE"
-for p in "${ENDPOINTS[@]}"; do
-  code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1${p}" || echo "ERR")"
-  printf "%-25s %s\n" "$p" "$code" | tee -a "$BASELINE_FILE"
-done
-# Host 헤더 케이스
-for h in "free.ai.kr" "contact.ai.kr"; do
-  code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' -H "Host: $h" http://127.0.0.1/ || echo "ERR")"
-  printf "%-25s %s\n" "Host:$h /" "$code" | tee -a "$BASELINE_FILE"
-done
+collect_codes() {
+  local outfile="$1"
+  : > "$outfile"
+  for p in "${ENDPOINTS[@]}"; do
+    code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1${p}" || echo "ERR")"
+    printf "%-25s %s\n" "$p" "$code" | tee -a "$outfile"
+  done
+  for h in "free.ai.kr" "contact.ai.kr"; do
+    code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' -H "Host: $h" http://127.0.0.1/ || echo "ERR")"
+    printf "%-25s %s\n" "Host:$h /" "$code" | tee -a "$outfile"
+  done
+}
+collect_codes "$BASELINE_FILE"
 ok "baseline 저장: $BASELINE_FILE"
 
-# ---------- 2. 정적 파일 배치 ----------
-log "정적 파일 배치 → $APP_DIR"
-sudo mkdir -p "$APP_DIR"
-sudo cp "$SRC_HTML" "$APP_DIR/index.html"
+# ---------- 2. 앱 소스 배치 ----------
+log "앱 소스 배치 → $APP_DIR"
+sudo mkdir -p "$APP_DIR" "$DATA_DIR" "$LOGS_DIR"
+sudo cp "$SCRIPT_DIR/index.html"           "$APP_DIR/index.html"
+sudo cp "$SCRIPT_DIR/server.js"            "$APP_DIR/server.js"
+sudo cp "$SCRIPT_DIR/package.json"         "$APP_DIR/package.json"
+sudo cp "$SCRIPT_DIR/ecosystem.config.cjs" "$APP_DIR/ecosystem.config.cjs"
 sudo chown -R ubuntu:ubuntu "$APP_DIR"
-sudo chmod 755 "$APP_DIR"
-sudo chmod 644 "$APP_DIR/index.html"
-# /home/ubuntu 가 www-data 에 의해 traverse 가능해야 함
+sudo chmod 755 "$APP_DIR" "$DATA_DIR" "$LOGS_DIR"
+sudo chmod 644 "$APP_DIR/index.html" "$APP_DIR/server.js" "$APP_DIR/package.json" "$APP_DIR/ecosystem.config.cjs"
+# www-data 가 /home/ubuntu 를 traverse 할 수 있어야 static alias 가 동작
 sudo chmod o+x /home/ubuntu 2>/dev/null || true
-ok "$(sudo ls -la "$APP_DIR/index.html")"
+ok "소스 배치 완료"
 
-# ---------- 3. GOLDEN 백업 ----------
+# ---------- 3. npm install ----------
+log "npm install (production, cwd=$APP_DIR)"
+( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund )
+ok "의존성 설치 완료 ($(du -sh "$APP_DIR/node_modules" 2>/dev/null | awk '{print $1}'))"
+
+# ---------- 4. PM2 등록 / 재시작 ----------
+log "PM2 등록/재시작 (name=$APP_NAME)"
+if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
+  pm2 reload "$APP_NAME" --update-env
+else
+  ( cd "$APP_DIR" && pm2 start ecosystem.config.cjs )
+fi
+pm2 save >/dev/null
+sleep 2
+if ! pm2 describe "$APP_NAME" | grep -q "online"; then
+  pm2 logs "$APP_NAME" --lines 30 --nostream || true
+  die "PM2 '$APP_NAME' 가 online 이 아님 — 위 로그 확인"
+fi
+ok "PM2 '$APP_NAME' online"
+
+# 내부 API health 확인
+if ! curl -sf -m 3 "http://127.0.0.1:${APP_PORT}/api/health" >/dev/null; then
+  pm2 logs "$APP_NAME" --lines 30 --nostream || true
+  die "백엔드 /api/health 응답 없음 (127.0.0.1:${APP_PORT})"
+fi
+ok "백엔드 /api/health 200"
+
+# ---------- 5. nginx GOLDEN 백업 ----------
 log "nginx 설정 GOLDEN 백업 → $BACKUP_DIR (ts=$TS)"
 sudo mkdir -p "$BACKUP_DIR"
 sudo cp "$NGX_HYDRO" "$BACKUP_DIR/GOLDEN-hydro.conf.$TS"
 sudo cp "$NGX_MULTI" "$BACKUP_DIR/GOLDEN-multi-service.conf.$TS"
 ok "백업 완료"
 
-# ---------- 4. nginx conf 삽입 ----------
-LOCATION_BLOCK=$(cat <<'BLK'
+# ---------- 6. nginx conf 삽입 ----------
+# /room/api/ 프록시를 /room/ alias 앞에 두려면 블록을 한 번에 삽입해야 한다.
+# nginx 의 location 매칭은 prefix longest-match → 순서는 덜 중요하지만 명확성 위해 함께.
+LOCATION_BLOCK=$(cat <<BLK
 
+    # ── room API (Node, PM2 'room' :${APP_PORT}) ───────────
+    location /room/api/ {
+        proxy_pass http://127.0.0.1:${APP_PORT}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 30s;
+        client_max_body_size 64k;
+    }
     # ── room (static, 회의실 예약 시스템) ──────────────────
     location /room/ {
         alias /home/ubuntu/room/;
@@ -98,8 +165,6 @@ inject_location() {
   local target_file="$1"
   local selector="$2"
   local tmp_out rc=0
-  # sudo mktemp → 파일 소유자 root. Ubuntu의 fs.protected_regular 보호 때문에
-  # /tmp (root sticky) 에 ubuntu 소유 파일을 만들면 root 조차 write 불가.
   tmp_out="$(sudo mktemp /tmp/room-deploy.XXXXXX)"
   sudo chmod 644 "$tmp_out"
 
@@ -154,12 +219,34 @@ target = None
 for (_, ob, cb) in blocks:
     body = src[ob+1:cb]
     if selector in body:
-        if re.search(r'location\s+(=\s+)?/room(\b|/)', body):
-            sys.stderr.write(f"[SKIP] {path}: 'location /room' already present\n")
-            # Write unchanged content so shell step can diff
+        has_static = bool(re.search(r'location\s+/room/\s*\{', body))
+        has_api    = bool(re.search(r'location\s+/room/api/\s*\{', body))
+        if has_static and has_api:
+            sys.stderr.write(f"[SKIP] {path}: 'location /room/' and '/room/api/' already present\n")
             with open(out_path, 'w', encoding='utf-8') as f:
                 f.write(src)
-            sys.exit(10)  # sentinel for "no change"
+            sys.exit(10)
+        if has_static or has_api:
+            # Partial install from earlier run — need clean re-insert
+            sys.stderr.write(f"[WARN] {path}: partial /room block found (static={has_static}, api={has_api}) — stripping and re-inserting\n")
+            # Remove both blocks and the redirect
+            body_new = re.sub(
+                r'\n\s*#\s*──[^\n]*\n\s*location\s+/room/api/\s*\{[^{}]*\}\s*',
+                '\n', body, flags=re.DOTALL)
+            body_new = re.sub(
+                r'\n\s*#\s*──[^\n]*\n\s*location\s+/room/\s*\{[^{}]*\}\s*',
+                '\n', body_new, flags=re.DOTALL)
+            body_new = re.sub(
+                r'\n\s*location\s*=\s*/room\s*\{[^{}]*\}\s*',
+                '\n', body_new, flags=re.DOTALL)
+            src = src[:ob+1] + body_new + src[cb:]
+            # re-scan to get new cb
+            blocks2 = find_server_blocks(src)
+            for (_, ob2, cb2) in blocks2:
+                if selector in src[ob2+1:cb2]:
+                    target = (ob2, cb2)
+                    break
+            break
         target = (ob, cb)
         break
 
@@ -175,7 +262,7 @@ sys.stderr.write(f"[OK] {path}: inserted {len(block)} bytes before closing brace
 PYEOF
 
   if [ "$rc" -eq 10 ]; then
-    warn "$target_file: 이미 /room 블록 존재 → 변경 없음"
+    warn "$target_file: 이미 /room + /room/api 블록 존재 → 변경 없음"
     sudo rm -f "$tmp_out"
     return 0
   elif [ "$rc" -ne 0 ]; then
@@ -183,24 +270,22 @@ PYEOF
     die "Python 삽입 실패 ($target_file, rc=$rc)"
   fi
 
-  # Diff preview
   echo "--- diff: $target_file ---"
   sudo diff -u "$target_file" "$tmp_out" || true
-  # Atomic replace
   sudo install -m 0644 -o root -g root "$tmp_out" "$target_file"
   sudo rm -f "$tmp_out"
   ok "$target_file 삽입 완료"
 }
 
-log "sites-enabled/hydro 에 /room 블록 삽입 (selector: default_server)"
+log "sites-enabled/hydro 에 /room + /room/api 블록 삽입 (selector: default_server)"
 inject_location "$NGX_HYDRO" "default_server"
 
-log "sites-enabled/multi-service 에 /room 블록 삽입 (selector: 211.198.54.207)"
+log "sites-enabled/multi-service 에 /room + /room/api 블록 삽입 (selector: 211.198.54.207)"
 inject_location "$NGX_MULTI" "211.198.54.207"
 
-# ---------- 5. nginx 검증 + 리로드 ----------
-rollback() {
-  warn "롤백 수행"
+# ---------- 7. nginx 검증 + 리로드 ----------
+rollback_nginx() {
+  warn "nginx 설정 롤백"
   sudo cp "$BACKUP_DIR/GOLDEN-hydro.conf.$TS" "$NGX_HYDRO"
   sudo cp "$BACKUP_DIR/GOLDEN-multi-service.conf.$TS" "$NGX_MULTI"
   sudo nginx -t && sudo systemctl reload nginx || warn "롤백 후 reload 실패 — 수동 확인 필요"
@@ -208,7 +293,7 @@ rollback() {
 
 log "nginx -t 검증"
 if ! sudo nginx -t; then
-  rollback
+  rollback_nginx
   die "nginx -t 실패 → 롤백 완료"
 fi
 ok "nginx -t 통과"
@@ -217,17 +302,18 @@ log "nginx reload"
 sudo systemctl reload nginx
 ok "reload 완료"
 
-# ---------- 6. 회귀 검증 ----------
+# ---------- 8. UFW 처리 (활성일 때만) ----------
+if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+  log "UFW 활성 → 포트 ${APP_PORT}/tcp 허용"
+  sudo ufw allow "${APP_PORT}/tcp" >/dev/null 2>&1 || warn "ufw allow 실패"
+  ok "ufw 규칙 반영"
+else
+  log "UFW 비활성 → 스킵"
+fi
+
+# ---------- 9. 회귀 검증 ----------
 log "변경 후 응답 코드 수집"
-: > "$AFTER_FILE"
-for p in "${ENDPOINTS[@]}"; do
-  code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1${p}" || echo "ERR")"
-  printf "%-25s %s\n" "$p" "$code" | tee -a "$AFTER_FILE"
-done
-for h in "free.ai.kr" "contact.ai.kr"; do
-  code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' -H "Host: $h" http://127.0.0.1/ || echo "ERR")"
-  printf "%-25s %s\n" "Host:$h /" "$code" | tee -a "$AFTER_FILE"
-done
+collect_codes "$AFTER_FILE"
 
 echo
 log "before/after diff"
@@ -238,36 +324,53 @@ else
   warn "롤백: sudo cp $BACKUP_DIR/GOLDEN-*.conf.$TS /etc/nginx/sites-enabled/ && sudo nginx -s reload"
 fi
 
-# ---------- 7. 새 엔드포인트 확인 ----------
+# ---------- 10. 새 엔드포인트 확인 ----------
 log "새 엔드포인트 확인"
 INT_CODE="$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1/room/ || echo ERR)"
 EXT_CODE="$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://211.198.54.207/room/ || echo ERR)"
-printf "내부 (127.0.0.1/room/)        => %s\n" "$INT_CODE"
-printf "외부 (211.198.54.207/room/)   => %s\n" "$EXT_CODE"
+API_CODE="$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1/room/api/health || echo ERR)"
+API_LIST="$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1/room/api/reservations || echo ERR)"
+printf "내부 정적 (127.0.0.1/room/)              => %s\n" "$INT_CODE"
+printf "외부 정적 (211.198.54.207/room/)         => %s\n" "$EXT_CODE"
+printf "내부 API  (127.0.0.1/room/api/health)    => %s\n" "$API_CODE"
+printf "내부 API  (127.0.0.1/room/api/reservations) => %s\n" "$API_LIST"
 
 if curl -s -m 5 http://127.0.0.1/room/ | grep -q "회의실 예약 시스템"; then
-  ok "페이지 타이틀 확인됨 (회의실 예약 시스템)"
+  ok "정적 페이지 타이틀 확인됨"
 else
-  warn "페이지 본문에서 '회의실 예약 시스템' 문자열을 찾지 못함"
+  warn "정적 페이지 본문에서 '회의실 예약 시스템' 찾지 못함"
 fi
 
-# ---------- 8. 완료 요약 ----------
+if curl -s -m 5 http://127.0.0.1/room/api/health | grep -q '"ok":true'; then
+  ok "API health 응답 확인됨"
+else
+  warn "/room/api/health 응답이 기대와 다름"
+fi
+
+# ---------- 11. 완료 요약 ----------
 cat <<EOF
 
 ============================================
-  ${C_BOLD}배포 완료${C_RESET}
+  ${C_BOLD}배포 완료${C_RESET} (v2: SQLite + PM2)
 
   내부 접속: http://127.0.0.1/room/
   외부 접속: http://211.198.54.207/room/
+  API:      http://211.198.54.207/room/api/{health,reservations}
 
-  파일 위치:   $APP_DIR/index.html
+  앱 경로:      $APP_DIR
+  DB 파일:      $DATA_DIR/reservations.db
+  PM2 프로세스: $APP_NAME (pm2 status / pm2 logs $APP_NAME)
+  로그:         $LOGS_DIR/out.log, err.log
+
   백업 경로:   $BACKUP_DIR/GOLDEN-{hydro,multi-service}.conf.$TS
   베이스라인: $BASELINE_FILE
   변경 후 :   $AFTER_FILE
 
-  롤백 방법:
+  롤백 (nginx):
     sudo cp $BACKUP_DIR/GOLDEN-hydro.conf.$TS         $NGX_HYDRO
     sudo cp $BACKUP_DIR/GOLDEN-multi-service.conf.$TS $NGX_MULTI
     sudo nginx -t && sudo systemctl reload nginx
+  롤백 (앱 중지):
+    pm2 stop $APP_NAME && pm2 delete $APP_NAME && pm2 save
 ============================================
 EOF

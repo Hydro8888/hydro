@@ -53,13 +53,14 @@
     padding: 11px 28px; border: none; border-radius: 10px;
     font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
   }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary {
     background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
     box-shadow: 0 4px 15px rgba(102,126,234,0.35);
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); }
   .btn-reset { background: #f0f0f5; color: #6b6b8d; }
-  .btn-reset:hover { background: #e4e4ed; }
+  .btn-reset:hover:not(:disabled) { background: #e4e4ed; }
 
   .room-section { margin-bottom: 10px; }
   .tabs { display: flex; gap: 0; margin-bottom: 0; }
@@ -98,7 +99,8 @@
     padding: 6px 16px; background: #ffe5e5; color: #e04040; border: none;
     border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
   }
-  .btn-delete:hover { background: #e04040; color: #fff; }
+  .btn-delete:hover:not(:disabled) { background: #e04040; color: #fff; }
+  .btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
   .stat-card {
@@ -130,6 +132,17 @@
   .time-past { background: #f5f5f5; color: #999; }
   .time-ongoing { background: #fff3e0; color: #e65100; }
 
+  .toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff; padding: 12px 22px; border-radius: 10px;
+    font-size: 0.95rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    opacity: 0; transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none; z-index: 9999; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 6px); }
+  .toast.err { background: #d93939; }
+  .toast.ok  { background: #2e7d32; }
+
   .footer { text-align: center; color: rgba(255,255,255,0.5); font-size: 0.78rem; margin-top: 30px; }
 
   @media (max-width: 600px) {
@@ -144,10 +157,9 @@
 <div class="container">
   <div class="header">
     <h1>🏢 회의실 예약 시스템</h1>
-    <p>서초회의실 · 신사회의실 예약 및 관리</p>
+    <p>서초회의실 · 신사회의실 · 서버 DB 저장</p>
   </div>
 
-  <!-- 통계 -->
   <div class="stats">
     <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">전체 예약</div></div>
     <div class="stat-card"><div class="num" id="statRoom1">0</div><div class="label">서초회의실</div></div>
@@ -155,7 +167,6 @@
     <div class="stat-card"><div class="num" id="statToday">0</div><div class="label">오늘 예약</div></div>
   </div>
 
-  <!-- 예약 폼 -->
   <div class="form-card">
     <h2>📝 새 예약 등록</h2>
     <div class="form-grid">
@@ -192,28 +203,28 @@
       </div>
       <div class="form-group">
         <label>예약자</label>
-        <input type="text" id="reserver" placeholder="이름 입력">
+        <input type="text" id="reserver" placeholder="이름 입력" maxlength="50">
       </div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-reset" onclick="resetForm()">초기화</button>
-      <button class="btn btn-primary" onclick="addReservation()">✅ 예약 등록</button>
+      <button class="btn btn-reset" id="btnReset">초기화</button>
+      <button class="btn btn-primary" id="btnSubmit">✅ 예약 등록</button>
     </div>
   </div>
 
-  <!-- 예약 목록 -->
   <div class="room-section">
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('all')" id="tabAll">📋 전체 <span class="badge" id="badgeAll">0</span></button>
-      <button class="tab-btn" onclick="switchTab('room1')" id="tabRoom1">🟦 서초회의실 <span class="badge" id="badgeRoom1">0</span></button>
-      <button class="tab-btn" onclick="switchTab('room2')" id="tabRoom2">🟧 신사회의실 <span class="badge" id="badgeRoom2">0</span></button>
+      <button class="tab-btn active" data-tab="all"   id="tabAll">📋 전체 <span class="badge" id="badgeAll">0</span></button>
+      <button class="tab-btn"        data-tab="room1" id="tabRoom1">🟦 서초회의실 <span class="badge" id="badgeRoom1">0</span></button>
+      <button class="tab-btn"        data-tab="room2" id="tabRoom2">🟧 신사회의실 <span class="badge" id="badgeRoom2">0</span></button>
     </div>
     <div class="tab-content">
       <div class="filter-bar">
         <label>📅 날짜 필터 :</label>
         <input type="date" id="filterDate">
-        <button class="btn-sm" onclick="applyFilter()">검색</button>
-        <button class="btn-sm outline" onclick="clearFilter()">전체 보기</button>
+        <button class="btn-sm" id="btnFilter">검색</button>
+        <button class="btn-sm outline" id="btnFilterClear">전체 보기</button>
+        <button class="btn-sm outline" id="btnRefresh">🔄 새로고침</button>
       </div>
 
       <div class="tab-panel active" id="panelAll">
@@ -243,201 +254,238 @@
     </div>
   </div>
 
-  <div class="footer">회의실 예약 시스템 v1.2 · 데이터는 브라우저 로컬스토리지에 저장됩니다.</div>
+  <div class="footer">회의실 예약 시스템 v2.0 · 데이터는 서버 DB(SQLite)에 저장됩니다.</div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
   const ROOM1 = '서초회의실';
   const ROOM2 = '신사회의실';
+  // 상대경로. /room/ 하위에서 서빙되므로 fetch("api/...") 는 /room/api/... 로 감.
+  const API_BASE = 'api';
 
-  let reservations = JSON.parse(localStorage.getItem('meetingReservations') || '[]');
-  let currentTab = 'all';
+  let reservations = [];
   let filterDateVal = '';
 
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg, kind) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = 'toast show ' + (kind || '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { el.className = 'toast'; }, 3000);
+  }
+
+  async function apiFetch(pathRel, opts) {
+    const res = await fetch(`${API_BASE}/${pathRel}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...(opts || {}),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-json */ }
+    if (!res.ok) {
+      const msg = (data && data.error) || `HTTP ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
   function populateTimeSelects() {
-    const hourSelects = ['startHour', 'endHour'];
-    const minSelects  = ['startMin', 'endMin'];
-    hourSelects.forEach(id => {
-      const sel = document.getElementById(id);
+    ['startHour', 'endHour'].forEach((id) => {
+      const sel = $(id);
       sel.innerHTML = '<option value="" disabled selected>시</option>';
       for (let h = 0; h < 24; h++) {
-        const val = String(h).padStart(2, '0');
-        sel.innerHTML += `<option value="${val}">${val}시</option>`;
+        const v = String(h).padStart(2, '0');
+        sel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}시</option>`);
       }
     });
-    minSelects.forEach(id => {
-      const sel = document.getElementById(id);
+    ['startMin', 'endMin'].forEach((id) => {
+      const sel = $(id);
       sel.innerHTML = '<option value="" disabled selected>분</option>';
       for (let m = 0; m < 60; m += 10) {
-        const val = String(m).padStart(2, '0');
-        sel.innerHTML += `<option value="${val}">${val}분</option>`;
+        const v = String(m).padStart(2, '0');
+        sel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}분</option>`);
       }
     });
   }
 
-  populateTimeSelects();
-  document.getElementById('date').valueAsDate = new Date();
-
   function getTimeStr(hourId, minId) {
-    const h = document.getElementById(hourId).value;
-    const m = document.getElementById(minId).value;
+    const h = $(hourId).value;
+    const m = $(minId).value;
     if (!h || !m) return '';
-    return h + ':' + m;
+    return `${h}:${m}`;
   }
 
   function resetForm() {
-    document.getElementById('room').value = ROOM1;
-    document.getElementById('date').valueAsDate = new Date();
-    document.getElementById('startHour').selectedIndex = 0;
-    document.getElementById('startMin').selectedIndex = 0;
-    document.getElementById('endHour').selectedIndex = 0;
-    document.getElementById('endMin').selectedIndex = 0;
-    document.getElementById('people').value = '';
-    document.getElementById('reserver').value = '';
+    $('room').value = ROOM1;
+    $('date').valueAsDate = new Date();
+    $('startHour').selectedIndex = 0;
+    $('startMin').selectedIndex = 0;
+    $('endHour').selectedIndex = 0;
+    $('endMin').selectedIndex = 0;
+    $('people').value = '';
+    $('reserver').value = '';
   }
 
-  function addReservation() {
-    const room = document.getElementById('room').value;
-    const date = document.getElementById('date').value;
-    const startTime = getTimeStr('startHour', 'startMin');
-    const endTime   = getTimeStr('endHour', 'endMin');
-    const people = document.getElementById('people').value;
-    const reserver = document.getElementById('reserver').value.trim();
-
-    if (!date || !startTime || !endTime || !people || !reserver) {
-      alert('⚠️ 모든 항목을 입력해 주세요.\n(시, 분 모두 선택해 주세요)');
-      return;
+  async function loadReservations() {
+    try {
+      reservations = await apiFetch('reservations');
+      render();
+    } catch (e) {
+      toast(`예약 목록 로드 실패: ${e.message}`, 'err');
+      reservations = [];
+      render();
     }
-    if (startTime >= endTime) {
-      alert('⚠️ 종료 시간은 시작 시간 이후여야 합니다.');
-      return;
-    }
-    if (parseInt(people) < 1) {
-      alert('⚠️ 인원은 1명 이상이어야 합니다.');
-      return;
-    }
-
-    const conflict = reservations.find(r =>
-      r.room === room && r.date === date &&
-      !(endTime <= r.startTime || startTime >= r.endTime)
-    );
-    if (conflict) {
-      alert(`⚠️ ${room}에 해당 시간대 예약이 이미 존재합니다.\n기존: ${conflict.startTime} ~ ${conflict.endTime} (${conflict.reserver})`);
-      return;
-    }
-
-    reservations.push({
-      id: Date.now(), room, date, startTime, endTime,
-      people: parseInt(people), reserver
-    });
-    reservations.sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.startTime.localeCompare(b.startTime);
-    });
-
-    save(); render(); resetForm();
-    alert('✅ 예약이 등록되었습니다!');
   }
 
-  function deleteReservation(id) {
+  async function addReservation() {
+    const payload = {
+      room: $('room').value,
+      date: $('date').value,
+      startTime: getTimeStr('startHour', 'startMin'),
+      endTime:   getTimeStr('endHour', 'endMin'),
+      people:    $('people').value,
+      reserver:  $('reserver').value.trim(),
+    };
+    if (!payload.date || !payload.startTime || !payload.endTime || !payload.people || !payload.reserver) {
+      toast('모든 항목을 입력해 주세요 (시, 분 모두 선택)', 'err');
+      return;
+    }
+
+    const btn = $('btnSubmit');
+    btn.disabled = true;
+    try {
+      await apiFetch('reservations', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      toast('예약이 등록되었습니다', 'ok');
+      resetForm();
+      await loadReservations();
+    } catch (e) {
+      toast(e.message || '예약 등록 실패', 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function deleteReservation(id, btnEl) {
     if (!confirm('이 예약을 삭제하시겠습니까?')) return;
-    reservations = reservations.filter(r => r.id !== id);
-    save(); render();
+    if (btnEl) btnEl.disabled = true;
+    try {
+      await apiFetch(`reservations/${id}`, { method: 'DELETE' });
+      toast('삭제되었습니다', 'ok');
+      await loadReservations();
+    } catch (e) {
+      toast(e.message || '삭제 실패', 'err');
+      if (btnEl) btnEl.disabled = false;
+    }
   }
-
-  function save() { localStorage.setItem('meetingReservations', JSON.stringify(reservations)); }
 
   function getStatus(date, startTime, endTime) {
     const now = new Date();
-    const start = new Date(date + 'T' + startTime);
-    const end   = new Date(date + 'T' + endTime);
-    if (now < start) return { label: '예정', cls: 'time-upcoming' };
-    if (now >= start && now <= end) return { label: '진행중', cls: 'time-ongoing' };
+    const start = new Date(`${date}T${startTime}`);
+    const end   = new Date(`${date}T${endTime}`);
+    if (now < start) return { label: '예정',  cls: 'time-upcoming' };
+    if (now <= end)  return { label: '진행중', cls: 'time-ongoing' };
     return { label: '종료', cls: 'time-past' };
   }
 
   function formatDate(d) {
-    const dt = new Date(d + 'T00:00:00');
+    const dt = new Date(`${d}T00:00:00`);
     const days = ['일','월','화','수','목','금','토'];
     return `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} (${days[dt.getDay()]})`;
   }
 
-  function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    if (tab === 'all')   { document.getElementById('tabAll').classList.add('active');   document.getElementById('panelAll').classList.add('active'); }
-    else if (tab === 'room1') { document.getElementById('tabRoom1').classList.add('active'); document.getElementById('panelRoom1').classList.add('active'); }
-    else { document.getElementById('tabRoom2').classList.add('active'); document.getElementById('panelRoom2').classList.add('active'); }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
   }
 
-  function applyFilter() { filterDateVal = document.getElementById('filterDate').value; render(); }
-  function clearFilter()  { filterDateVal = ''; document.getElementById('filterDate').value = ''; render(); }
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach((p) => {
+      const id = p.id.replace('panel', '').toLowerCase();
+      const isActive =
+        (tab === 'all'   && p.id === 'panelAll') ||
+        (tab === 'room1' && p.id === 'panelRoom1') ||
+        (tab === 'room2' && p.id === 'panelRoom2');
+      p.classList.toggle('active', isActive);
+    });
+  }
+
+  function rowHTML(r, idx, withRoom) {
+    const st = getStatus(r.date, r.startTime, r.endTime);
+    const reserverHtml = `<strong>${escapeHtml(r.reserver)}</strong>`;
+    const roomCol = withRoom
+      ? `<td><span style="color:${r.room === ROOM1 ? '#667eea' : '#e67e22'};font-weight:700">${escapeHtml(r.room)}</span></td>`
+      : '';
+    return `<tr>
+      <td>${idx+1}</td>
+      ${roomCol}
+      <td>${formatDate(r.date)}</td>
+      <td>${escapeHtml(r.startTime)} ~ ${escapeHtml(r.endTime)}</td>
+      <td>${r.people}명</td>
+      <td>${reserverHtml}</td>
+      <td><span class="time-badge ${st.cls}">${st.label}</span></td>
+      <td><button class="btn-delete" data-id="${r.id}">🗑 삭제</button></td>
+    </tr>`;
+  }
 
   function render() {
     let data = [...reservations];
-    if (filterDateVal) data = data.filter(r => r.date === filterDateVal);
+    if (filterDateVal) data = data.filter((r) => r.date === filterDateVal);
 
     const all   = data;
-    const room1 = data.filter(r => r.room === ROOM1);
-    const room2 = data.filter(r => r.room === ROOM2);
+    const room1 = data.filter((r) => r.room === ROOM1);
+    const room2 = data.filter((r) => r.room === ROOM2);
 
     const today = new Date().toISOString().slice(0, 10);
-    document.getElementById('statTotal').textContent = reservations.length;
-    document.getElementById('statRoom1').textContent = reservations.filter(r => r.room === ROOM1).length;
-    document.getElementById('statRoom2').textContent = reservations.filter(r => r.room === ROOM2).length;
-    document.getElementById('statToday').textContent = reservations.filter(r => r.date === today).length;
+    $('statTotal').textContent = reservations.length;
+    $('statRoom1').textContent = reservations.filter((r) => r.room === ROOM1).length;
+    $('statRoom2').textContent = reservations.filter((r) => r.room === ROOM2).length;
+    $('statToday').textContent = reservations.filter((r) => r.date === today).length;
 
-    document.getElementById('badgeAll').textContent   = all.length;
-    document.getElementById('badgeRoom1').textContent = room1.length;
-    document.getElementById('badgeRoom2').textContent = room2.length;
+    $('badgeAll').textContent   = all.length;
+    $('badgeRoom1').textContent = room1.length;
+    $('badgeRoom2').textContent = room2.length;
 
-    const tbAll = document.getElementById('tableAll');
-    tbAll.innerHTML = '';
-    all.forEach((r, i) => {
-      const st = getStatus(r.date, r.startTime, r.endTime);
-      const rc = r.room === ROOM1 ? '#667eea' : '#e67e22';
-      tbAll.innerHTML += `<tr>
-        <td>${i+1}</td>
-        <td><span style="color:${rc};font-weight:700">${r.room}</span></td>
-        <td>${formatDate(r.date)}</td>
-        <td>${r.startTime} ~ ${r.endTime}</td>
-        <td>${r.people}명</td>
-        <td><strong>${r.reserver}</strong></td>
-        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
-        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
-      </tr>`;
-    });
-    document.getElementById('noDataAll').style.display = all.length ? 'none' : 'block';
+    $('tableAll').innerHTML   = all.map((r, i)   => rowHTML(r, i, true)).join('');
+    $('tableRoom1').innerHTML = room1.map((r, i) => rowHTML(r, i, false)).join('');
+    $('tableRoom2').innerHTML = room2.map((r, i) => rowHTML(r, i, false)).join('');
 
-    const tb1 = document.getElementById('tableRoom1');
-    tb1.innerHTML = '';
-    room1.forEach((r, i) => {
-      const st = getStatus(r.date, r.startTime, r.endTime);
-      tb1.innerHTML += `<tr>
-        <td>${i+1}</td><td>${formatDate(r.date)}</td><td>${r.startTime} ~ ${r.endTime}</td>
-        <td>${r.people}명</td><td><strong>${r.reserver}</strong></td>
-        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
-        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
-      </tr>`;
-    });
-    document.getElementById('noDataRoom1').style.display = room1.length ? 'none' : 'block';
-
-    const tb2 = document.getElementById('tableRoom2');
-    tb2.innerHTML = '';
-    room2.forEach((r, i) => {
-      const st = getStatus(r.date, r.startTime, r.endTime);
-      tb2.innerHTML += `<tr>
-        <td>${i+1}</td><td>${formatDate(r.date)}</td><td>${r.startTime} ~ ${r.endTime}</td>
-        <td>${r.people}명</td><td><strong>${r.reserver}</strong></td>
-        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
-        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
-      </tr>`;
-    });
-    document.getElementById('noDataRoom2').style.display = room2.length ? 'none' : 'block';
+    $('noDataAll').style.display   = all.length   ? 'none' : 'block';
+    $('noDataRoom1').style.display = room1.length ? 'none' : 'block';
+    $('noDataRoom2').style.display = room2.length ? 'none' : 'block';
   }
 
-  render();
+  // Wiring
+  populateTimeSelects();
+  $('date').valueAsDate = new Date();
+
+  $('btnSubmit').addEventListener('click', addReservation);
+  $('btnReset').addEventListener('click', resetForm);
+  $('btnRefresh').addEventListener('click', loadReservations);
+  $('btnFilter').addEventListener('click', () => { filterDateVal = $('filterDate').value; render(); });
+  $('btnFilterClear').addEventListener('click', () => { filterDateVal = ''; $('filterDate').value = ''; render(); });
+  document.querySelectorAll('.tab-btn').forEach((b) =>
+    b.addEventListener('click', () => switchTab(b.dataset.tab))
+  );
+  // Event delegation for delete buttons
+  document.querySelector('.tab-content').addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id, 10);
+    if (Number.isFinite(id)) deleteReservation(id, btn);
+  });
+
+  loadReservations();
 </script>
 </body>
 </html>

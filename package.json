@@ -1,0 +1,17 @@
+{
+  "name": "room-reservation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "회의실 예약 시스템 (서초/신사)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.19.2"
+  }
+}

@@ -49,16 +49,11 @@ if ! sudo ss -ltnp 2>/dev/null | grep ':80 ' | grep -qi nginx; then
     sudo ss -ltnp 2>/dev/null | grep ':80 ' || true
 fi
 
-# 5100 포트 충돌 확인 — 다른 PID 가 점유 중이면 즉시 중단 (이미 'room' 앱이
-# 점유 중인 경우는 재배포로 보고 진행)
-PORT_LINE="$(sudo ss -ltnp 2>/dev/null | awk -v p=":${APP_PORT} " '$4 ~ p' || true)"
-if [ -n "$PORT_LINE" ]; then
-  if echo "$PORT_LINE" | grep -q "node"; then
-    warn "포트 ${APP_PORT} 이미 node 프로세스 점유 중 (재배포로 간주)"
-    echo "$PORT_LINE"
-  else
-    die "포트 ${APP_PORT} 가 node 가 아닌 다른 프로세스에 점유됨:\n$PORT_LINE"
-  fi
+# 5100 포트 상태는 여기선 정보만 수집 — 실제 확보는 step 4 에서 수행
+PORT_LINE_PRE="$(sudo ss -ltnp 2>/dev/null | awk -v p=":${APP_PORT} " '$4 ~ p' || true)"
+if [ -n "$PORT_LINE_PRE" ]; then
+  warn "포트 ${APP_PORT} 가 이미 점유 중 (아래) — PM2 reset 후 재확보 시도"
+  echo "$PORT_LINE_PRE"
 fi
 ok "점검 완료"
 
@@ -105,27 +100,68 @@ log "npm install (production, cwd=$APP_DIR)"
 ( cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund )
 ok "의존성 설치 완료 ($(du -sh "$APP_DIR/node_modules" 2>/dev/null | awk '{print $1}'))"
 
-# ---------- 4. PM2 등록 / 재시작 ----------
-log "PM2 등록/재시작 (name=$APP_NAME)"
+# ---------- 4. PM2 clean restart (delete → start) ----------
+# reload 는 fork 모드에서 race condition 으로 EADDRINUSE 크래시루프를 만들 수
+# 있음. 확실한 방법은 delete → 포트 비었음 확인 → start.
+log "PM2 '$APP_NAME' clean restart"
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
-  pm2 reload "$APP_NAME" --update-env
-else
-  ( cd "$APP_DIR" && pm2 start ecosystem.config.cjs )
+  pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+  sleep 1
 fi
+
+# 포트 5100 최종 확인 — 여전히 점유되어 있으면 중단하고 정리 명령 안내
+PORT_LINE_NOW="$(sudo ss -ltnp 2>/dev/null | awk -v p=":${APP_PORT} " '$4 ~ p' || true)"
+if [ -n "$PORT_LINE_NOW" ]; then
+  warn "PM2 delete 후에도 포트 ${APP_PORT} 여전히 점유 중:"
+  echo "$PORT_LINE_NOW"
+  warn "원인 프로세스가 PM2 외부에서 동작 중. 다음 명령으로 정리 후 재실행하세요:"
+  warn "  sudo fuser -k ${APP_PORT}/tcp    # 포트 강제 해제"
+  warn "  또는 위 ss 출력의 PID 를 직접 kill"
+  die "포트 ${APP_PORT} 점유 해제 필요"
+fi
+
+log "PM2 start ecosystem.config.cjs"
+( cd "$APP_DIR" && pm2 start ecosystem.config.cjs )
 pm2 save >/dev/null
 sleep 2
-if ! pm2 describe "$APP_NAME" | grep -q "online"; then
-  pm2 logs "$APP_NAME" --lines 30 --nostream || true
+
+# 재시작 카운트(↺)가 3회 이상이면 크래시 루프로 판단
+RESTART_COUNT="$(pm2 jlist 2>/dev/null | node -e '
+  let d=""; process.stdin.on("data",c=>d+=c);
+  process.stdin.on("end",()=>{
+    try { const j=JSON.parse(d); const a=j.find(x=>x.name==="'"$APP_NAME"'");
+      console.log(a ? a.pm2_env.restart_time : -1); } catch { console.log(-1); }
+  });' 2>/dev/null || echo "-1")"
+
+if ! pm2 describe "$APP_NAME" 2>/dev/null | grep -q "online"; then
+  echo
+  warn "=== PM2 상태 ==="
+  pm2 describe "$APP_NAME" | sed -n '1,40p' || true
+  echo
+  warn "=== 최근 로그 ==="
+  pm2 logs "$APP_NAME" --lines 30 --nostream --err || true
   die "PM2 '$APP_NAME' 가 online 이 아님 — 위 로그 확인"
 fi
-ok "PM2 '$APP_NAME' online"
 
-# 내부 API health 확인
-if ! curl -sf -m 3 "http://127.0.0.1:${APP_PORT}/api/health" >/dev/null; then
-  pm2 logs "$APP_NAME" --lines 30 --nostream || true
-  die "백엔드 /api/health 응답 없음 (127.0.0.1:${APP_PORT})"
+if [ "${RESTART_COUNT:-0}" -gt 2 ]; then
+  warn "크래시 루프 의심 (restart=$RESTART_COUNT)"
+  pm2 logs "$APP_NAME" --lines 30 --nostream --err || true
+  die "기동 안정화 안 됨 — 로그 확인 후 대처"
 fi
-ok "백엔드 /api/health 200"
+ok "PM2 '$APP_NAME' online (restart=$RESTART_COUNT)"
+
+# 내부 API health 확인 (최대 5회 재시도)
+for i in 1 2 3 4 5; do
+  if curl -sf -m 3 "http://127.0.0.1:${APP_PORT}/api/health" >/dev/null; then
+    ok "백엔드 /api/health 200"
+    break
+  fi
+  if [ "$i" -eq 5 ]; then
+    pm2 logs "$APP_NAME" --lines 30 --nostream --err || true
+    die "백엔드 /api/health 응답 없음 (127.0.0.1:${APP_PORT})"
+  fi
+  sleep 1
+done
 
 # ---------- 5. nginx GOLDEN 백업 ----------
 log "nginx 설정 GOLDEN 백업 → $BACKUP_DIR (ts=$TS)"

@@ -406,6 +406,22 @@
       0 0 0 1px rgba(244,217,139,0.25),
       inset 0 1px 0 rgba(255,255,255,0.18);
   }
+  .stat-card[data-action] {
+    cursor: pointer;
+  }
+  .stat-card[data-action]:active {
+    transform: translateY(-1px) scale(0.98);
+  }
+  .stat-card[data-action]:hover .label {
+    color: var(--gold-1);
+  }
+  .stat-card.stat-active {
+    border-color: rgba(244,217,139,0.75);
+    box-shadow:
+      0 16px 40px rgba(0,0,0,0.38),
+      0 0 0 2px rgba(212,175,55,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.18);
+  }
   .stat-card .num {
     font-family: 'Playfair Display', serif;
     font-size: 2.6rem; font-weight: 900; line-height: 1;
@@ -696,10 +712,10 @@
   </div>
 
   <div class="stats">
-    <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">전체 예약</div></div>
-    <div class="stat-card"><div class="num" id="statRoom1">0</div><div class="label">서초회의실</div></div>
-    <div class="stat-card"><div class="num" id="statRoom2">0</div><div class="label">신사회의실</div></div>
-    <div class="stat-card"><div class="num" id="statToday">0</div><div class="label">오늘 예약</div></div>
+    <div class="stat-card" data-action="all"><div class="num" id="statTotal">0</div><div class="label">전체 예약</div></div>
+    <div class="stat-card" data-action="room1"><div class="num" id="statRoom1">0</div><div class="label">서초회의실</div></div>
+    <div class="stat-card" data-action="room2"><div class="num" id="statRoom2">0</div><div class="label">신사회의실</div></div>
+    <div class="stat-card" data-action="today"><div class="num" id="statToday">0</div><div class="label">오늘 예약</div></div>
   </div>
 
   <div class="form-card">
@@ -1191,6 +1207,31 @@
   $('btnRefresh').addEventListener('click', loadReservations);
   $('btnFilter').addEventListener('click', () => { filterDateVal = $('filterDate').value; render(); });
   $('btnFilterClear').addEventListener('click', () => { filterDateVal = ''; $('filterDate').value = ''; render(); });
+  // Stat card click → jump to corresponding tab/filter
+  document.querySelectorAll('.stat-card[data-action]').forEach((card) => {
+    card.addEventListener('click', () => {
+      const action = card.dataset.action;
+      document.querySelectorAll('.stat-card[data-action]').forEach((c) => c.classList.remove('stat-active'));
+      card.classList.add('stat-active');
+      if (action === 'all') {
+        filterDateVal = ''; $('filterDate').value = '';
+        switchTab('all');
+      } else if (action === 'room1') {
+        filterDateVal = ''; $('filterDate').value = '';
+        switchTab('room1');
+      } else if (action === 'room2') {
+        filterDateVal = ''; $('filterDate').value = '';
+        switchTab('room2');
+      } else if (action === 'today') {
+        filterDateVal = new Date().toISOString().slice(0, 10);
+        $('filterDate').value = filterDateVal;
+        switchTab('all');
+      }
+      render();
+      document.querySelector('.room-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
   $('btnWeekPrev').addEventListener('click',  () => shiftWeek(-1));
   $('btnWeekNext').addEventListener('click',  () => shiftWeek(1));
   $('btnWeekToday').addEventListener('click', goThisWeek);

@@ -403,14 +403,18 @@
   }
 
   function populateTimeSelects() {
-    ['startHour', 'endHour'].forEach((id) => {
-      const sel = $(id);
-      sel.innerHTML = '<option value="" disabled selected>시</option>';
-      for (let h = 0; h < 24; h++) {
-        const v = String(h).padStart(2, '0');
-        sel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}시</option>`);
-      }
-    });
+    const startHourSel = $('startHour');
+    startHourSel.innerHTML = '<option value="" disabled selected>시</option>';
+    for (let h = 7; h <= 18; h++) {
+      const v = String(h).padStart(2, '0');
+      startHourSel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}시</option>`);
+    }
+    const endHourSel = $('endHour');
+    endHourSel.innerHTML = '<option value="" disabled selected>시</option>';
+    for (let h = 7; h <= 19; h++) {
+      const v = String(h).padStart(2, '0');
+      endHourSel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}시</option>`);
+    }
     ['startMin', 'endMin'].forEach((id) => {
       const sel = $(id);
       sel.innerHTML = '<option value="" disabled selected>분</option>';
@@ -419,6 +423,22 @@
         sel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}분</option>`);
       }
     });
+  }
+
+  function updateEndMinForHour() {
+    const endMinSel = $('endMin');
+    const currentVal = endMinSel.value;
+    if ($('endHour').value === '19') {
+      endMinSel.innerHTML = '<option value="00">00분</option>';
+      endMinSel.value = '00';
+    } else {
+      endMinSel.innerHTML = '<option value="" disabled selected>분</option>';
+      for (let m = 0; m < 60; m += 10) {
+        const v = String(m).padStart(2, '0');
+        endMinSel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}분</option>`);
+      }
+      if (currentVal && currentVal !== '') endMinSel.value = currentVal;
+    }
   }
 
   function getTimeStr(hourId, minId) {
@@ -688,6 +708,7 @@
   // Wiring
   populateTimeSelects();
   $('date').valueAsDate = new Date();
+  $('endHour').addEventListener('change', updateEndMinForHour);
 
   $('btnSubmit').addEventListener('click', addReservation);
   $('btnReset').addEventListener('click', resetForm);

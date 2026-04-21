@@ -70,6 +70,8 @@ function validateInput(body) {
   if (!DATE_RE.test(date)) return '날짜 형식이 올바르지 않습니다 (YYYY-MM-DD)';
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) return '시간 형식이 올바르지 않습니다 (HH:MM)';
   if (startTime >= endTime) return '종료 시간은 시작 시간 이후여야 합니다';
+  if (startTime < '07:00') return '예약 시작 시간은 07:00 이후여야 합니다';
+  if (endTime > '19:00')   return '예약 종료 시간은 19:00 이하여야 합니다';
   if (!Number.isFinite(people) || people < 1 || people > 50) return '인원은 1~50명 사이여야 합니다';
   if (!reserver || reserver.length > 50) return '예약자 이름은 1~50자여야 합니다';
 

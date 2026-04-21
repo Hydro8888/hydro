@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회의실 예약 시스템</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 30px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .header { text-align: center; color: #fff; margin-bottom: 30px; }
+  .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; text-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .header p { font-size: 0.95rem; opacity: 0.85; }
+
+  .form-card {
+    background: #fff; border-radius: 16px; padding: 28px 32px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12); margin-bottom: 28px;
+  }
+  .form-card h2 { font-size: 1.15rem; color: #4a4a6a; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group label {
+    font-size: 0.82rem; font-weight: 600; color: #6b6b8d;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .form-group select, .form-group input {
+    padding: 11px 14px; border: 2px solid #e8e8f0; border-radius: 10px;
+    font-size: 0.95rem; color: #333; transition: border-color 0.2s;
+    outline: none; background: #fafaff;
+  }
+  .form-group select:focus, .form-group input:focus { border-color: #667eea; background: #fff; }
+
+  .time-row { display: flex; align-items: center; gap: 6px; }
+  .time-row select {
+    padding: 11px 10px; border: 2px solid #e8e8f0; border-radius: 10px;
+    font-size: 0.95rem; color: #333; outline: none; background: #fafaff;
+    transition: border-color 0.2s; flex: 1; min-width: 70px;
+  }
+  .time-row select:focus { border-color: #667eea; background: #fff; }
+  .time-sep { font-size: 1.1rem; font-weight: 700; color: #8888a8; }
+
+  .btn-row { display: flex; justify-content: flex-end; margin-top: 20px; gap: 10px; }
+  .btn {
+    padding: 11px 28px; border: none; border-radius: 10px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); }
+  .btn-reset { background: #f0f0f5; color: #6b6b8d; }
+  .btn-reset:hover { background: #e4e4ed; }
+
+  .room-section { margin-bottom: 10px; }
+  .tabs { display: flex; gap: 0; margin-bottom: 0; }
+  .tab-btn {
+    flex: 1; padding: 14px 20px; background: rgba(255,255,255,0.55);
+    border: none; font-size: 1rem; font-weight: 600; color: #6b6b8d;
+    cursor: pointer; transition: all 0.25s; border-radius: 14px 14px 0 0;
+  }
+  .tab-btn.active { background: #fff; color: #667eea; box-shadow: 0 -4px 15px rgba(0,0,0,0.06); }
+  .tab-btn .badge {
+    display: inline-block; background: #667eea; color: #fff;
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; margin-left: 6px;
+  }
+  .tab-btn.active .badge { background: #764ba2; }
+
+  .tab-content {
+    background: #fff; border-radius: 0 0 16px 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12); overflow: hidden;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #f6f6fb; padding: 13px 16px; text-align: left;
+    font-size: 0.82rem; font-weight: 700; color: #8888a8;
+    text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #ededf5;
+  }
+  tbody td { padding: 13px 16px; font-size: 0.93rem; color: #444; border-bottom: 1px solid #f0f0f5; }
+  tbody tr:hover { background: #f9f9ff; }
+  .no-data { text-align: center; padding: 50px 20px; color: #b0b0c8; font-size: 0.95rem; }
+  .no-data .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+  .btn-delete {
+    padding: 6px 16px; background: #ffe5e5; color: #e04040; border: none;
+    border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-delete:hover { background: #e04040; color: #fff; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .stat-card {
+    background: rgba(255,255,255,0.92); border-radius: 14px;
+    padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+  }
+  .stat-card .num { font-size: 1.8rem; font-weight: 700; color: #667eea; }
+  .stat-card .label { font-size: 0.8rem; color: #8888a8; margin-top: 4px; font-weight: 600; }
+
+  .filter-bar {
+    display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+    background: #f9f9ff; border-bottom: 1px solid #ededf5; flex-wrap: wrap;
+  }
+  .filter-bar label { font-size: 0.85rem; font-weight: 600; color: #6b6b8d; }
+  .filter-bar input {
+    padding: 8px 12px; border: 2px solid #e8e8f0; border-radius: 8px;
+    font-size: 0.9rem; outline: none;
+  }
+  .filter-bar input:focus { border-color: #667eea; }
+  .btn-sm {
+    padding: 8px 16px; border: none; border-radius: 8px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; background: #667eea; color: #fff;
+  }
+  .btn-sm:hover { background: #5a6fd6; }
+  .btn-sm.outline { background: transparent; color: #667eea; border: 1.5px solid #667eea; }
+
+  .time-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; }
+  .time-upcoming { background: #e8f5e9; color: #2e7d32; }
+  .time-past { background: #f5f5f5; color: #999; }
+  .time-ongoing { background: #fff3e0; color: #e65100; }
+
+  .footer { text-align: center; color: rgba(255,255,255,0.5); font-size: 0.78rem; margin-top: 30px; }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .header h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🏢 회의실 예약 시스템</h1>
+    <p>서초회의실 · 신사회의실 예약 및 관리</p>
+  </div>
+
+  <!-- 통계 -->
+  <div class="stats">
+    <div class="stat-card"><div class="num" id="statTotal">0</div><div class="label">전체 예약</div></div>
+    <div class="stat-card"><div class="num" id="statRoom1">0</div><div class="label">서초회의실</div></div>
+    <div class="stat-card"><div class="num" id="statRoom2">0</div><div class="label">신사회의실</div></div>
+    <div class="stat-card"><div class="num" id="statToday">0</div><div class="label">오늘 예약</div></div>
+  </div>
+
+  <!-- 예약 폼 -->
+  <div class="form-card">
+    <h2>📝 새 예약 등록</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>회의실</label>
+        <select id="room">
+          <option value="서초회의실">서초회의실</option>
+          <option value="신사회의실">신사회의실</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>날짜</label>
+        <input type="date" id="date">
+      </div>
+      <div class="form-group">
+        <label>시작 시간</label>
+        <div class="time-row">
+          <select id="startHour"></select>
+          <span class="time-sep">:</span>
+          <select id="startMin"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>종료 시간</label>
+        <div class="time-row">
+          <select id="endHour"></select>
+          <span class="time-sep">:</span>
+          <select id="endMin"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>예약 인원</label>
+        <input type="number" id="people" min="1" max="50" placeholder="인원 수">
+      </div>
+      <div class="form-group">
+        <label>예약자</label>
+        <input type="text" id="reserver" placeholder="이름 입력">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-reset" onclick="resetForm()">초기화</button>
+      <button class="btn btn-primary" onclick="addReservation()">✅ 예약 등록</button>
+    </div>
+  </div>
+
+  <!-- 예약 목록 -->
+  <div class="room-section">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('all')" id="tabAll">📋 전체 <span class="badge" id="badgeAll">0</span></button>
+      <button class="tab-btn" onclick="switchTab('room1')" id="tabRoom1">🟦 서초회의실 <span class="badge" id="badgeRoom1">0</span></button>
+      <button class="tab-btn" onclick="switchTab('room2')" id="tabRoom2">🟧 신사회의실 <span class="badge" id="badgeRoom2">0</span></button>
+    </div>
+    <div class="tab-content">
+      <div class="filter-bar">
+        <label>📅 날짜 필터 :</label>
+        <input type="date" id="filterDate">
+        <button class="btn-sm" onclick="applyFilter()">검색</button>
+        <button class="btn-sm outline" onclick="clearFilter()">전체 보기</button>
+      </div>
+
+      <div class="tab-panel active" id="panelAll">
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>No.</th><th>회의실</th><th>날짜</th><th>시간</th><th>인원</th><th>예약자</th><th>상태</th><th>관리</th>
+          </tr></thead><tbody id="tableAll"></tbody></table>
+          <div class="no-data" id="noDataAll"><div class="icon">📭</div>예약 내역이 없습니다.</div>
+        </div>
+      </div>
+      <div class="tab-panel" id="panelRoom1">
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>No.</th><th>날짜</th><th>시간</th><th>인원</th><th>예약자</th><th>상태</th><th>관리</th>
+          </tr></thead><tbody id="tableRoom1"></tbody></table>
+          <div class="no-data" id="noDataRoom1"><div class="icon">📭</div>서초회의실 예약 내역이 없습니다.</div>
+        </div>
+      </div>
+      <div class="tab-panel" id="panelRoom2">
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>No.</th><th>날짜</th><th>시간</th><th>인원</th><th>예약자</th><th>상태</th><th>관리</th>
+          </tr></thead><tbody id="tableRoom2"></tbody></table>
+          <div class="no-data" id="noDataRoom2"><div class="icon">📭</div>신사회의실 예약 내역이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">회의실 예약 시스템 v1.2 · 데이터는 브라우저 로컬스토리지에 저장됩니다.</div>
+</div>
+
+<script>
+  const ROOM1 = '서초회의실';
+  const ROOM2 = '신사회의실';
+
+  let reservations = JSON.parse(localStorage.getItem('meetingReservations') || '[]');
+  let currentTab = 'all';
+  let filterDateVal = '';
+
+  function populateTimeSelects() {
+    const hourSelects = ['startHour', 'endHour'];
+    const minSelects  = ['startMin', 'endMin'];
+    hourSelects.forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="" disabled selected>시</option>';
+      for (let h = 0; h < 24; h++) {
+        const val = String(h).padStart(2, '0');
+        sel.innerHTML += `<option value="${val}">${val}시</option>`;
+      }
+    });
+    minSelects.forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="" disabled selected>분</option>';
+      for (let m = 0; m < 60; m += 10) {
+        const val = String(m).padStart(2, '0');
+        sel.innerHTML += `<option value="${val}">${val}분</option>`;
+      }
+    });
+  }
+
+  populateTimeSelects();
+  document.getElementById('date').valueAsDate = new Date();
+
+  function getTimeStr(hourId, minId) {
+    const h = document.getElementById(hourId).value;
+    const m = document.getElementById(minId).value;
+    if (!h || !m) return '';
+    return h + ':' + m;
+  }
+
+  function resetForm() {
+    document.getElementById('room').value = ROOM1;
+    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('startHour').selectedIndex = 0;
+    document.getElementById('startMin').selectedIndex = 0;
+    document.getElementById('endHour').selectedIndex = 0;
+    document.getElementById('endMin').selectedIndex = 0;
+    document.getElementById('people').value = '';
+    document.getElementById('reserver').value = '';
+  }
+
+  function addReservation() {
+    const room = document.getElementById('room').value;
+    const date = document.getElementById('date').value;
+    const startTime = getTimeStr('startHour', 'startMin');
+    const endTime   = getTimeStr('endHour', 'endMin');
+    const people = document.getElementById('people').value;
+    const reserver = document.getElementById('reserver').value.trim();
+
+    if (!date || !startTime || !endTime || !people || !reserver) {
+      alert('⚠️ 모든 항목을 입력해 주세요.\n(시, 분 모두 선택해 주세요)');
+      return;
+    }
+    if (startTime >= endTime) {
+      alert('⚠️ 종료 시간은 시작 시간 이후여야 합니다.');
+      return;
+    }
+    if (parseInt(people) < 1) {
+      alert('⚠️ 인원은 1명 이상이어야 합니다.');
+      return;
+    }
+
+    const conflict = reservations.find(r =>
+      r.room === room && r.date === date &&
+      !(endTime <= r.startTime || startTime >= r.endTime)
+    );
+    if (conflict) {
+      alert(`⚠️ ${room}에 해당 시간대 예약이 이미 존재합니다.\n기존: ${conflict.startTime} ~ ${conflict.endTime} (${conflict.reserver})`);
+      return;
+    }
+
+    reservations.push({
+      id: Date.now(), room, date, startTime, endTime,
+      people: parseInt(people), reserver
+    });
+    reservations.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.startTime.localeCompare(b.startTime);
+    });
+
+    save(); render(); resetForm();
+    alert('✅ 예약이 등록되었습니다!');
+  }
+
+  function deleteReservation(id) {
+    if (!confirm('이 예약을 삭제하시겠습니까?')) return;
+    reservations = reservations.filter(r => r.id !== id);
+    save(); render();
+  }
+
+  function save() { localStorage.setItem('meetingReservations', JSON.stringify(reservations)); }
+
+  function getStatus(date, startTime, endTime) {
+    const now = new Date();
+    const start = new Date(date + 'T' + startTime);
+    const end   = new Date(date + 'T' + endTime);
+    if (now < start) return { label: '예정', cls: 'time-upcoming' };
+    if (now >= start && now <= end) return { label: '진행중', cls: 'time-ongoing' };
+    return { label: '종료', cls: 'time-past' };
+  }
+
+  function formatDate(d) {
+    const dt = new Date(d + 'T00:00:00');
+    const days = ['일','월','화','수','목','금','토'];
+    return `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} (${days[dt.getDay()]})`;
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (tab === 'all')   { document.getElementById('tabAll').classList.add('active');   document.getElementById('panelAll').classList.add('active'); }
+    else if (tab === 'room1') { document.getElementById('tabRoom1').classList.add('active'); document.getElementById('panelRoom1').classList.add('active'); }
+    else { document.getElementById('tabRoom2').classList.add('active'); document.getElementById('panelRoom2').classList.add('active'); }
+  }
+
+  function applyFilter() { filterDateVal = document.getElementById('filterDate').value; render(); }
+  function clearFilter()  { filterDateVal = ''; document.getElementById('filterDate').value = ''; render(); }
+
+  function render() {
+    let data = [...reservations];
+    if (filterDateVal) data = data.filter(r => r.date === filterDateVal);
+
+    const all   = data;
+    const room1 = data.filter(r => r.room === ROOM1);
+    const room2 = data.filter(r => r.room === ROOM2);
+
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('statTotal').textContent = reservations.length;
+    document.getElementById('statRoom1').textContent = reservations.filter(r => r.room === ROOM1).length;
+    document.getElementById('statRoom2').textContent = reservations.filter(r => r.room === ROOM2).length;
+    document.getElementById('statToday').textContent = reservations.filter(r => r.date === today).length;
+
+    document.getElementById('badgeAll').textContent   = all.length;
+    document.getElementById('badgeRoom1').textContent = room1.length;
+    document.getElementById('badgeRoom2').textContent = room2.length;
+
+    const tbAll = document.getElementById('tableAll');
+    tbAll.innerHTML = '';
+    all.forEach((r, i) => {
+      const st = getStatus(r.date, r.startTime, r.endTime);
+      const rc = r.room === ROOM1 ? '#667eea' : '#e67e22';
+      tbAll.innerHTML += `<tr>
+        <td>${i+1}</td>
+        <td><span style="color:${rc};font-weight:700">${r.room}</span></td>
+        <td>${formatDate(r.date)}</td>
+        <td>${r.startTime} ~ ${r.endTime}</td>
+        <td>${r.people}명</td>
+        <td><strong>${r.reserver}</strong></td>
+        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
+        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
+      </tr>`;
+    });
+    document.getElementById('noDataAll').style.display = all.length ? 'none' : 'block';
+
+    const tb1 = document.getElementById('tableRoom1');
+    tb1.innerHTML = '';
+    room1.forEach((r, i) => {
+      const st = getStatus(r.date, r.startTime, r.endTime);
+      tb1.innerHTML += `<tr>
+        <td>${i+1}</td><td>${formatDate(r.date)}</td><td>${r.startTime} ~ ${r.endTime}</td>
+        <td>${r.people}명</td><td><strong>${r.reserver}</strong></td>
+        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
+        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
+      </tr>`;
+    });
+    document.getElementById('noDataRoom1').style.display = room1.length ? 'none' : 'block';
+
+    const tb2 = document.getElementById('tableRoom2');
+    tb2.innerHTML = '';
+    room2.forEach((r, i) => {
+      const st = getStatus(r.date, r.startTime, r.endTime);
+      tb2.innerHTML += `<tr>
+        <td>${i+1}</td><td>${formatDate(r.date)}</td><td>${r.startTime} ~ ${r.endTime}</td>
+        <td>${r.people}명</td><td><strong>${r.reserver}</strong></td>
+        <td><span class="time-badge ${st.cls}">${st.label}</span></td>
+        <td><button class="btn-delete" onclick="deleteReservation(${r.id})">🗑 삭제</button></td>
+      </tr>`;
+    });
+    document.getElementById('noDataRoom2').style.display = room2.length ? 'none' : 'block';
+  }
+
+  render();
+</script>
+</body>
+</html>

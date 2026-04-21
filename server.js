@@ -2,9 +2,15 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const PORT = parseInt(process.env.PORT || '5110', 10);
 const DB_PATH = process.env.DB_PATH || '/home/ubuntu/room/data/reservations.db';
+const PEPPER = process.env.ROOM_PEPPER || 'room-meeting-pepper-2026-v1';
+
+function hashPassword(pw) {
+  return crypto.createHash('sha256').update(PEPPER + ':' + pw).digest('hex');
+}
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
@@ -29,13 +35,21 @@ db.exec(`
     ON reservations(date);
 `);
 
+// Migration: add password_hash column if missing (idempotent)
+try {
+  db.exec(`ALTER TABLE reservations ADD COLUMN password_hash TEXT`);
+} catch (e) {
+  if (!/duplicate column name/i.test(e.message)) throw e;
+}
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
 
 const stmts = {
   list: db.prepare(`
-    SELECT id, room, date, startTime, endTime, people, reserver, created_at
+    SELECT id, room, date, startTime, endTime, people, reserver, created_at,
+           (password_hash IS NOT NULL) AS has_password
     FROM reservations
     ORDER BY date ASC, startTime ASC
   `),
@@ -47,10 +61,15 @@ const stmts = {
     LIMIT 1
   `),
   insert: db.prepare(`
-    INSERT INTO reservations (room, date, startTime, endTime, people, reserver)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO reservations (room, date, startTime, endTime, people, reserver, password_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
-  getById: db.prepare('SELECT * FROM reservations WHERE id = ?'),
+  getById: db.prepare(`
+    SELECT id, room, date, startTime, endTime, people, reserver, created_at,
+           (password_hash IS NOT NULL) AS has_password
+    FROM reservations WHERE id = ?
+  `),
+  getFullById: db.prepare('SELECT * FROM reservations WHERE id = ?'),
   delete: db.prepare('DELETE FROM reservations WHERE id = ?'),
 };
 
@@ -64,6 +83,7 @@ function validateInput(body) {
   const startTime = (body.startTime || '').toString();
   const endTime = (body.endTime || '').toString();
   const reserver = (body.reserver || '').toString().trim();
+  const password = (body.password || '').toString();
   const people = parseInt(body.people, 10);
 
   if (!ROOMS.has(room)) return '회의실이 올바르지 않습니다';
@@ -74,8 +94,9 @@ function validateInput(body) {
   if (endTime > '19:00')   return '예약 종료 시간은 19:00 이하여야 합니다';
   if (!Number.isFinite(people) || people < 1 || people > 50) return '인원은 1~50명 사이여야 합니다';
   if (!reserver || reserver.length > 50) return '예약자 이름은 1~50자여야 합니다';
+  if (!password || password.length < 4 || password.length > 20) return '비밀번호는 4~20자여야 합니다';
 
-  return { room, date, startTime, endTime, people, reserver };
+  return { room, date, startTime, endTime, people, reserver, password };
 }
 
 app.get('/api/health', (_req, res) => {
@@ -97,7 +118,8 @@ app.post('/api/reservations', (req, res) => {
       err.conflict = conflict;
       throw err;
     }
-    const info = stmts.insert.run(data.room, data.date, data.startTime, data.endTime, data.people, data.reserver);
+    const pwHash = hashPassword(data.password);
+    const info = stmts.insert.run(data.room, data.date, data.startTime, data.endTime, data.people, data.reserver, pwHash);
     return stmts.getById.get(info.lastInsertRowid);
   });
 
@@ -120,6 +142,18 @@ app.post('/api/reservations', (req, res) => {
 app.delete('/api/reservations/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'id 형식 오류' });
+
+  const row = stmts.getFullById.get(id);
+  if (!row) return res.status(404).json({ error: '해당 예약을 찾을 수 없습니다' });
+
+  const pw = ((req.body && req.body.password) || '').toString();
+  if (row.password_hash) {
+    if (!pw) return res.status(401).json({ error: '비밀번호를 입력해주세요' });
+    if (hashPassword(pw) !== row.password_hash) {
+      return res.status(403).json({ error: '비밀번호가 일치하지 않습니다' });
+    }
+  }
+
   const info = stmts.delete.run(id);
   if (info.changes === 0) return res.status(404).json({ error: '해당 예약을 찾을 수 없습니다' });
   res.json({ ok: true, id });

@@ -756,6 +756,10 @@
         <label>예약자</label>
         <input type="text" id="reserver" placeholder="이름 입력" maxlength="50">
       </div>
+      <div class="form-group">
+        <label>🔒 비밀번호 <span style="font-weight:400;color:#aa9b6a;letter-spacing:0.02em;text-transform:none;font-size:0.7rem;">(삭제 시 필요)</span></label>
+        <input type="password" id="password" placeholder="4~20자" minlength="4" maxlength="20" autocomplete="new-password">
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-reset" id="btnReset">초기화</button>
@@ -949,6 +953,7 @@
     $('endMin').selectedIndex = 0;
     $('people').value = '';
     $('reserver').value = '';
+    $('password').value = '';
   }
 
   async function loadReservations() {
@@ -963,6 +968,7 @@
   }
 
   async function addReservation() {
+    const password = $('password').value;
     const payload = {
       room: $('room').value,
       date: $('date').value,
@@ -970,9 +976,14 @@
       endTime:   getTimeStr('endHour', 'endMin'),
       people:    $('people').value,
       reserver:  $('reserver').value.trim(),
+      password,
     };
     if (!payload.date || !payload.startTime || !payload.endTime || !payload.people || !payload.reserver) {
       toast('모든 항목을 입력해 주세요 (시, 분 모두 선택)', 'err');
+      return;
+    }
+    if (!password || password.length < 4 || password.length > 20) {
+      toast('비밀번호는 4~20자로 입력해 주세요', 'err');
       return;
     }
 
@@ -994,10 +1005,23 @@
   }
 
   async function deleteReservation(id, btnEl) {
-    if (!confirm('이 예약을 삭제하시겠습니까?')) return;
+    const target = reservations.find((r) => r.id === id);
+    const needPw = !target || target.has_password;
+    let password = '';
+    if (needPw) {
+      const input = prompt('예약 등록 시 입력한 비밀번호를 입력해주세요');
+      if (input === null) return; // cancelled
+      password = input;
+      if (!password) { toast('비밀번호를 입력해주세요', 'err'); return; }
+    } else {
+      if (!confirm('이 예약을 삭제하시겠습니까?')) return;
+    }
     if (btnEl) btnEl.disabled = true;
     try {
-      await apiFetch(`reservations/${id}`, { method: 'DELETE' });
+      await apiFetch(`reservations/${id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ password }),
+      });
       toast('삭제되었습니다', 'ok');
       await loadReservations();
     } catch (e) {

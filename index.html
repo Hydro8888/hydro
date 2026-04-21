@@ -10,21 +10,31 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
-    --blue: #0068b7;
-    --blue-hover: #0055a4;
-    --blue-light: #e8f3fb;
-    --blue-pale: #f0f7ff;
-    --bg: #f2f5f8;
+    --kt-red: #e60012;
+    --kt-red-hover: #c40010;
+    --kt-red-dark: #a0000d;
+    --kt-red-light: #fdeef0;
+    --kt-red-pale: #fff5f6;
+    --kt-black: #1a1a1a;
+    --kt-gray-1: #f5f5f5;
+    --kt-gray-2: #e5e5e5;
+    --kt-gray-3: #999999;
+    /* Legacy aliases for backward compat (map blue → kt-red) */
+    --blue: var(--kt-red);
+    --blue-hover: var(--kt-red-hover);
+    --blue-light: var(--kt-red-light);
+    --blue-pale: var(--kt-red-pale);
+    --bg: #f5f5f5;
     --card: #ffffff;
-    --border: #dde3ea;
-    --text: #1f2937;
-    --text2: #6b7280;
-    --red: #dc2626;
+    --border: #e5e5e5;
+    --text: #1a1a1a;
+    --text2: #666666;
+    --red: #e60012;
     --green: #16a34a;
     --amber: #d97706;
-    --radius: 10px;
-    --shadow: 0 2px 10px rgba(0,0,0,0.08);
-    --shadow-lg: 0 6px 24px rgba(0,0,0,0.12);
+    --radius: 4px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
   }
   html, body { min-height: 100%; }
   body {
@@ -35,33 +45,62 @@
     padding: 0;
   }
 
-  /* ── Header ── */
+  /* ── Header (KT style) ── */
   .site-header {
-    background: var(--blue);
+    background: #ffffff;
     padding: 0 32px;
     display: flex; align-items: center;
-    height: 60px;
-    box-shadow: 0 2px 8px rgba(0,104,183,0.18);
+    height: 68px;
+    border-bottom: 1px solid var(--kt-gray-2);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     position: sticky; top: 0; z-index: 100;
   }
   .site-header-logo {
-    font-size: 1.1rem; font-weight: 800;
-    color: #fff; letter-spacing: 0.04em;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 14px;
   }
-  .site-header-logo .logo-badge {
-    background: rgba(255,255,255,0.22);
-    border-radius: 6px;
-    padding: 3px 10px;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    font-weight: 700;
+  .kt-logo {
+    display: inline-flex; align-items: center;
+    background: var(--kt-red);
+    color: #fff;
+    font-family: 'Inter', 'Arial Black', sans-serif;
+    font-weight: 900;
+    font-size: 1.45rem;
+    letter-spacing: -0.02em;
+    padding: 6px 14px;
+    border-radius: 2px;
+    line-height: 1;
+    font-style: italic;
+    box-shadow: 0 2px 4px rgba(230,0,18,0.25);
+  }
+  .site-header-title {
+    font-size: 1.05rem; font-weight: 700;
+    color: var(--kt-black);
+    letter-spacing: -0.01em;
+    border-left: 1px solid var(--kt-gray-2);
+    padding-left: 14px;
+  }
+  .site-header-title .sub {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text2);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
   }
   .site-header-right {
     margin-left: auto;
-    font-size: 0.78rem;
-    color: rgba(255,255,255,0.8);
-    letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 0.82rem;
+    color: var(--text2);
+  }
+  .site-header-right .pill {
+    background: var(--kt-red-light);
+    color: var(--kt-red);
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
   }
 
   .container { max-width: 1180px; margin: 0 auto; padding: 28px 20px 48px; }
@@ -85,13 +124,13 @@
   .stat-card[data-action]:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
-    border-color: var(--blue);
+    border-color: var(--kt-red);
   }
   .stat-card[data-action]:active { transform: translateY(0); }
   .stat-card.stat-active {
-    border-color: var(--blue);
-    background: var(--blue-pale);
-    box-shadow: 0 0 0 2px rgba(0,104,183,0.18), var(--shadow);
+    border-color: var(--kt-red);
+    background: var(--kt-red-pale);
+    box-shadow: 0 0 0 2px rgba(230,0,18,0.15), var(--shadow);
   }
   .stat-card .num {
     font-size: 2rem; font-weight: 800;
@@ -171,8 +210,8 @@
     border-color: #bbc8d4;
   }
   .form-group select:focus, .form-group input:focus, .form-group textarea:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(0,104,183,0.12);
+    border-color: var(--kt-red);
+    box-shadow: 0 0 0 3px rgba(230,0,18,0.10);
   }
 
   .time-row { display: flex; align-items: center; gap: 6px; }
@@ -188,8 +227,8 @@
   }
   .time-row select:hover { border-color: #bbc8d4; }
   .time-row select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(0,104,183,0.12);
+    border-color: var(--kt-red);
+    box-shadow: 0 0 0 3px rgba(230,0,18,0.10);
   }
   .time-sep { font-size: 1.1rem; font-weight: 700; color: #bbc8d4; }
 
@@ -211,13 +250,13 @@
   }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn-primary {
-    background: var(--blue); color: #fff;
-    box-shadow: 0 4px 12px rgba(0,104,183,0.28);
+    background: var(--kt-red); color: #fff;
+    box-shadow: 0 4px 12px rgba(230,0,18,0.25);
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--blue-hover);
+    background: var(--kt-red-hover);
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(0,104,183,0.38);
+    box-shadow: 0 6px 18px rgba(230,0,18,0.35);
   }
   .btn-primary:active:not(:disabled) { transform: translateY(0); }
   .btn-primary::after {
@@ -305,8 +344,8 @@
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   .filter-bar input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(0,104,183,0.1);
+    border-color: var(--kt-red);
+    box-shadow: 0 0 0 3px rgba(230,0,18,0.08);
   }
   .btn-sm {
     padding: 7px 16px;
@@ -373,8 +412,8 @@
     font-size: 0.75rem; font-weight: 700;
     white-space: nowrap;
   }
-  .room-pill.room1 { background: #e8f3fb; color: var(--blue); border: 1px solid rgba(0,104,183,0.2); }
-  .room-pill.room2 { background: #fff3e0; color: #b45309; border: 1px solid rgba(180,83,9,0.2); }
+  .room-pill.room1 { background: var(--kt-red-light); color: var(--kt-red); border: 1px solid rgba(230,0,18,0.25); }
+  .room-pill.room2 { background: #eeeeee; color: var(--kt-black); border: 1px solid #cccccc; }
 
   .time-badge {
     display: inline-block;
@@ -448,8 +487,8 @@
   .week-title .chip {
     display: inline-block; width: 10px; height: 10px; border-radius: 3px;
   }
-  .week-title .chip.room1 { background: linear-gradient(135deg, #f87171, #dc2626); }
-  .week-title .chip.room2 { background: linear-gradient(135deg, #fca5a5, #b91c1c); }
+  .week-title .chip.room1 { background: linear-gradient(135deg, #ff4455, #e60012); }
+  .week-title .chip.room2 { background: linear-gradient(135deg, #555555, #1a1a1a); }
   .week-wrap { overflow-x: auto; padding: 0 20px 20px; }
   .week-grid {
     border-collapse: collapse; width: 100%; min-width: 720px;
@@ -466,7 +505,7 @@
     font-size: 0.72rem; letter-spacing: 0.04em;
     border-bottom: 2px solid var(--border);
   }
-  .week-grid th.today { background: var(--blue-light); color: var(--blue); font-weight: 800; }
+  .week-grid th.today { background: var(--kt-red-light); color: var(--kt-red); font-weight: 800; }
   .week-grid .col-time {
     width: 56px; background: #f9fafb; color: var(--text2);
     font-weight: 600; font-size: 0.7rem;
@@ -481,11 +520,33 @@
     transition: filter 0.18s;
   }
   .week-grid td.slot.reserved:hover { filter: brightness(1.1); }
-  .week-grid td.slot.reserved .r-name { font-size: 0.76rem; }
-  .week-grid td.slot.reserved .r-time { font-size: 0.66rem; opacity: 0.9; }
-  .week-grid td.reserv-room1 { background: linear-gradient(135deg, #f87171, #dc2626); }
-  .week-grid td.reserv-room2 { background: linear-gradient(135deg, #fca5a5, #b91c1c); }
-  .week-grid td.reserv-past { opacity: 0.5; }
+  .week-grid td.slot.reserved .r-name {
+    font-size: 0.76rem; font-weight: 800;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .week-grid td.slot.reserved .r-name .r-people {
+    font-weight: 500; opacity: 0.9; font-size: 0.7rem;
+  }
+  .week-grid td.slot.reserved .r-time {
+    font-size: 0.66rem; opacity: 0.92;
+    margin-top: 2px; font-weight: 600;
+  }
+  .week-grid td.slot.reserved .r-desc {
+    font-size: 0.65rem; opacity: 0.88;
+    margin-top: 3px; font-weight: 400;
+    line-height: 1.25;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    border-top: 1px solid rgba(255,255,255,0.22);
+    padding-top: 3px;
+  }
+  .week-grid td.slot.reserved.slot-short .r-desc { display: none; }
+  .week-grid td.slot.reserved.slot-short .r-time { font-size: 0.62rem; margin-top: 1px; }
+  .week-grid td.reserv-room1 { background: linear-gradient(135deg, #ff4455, #e60012); }
+  .week-grid td.reserv-room2 { background: linear-gradient(135deg, #4a4a4a, #1a1a1a); }
+  .week-grid td.reserv-past { opacity: 0.48; }
   .week-oor {
     display: inline-block; margin-left: 8px;
     padding: 2px 10px;
@@ -527,11 +588,16 @@
 
 <header class="site-header">
   <div class="site-header-logo">
-    <span>🏢</span>
-    <span>회의실 예약 시스템</span>
-    <span class="logo-badge">MEETING ROOM</span>
+    <span class="kt-logo">kt</span>
+    <div class="site-header-title">
+      회의실 예약 시스템
+      <span class="sub">MEETING ROOM RESERVATION</span>
+    </div>
   </div>
-  <div class="site-header-right">서초회의실 &middot; 신사회의실</div>
+  <div class="site-header-right">
+    <span class="pill">BUSINESS</span>
+    <span>서초 · 신사</span>
+  </div>
 </header>
 
 <div class="container">
@@ -965,11 +1031,17 @@
         } else {
           const r = c.reserv;
           const past = getStatus(r.date, r.startTime, r.endTime).label === '종료';
-          const title = `${escapeHtml(r.reserver)} (${r.people}명) · ${escapeHtml(r.startTime)}~${escapeHtml(r.endTime)}`;
-          html += `<td class="slot reserved ${roomCls}${past ? ' reserv-past' : ''}"`
-            + ` rowspan="${c.span}" data-id="${r.id}" title="${title}">`
-            + `<div class="r-name">${escapeHtml(r.reserver)}</div>`
+          const descFull = r.description ? ` · ${r.description}` : '';
+          const title = `${r.reserver} (${r.people}명) · ${r.startTime}~${r.endTime}${descFull}`;
+          const shortCls = c.span <= 3 ? ' slot-short' : '';
+          const descHtml = r.description
+            ? `<div class="r-desc">${escapeHtml(r.description)}</div>`
+            : '';
+          html += `<td class="slot reserved ${roomCls}${past ? ' reserv-past' : ''}${shortCls}"`
+            + ` rowspan="${c.span}" data-id="${r.id}" title="${escapeHtml(title)}">`
+            + `<div class="r-name">${escapeHtml(r.reserver)}<span class="r-people">· ${r.people}명</span></div>`
             + `<div class="r-time">${escapeHtml(r.startTime)}~${escapeHtml(r.endTime)}</div>`
+            + descHtml
             + `</td>`;
         }
       }

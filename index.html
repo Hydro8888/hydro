@@ -58,19 +58,10 @@
   .site-header-logo {
     display: flex; align-items: center; gap: 14px;
   }
-  .kt-logo {
-    display: inline-flex; align-items: center;
-    background: var(--kt-red);
-    color: #fff;
-    font-family: 'Inter', 'Arial Black', sans-serif;
-    font-weight: 900;
-    font-size: 1.45rem;
-    letter-spacing: -0.02em;
-    padding: 6px 14px;
-    border-radius: 2px;
-    line-height: 1;
-    font-style: italic;
-    box-shadow: 0 2px 4px rgba(230,0,18,0.25);
+  .kt-logo-img {
+    height: 40px;
+    width: auto;
+    display: block;
   }
   .site-header-title {
     font-size: 1.05rem; font-weight: 700;
@@ -588,7 +579,7 @@
 
 <header class="site-header">
   <div class="site-header-logo">
-    <span class="kt-logo">kt</span>
+    <img class="kt-logo-img" src="https://corp.kt.com/images/kt/kt-ci.png" alt="KT">
     <div class="site-header-title">
       회의실 예약 시스템
       <span class="sub">MEETING ROOM RESERVATION</span>

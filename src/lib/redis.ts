@@ -39,7 +39,14 @@ export async function getCached<T>(key: string, ttl: number, fetcher: () => Prom
 
   const data = await fetcher();
 
-  if (redis) {
+  // Don't cache empty results — this prevents "stuck" empty states
+  // when the DB query temporarily fails or returns no rows.
+  const isEmpty =
+    data == null ||
+    (Array.isArray(data) && data.length === 0) ||
+    (typeof data === 'object' && data !== null && 'articles' in data && Array.isArray((data as { articles: unknown[] }).articles) && (data as { articles: unknown[] }).articles.length === 0);
+
+  if (redis && !isEmpty) {
     try {
       await redis.setex(key, ttl, JSON.stringify(data));
     } catch { /* ignore */ }

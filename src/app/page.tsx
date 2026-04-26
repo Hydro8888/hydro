@@ -237,11 +237,17 @@ export default async function HomePage() {
               />
             </svg>
             <p className="text-headline-sm text-text-secondary">
-              뉴스를 수집 중입니다
+              뉴스를 불러오는 중입니다
             </p>
             <p className="text-body-md text-text-muted mt-2">
-              잠시 후 다시 확인해주세요
+              잠시 후 새로고침해 주세요
             </p>
+            <Link
+              href="/"
+              className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
+            >
+              새로고침
+            </Link>
           </div>
         )}
       </div>

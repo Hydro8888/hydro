@@ -19,7 +19,8 @@ export async function getArticles(country?: string) {
         take: 30,
       })
     );
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -35,7 +36,8 @@ export async function getBreakingNews() {
         take: 10,
       })
     );
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -51,7 +53,8 @@ export async function getCategoryCounts() {
       });
       return counts.map((c) => ({ category: c.categoryPrimary, count: c._count }));
     });
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -75,7 +78,8 @@ export async function getCountryArticles(countryCode: string, page: number) {
       ]);
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return { articles: [], total: 0, totalPages: 0 };
   }
 }
@@ -99,7 +103,8 @@ export async function getBreakingArticles(page: number) {
       ]);
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return { articles: [], total: 0, totalPages: 0 };
   }
 }
@@ -118,7 +123,8 @@ export async function getRankingArticles(country: string) {
         take: 30,
       })
     );
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -154,7 +160,8 @@ export async function getTrendingKeywords() {
         count: c._count,
       }));
     });
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -178,7 +185,8 @@ export async function getCategoryArticles(slug: string, page: number) {
       ]);
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
-  } catch {
+  } catch (err) {
+    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
     return { articles: [], total: 0, totalPages: 0 };
   }
 }

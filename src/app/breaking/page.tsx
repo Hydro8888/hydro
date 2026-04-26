@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import Link from 'next/link';
 import { getBreakingArticles } from '@/lib/queries';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
@@ -48,7 +49,11 @@ export default async function BreakingPage({
 
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-muted text-body-lg">뉴스를 수집 중입니다</p>
+          <p className="text-text-secondary text-headline-sm">뉴스를 불러오는 중입니다</p>
+          <p className="text-text-muted text-body-md mt-2">잠시 후 새로고침해 주세요</p>
+          <Link href="/breaking" className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors">
+            새로고침
+          </Link>
         </div>
       )}
 

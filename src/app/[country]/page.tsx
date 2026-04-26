@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import React from 'react';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { COUNTRY_SUBCATEGORIES } from '@/lib/constants';
 import { getCountryArticles } from '@/lib/queries';
@@ -104,7 +105,16 @@ export default async function CountryPage({
       {/* Empty state */}
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-muted text-body-lg">{config.label} 뉴스를 수집 중입니다</p>
+          <p className="text-text-secondary text-headline-sm">
+            {config.label} 뉴스를 불러오는 중입니다
+          </p>
+          <p className="text-text-muted text-body-md mt-2">잠시 후 새로고침해 주세요</p>
+          <Link
+            href={`/${params.country}`}
+            className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
+          >
+            새로고침
+          </Link>
         </div>
       )}
 

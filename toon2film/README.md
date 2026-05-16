@@ -70,15 +70,50 @@ http://localhost:3000
 
 ## Ubuntu Server Deployment
 
-Use a separate folder and the safe deploy script so existing services keep running:
+Use a separate folder and the safe deploy script so existing services keep running. After SSH login as `ubuntu`, paste and run this single installer:
 
 ```bash
-git clone -b codex/toon2film-platform-full \
-  git@github.com:Hydro8888/hydro.git /home/ubuntu/toon2film-deploy
-
-cd /home/ubuntu/toon2film-deploy/toon2film
+cat > /home/ubuntu/install_toon2film.sh <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+REPO_SSH="${REPO_SSH:-git@github.com:Hydro8888/hydro.git}"
+BRANCH="${BRANCH:-codex/toon2film-platform-full}"
+TARGET_DIR="${TARGET_DIR:-/home/ubuntu/toon2film-deploy}"
+if [[ "$(id -un)" != "ubuntu" ]]; then
+  echo "[FAIL] Run as ubuntu, not root." >&2
+  exit 1
+fi
+set +e
+SSH_OUTPUT="$(ssh -o BatchMode=yes -T git@github.com 2>&1)"
+set -e
+echo "$SSH_OUTPUT"
+if ! echo "$SSH_OUTPUT" | grep -qi "successfully authenticated"; then
+  echo "[FAIL] GitHub SSH authentication failed." >&2
+  exit 1
+fi
+if [[ -e "$TARGET_DIR" && ! -d "$TARGET_DIR/.git" ]]; then
+  echo "[FAIL] $TARGET_DIR exists but is not a git repository." >&2
+  exit 1
+fi
+if [[ -d "$TARGET_DIR/.git" ]]; then
+  cd "$TARGET_DIR"
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "[FAIL] Local changes exist in $TARGET_DIR." >&2
+    exit 1
+  fi
+  git fetch origin "$BRANCH"
+  git checkout "$BRANCH"
+  git pull --ff-only origin "$BRANCH"
+else
+  git clone -b "$BRANCH" "$REPO_SSH" "$TARGET_DIR"
+fi
+cd "$TARGET_DIR/toon2film"
 chmod +x deploy/install_server.sh
 ./deploy/install_server.sh --install-deps --with-nginx --with-pm2-startup
+BASH
+
+chmod +x /home/ubuntu/install_toon2film.sh
+/home/ubuntu/install_toon2film.sh
 ```
 
 Default production values:

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "toon2film-api"
 version = "0.1.0"
@@ -33,6 +37,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["alembic*"]
 
 [tool.mypy]
 python_version = "3.12"

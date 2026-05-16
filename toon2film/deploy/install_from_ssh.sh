@@ -33,7 +33,7 @@ Environment overrides:
   BRANCH=codex/toon2film-platform-full
   TARGET_DIR=/home/ubuntu/toon2film-deploy
   BASE_PATH=/toon2film
-  WEB_PORT=3600
+  WEB_PORT=3610
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
 USAGE

@@ -58,7 +58,7 @@ Safe defaults:
 - App folder: `/home/ubuntu/toon2film-deploy/toon2film`
 - Web PM2 name: `toon2film-web`
 - API PM2 name: `toon2film-api`
-- Web port: `3600`
+- Web port: `3610`
 - API port: `8600`
 - Public path: `/toon2film`
 

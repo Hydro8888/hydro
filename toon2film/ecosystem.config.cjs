@@ -1,7 +1,7 @@
 const path = require("path");
 
 const appRoot = __dirname;
-const webPort = process.env.TOON2FILM_WEB_PORT || "3600";
+const webPort = process.env.TOON2FILM_WEB_PORT || "3610";
 const apiPort = process.env.TOON2FILM_API_PORT || "8600";
 const basePath = process.env.TOON2FILM_BASE_PATH || "/toon2film";
 const webName = process.env.TOON2FILM_WEB_PM2_NAME || "toon2film-web";

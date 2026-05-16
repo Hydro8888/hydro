@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Toon2Film"
     environment: str = "local"
-    api_cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    api_cors_origins: str = "http://localhost:3000"
 
     database_url: str = "postgresql+psycopg://toon2film:toon2film@localhost:5432/toon2film"
     redis_url: str = "redis://localhost:6379/0"
@@ -30,12 +29,9 @@ class Settings(BaseSettings):
     encryption_key: str | None = None
     jwt_secret: str | None = None
 
-    @field_validator("api_cors_origins", mode="before")
-    @classmethod
-    def split_origins(cls, value: str | list[str]) -> list[str]:
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.api_cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache(maxsize=1)

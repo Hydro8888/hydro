@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 SERVICE_NAME="${SERVICE_NAME:-toon2film}"
 BASE_PATH="${BASE_PATH:-/toon2film}"
-WEB_PORT="${WEB_PORT:-3600}"
+WEB_PORT="${WEB_PORT:-3610}"
 API_PORT="${API_PORT:-8600}"
 WEB_PM2_NAME="${WEB_PM2_NAME:-toon2film-web}"
 API_PM2_NAME="${API_PM2_NAME:-toon2film-api}"
@@ -40,7 +40,7 @@ Options:
 
 Environment overrides:
   BASE_PATH=/toon2film
-  WEB_PORT=3600
+  WEB_PORT=3610
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
@@ -242,7 +242,12 @@ wait_for_url() {
     fi
     sleep 1
   done
-  die "$label did not become healthy. Last code: $code ($url)"
+  warn "$label did not become healthy. Last code: $code ($url)"
+  pm2 status | grep -E "toon2film|name|─" || true
+  ss -tlnp | grep -E ":(${WEB_PORT}|${API_PORT})[[:space:]]" || true
+  pm2 logs "$API_PM2_NAME" --err --lines 40 --nostream || true
+  pm2 logs "$WEB_PM2_NAME" --err --lines 40 --nostream || true
+  die "$label health check failed. PM2 logs printed above."
 }
 
 nginx_block() {

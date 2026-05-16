@@ -67,3 +67,27 @@ http://localhost:3000
 - API keys must stay in environment variables or encrypted user storage.
 - Uploaded source material requires explicit rights confirmation before processing.
 - Video providers are isolated behind an interface so Seedance, Runway, Kling, Veo, Sora, or future APIs can be swapped without rewriting production workflow data.
+
+## Ubuntu Server Deployment
+
+Use a separate folder and the safe deploy script so existing services keep running:
+
+```bash
+git clone -b codex/toon2film-platform-full \
+  git@github.com:Hydro8888/hydro.git /home/ubuntu/toon2film-deploy
+
+cd /home/ubuntu/toon2film-deploy/toon2film
+chmod +x deploy/install_server.sh
+./deploy/install_server.sh --install-deps --with-nginx --with-pm2-startup
+```
+
+Default production values:
+
+```text
+Path: /toon2film
+Web port: 3600
+API port: 8600
+PM2: toon2film-web, toon2film-api
+```
+
+The script backs up the active Nginx site outside `sites-enabled`, checks port conflicts, restarts only Toon2Film PM2 processes, runs `nginx -t` before reload, and compares existing service health before and after deployment.

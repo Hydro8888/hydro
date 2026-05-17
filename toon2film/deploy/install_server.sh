@@ -211,6 +211,15 @@ build_app() {
   python3 -m venv "$APP_ROOT/.venv"
   "$APP_ROOT/.venv/bin/python" -m pip install --upgrade pip wheel
   "$APP_ROOT/.venv/bin/pip" install -e "$APP_ROOT/apps/api"
+
+  log "Smoke test API import"
+  (
+    cd "$APP_ROOT/apps/api"
+    API_CORS_ORIGINS="http://127.0.0.1:${WEB_PORT},http://localhost:${WEB_PORT},http://${INTERNAL_HOST}" \
+      "$APP_ROOT/.venv/bin/python" -c "from app.main import app; print('api import ok')"
+  )
+
+  [[ -f "$APP_ROOT/node_modules/next/dist/bin/next" ]] || die "Next.js binary not found under root node_modules"
 }
 
 start_pm2() {

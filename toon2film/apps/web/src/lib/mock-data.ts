@@ -23,6 +23,7 @@ export const projects: Project[] = [
     status: "processing",
     updatedAt: "2 hours ago",
     thumbnailTone: "sunset",
+    thumbnailImage: "/studio-assets/poster-hiero.svg",
     crew: ["HY", "MJ", "+2"],
     badge: "렌더링 중"
   },
@@ -40,6 +41,7 @@ export const projects: Project[] = [
     status: "review",
     updatedAt: "5 hours ago",
     thumbnailTone: "blonde",
+    thumbnailImage: "/studio-assets/poster-memory.svg",
     crew: ["JM", "AK"],
     badge: "진행 중"
   },
@@ -57,6 +59,7 @@ export const projects: Project[] = [
     status: "ready",
     updatedAt: "1 day ago",
     thumbnailTone: "night",
+    thumbnailImage: "/studio-assets/poster-moon.svg",
     crew: ["SA", "NO", "+1"],
     badge: "대기 중"
   },
@@ -74,6 +77,7 @@ export const projects: Project[] = [
     status: "done",
     updatedAt: "2 days ago",
     thumbnailTone: "sky",
+    thumbnailImage: "/studio-assets/poster-summer.svg",
     crew: ["JM"],
     badge: "완료"
   }
@@ -175,7 +179,8 @@ export const queueJobs: QueueJob[] = [
     cost: "$0.42",
     eta: "00:08:45",
     progress: 65,
-    thumbnailTone: "sunset"
+    thumbnailTone: "sunset",
+    thumbnailImage: "/studio-assets/poster-hiero.svg"
   },
   {
     id: "job-428",
@@ -187,7 +192,8 @@ export const queueJobs: QueueJob[] = [
     cost: "$0.31",
     eta: "00:05:12",
     progress: 32,
-    thumbnailTone: "blonde"
+    thumbnailTone: "blonde",
+    thumbnailImage: "/studio-assets/poster-memory.svg"
   },
   {
     id: "job-427",
@@ -200,6 +206,7 @@ export const queueJobs: QueueJob[] = [
     eta: "waiting",
     progress: 0,
     thumbnailTone: "sky",
+    thumbnailImage: "/studio-assets/poster-summer.svg",
     queueOrder: "3"
   }
 ];

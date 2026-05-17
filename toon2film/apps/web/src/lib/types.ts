@@ -21,6 +21,7 @@ export type Project = {
   status: PipelineStatus;
   updatedAt: string;
   thumbnailTone: "sunset" | "blonde" | "night" | "sky";
+  thumbnailImage: string;
   crew: string[];
   badge: string;
 };
@@ -47,6 +48,7 @@ export type QueueJob = {
   eta: string;
   progress: number;
   thumbnailTone: "sunset" | "blonde" | "night" | "sky";
+  thumbnailImage: string;
   queueOrder?: string;
 };
 

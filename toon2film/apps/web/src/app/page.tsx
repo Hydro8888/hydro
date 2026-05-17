@@ -39,6 +39,8 @@ import { cn } from "@/lib/utils";
 import type { PipelineStatus } from "@/lib/types";
 
 const pipelineIcons = [UploadCloud, Bot, BookOpen, Clapperboard, MonitorPlay, Film];
+const quickIcons = [KeyRound, BookOpen, Sparkles, MessageSquare];
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/toon2film";
 
 const statusTone: Record<PipelineStatus, string> = {
   ready: "border-border/80 bg-muted/70 text-muted-foreground",
@@ -48,7 +50,9 @@ const statusTone: Record<PipelineStatus, string> = {
   done: "border-success/40 bg-success/10 text-success"
 };
 
-const quickIcons = [KeyRound, BookOpen, Sparkles, MessageSquare];
+function assetPath(path: string) {
+  return `${basePath}${path}`;
+}
 
 export default function DashboardPage() {
   const { t } = useI18n();
@@ -66,26 +70,17 @@ export default function DashboardPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_348px]">
         <main className="min-w-0 space-y-5">
-          <section className="studio-panel-hot hero-reel relative min-h-[250px] overflow-hidden p-5 sm:p-7">
-            <div className="absolute inset-y-0 right-0 hidden w-[58%] md:block">
-              <div className="film-perforation absolute inset-y-6 left-6 w-10 rounded bg-background/50 opacity-70" />
-              <div className="absolute bottom-7 right-7 top-7 w-[58%] rotate-3 rounded-lg border border-primary/20 bg-background/40 p-3 shadow-glow">
-                <div className="poster-frame poster-sunset h-full">
-                  <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-background/65 px-2 py-1 text-xs font-black text-warning">
-                    <span className="h-2 w-2 rounded-full bg-warning" />
-                    REC
-                  </div>
-                  <div className="absolute bottom-4 right-4 z-10 text-xs font-semibold text-white/90">00:00:12:15</div>
-                </div>
+          <section className="studio-panel-hot hero-reel relative min-h-[280px] overflow-hidden p-5 sm:p-7">
+            <div className="absolute inset-y-0 right-0 hidden w-[66%] md:block">
+              <div className="hero-image-wrap absolute inset-4 left-0 overflow-hidden rounded-xl border border-primary/25 bg-background/30 shadow-glow">
+                <img
+                  src={assetPath("/studio-assets/manga-cinema-hero.svg")}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  aria-hidden="true"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/.76)_27%,transparent_62%)]" />
               </div>
-              <div className="manga-board absolute bottom-10 left-14 top-12 w-[48%] -rotate-6 rounded-lg border border-foreground/20 bg-white/10 p-3 shadow-soft">
-                <div className="grid h-full grid-cols-3 gap-2">
-                  {Array.from({ length: 9 }).map((_, index) => (
-                    <div key={index} className="rounded border border-background/35 bg-background/25" />
-                  ))}
-                </div>
-              </div>
-              <ArrowRight className="absolute left-[49%] top-1/2 z-10 h-12 w-12 -translate-y-1/2 text-foreground/80" />
             </div>
 
             <div className="relative z-10 max-w-xl">
@@ -98,23 +93,23 @@ export default function DashboardPage() {
                 <span className="whitespace-nowrap text-primary">{t("studio.heroTitleAccent")}</span>
                 <Sparkles className="mb-6 ml-2 inline h-6 w-6 text-primary" aria-hidden="true" />
               </h2>
-              <p className="mt-4 text-base leading-7 text-foreground/82">
+              <p className="mt-4 max-w-md text-base leading-7 text-foreground/82">
                 {t("studio.heroSubtitle")}
               </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link href="/projects/new" className="neon-button h-11 px-5">
+              <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
+                <Link href="/projects/new" className="neon-button h-11 w-full px-5 sm:w-auto">
                   <Plus className="h-5 w-5" aria-hidden="true" />
                   {t("dashboard.newProject")}
                 </Link>
                 <Button
                   type="button"
                   variant="secondary"
-                  className="h-11"
+                  className="h-11 w-full sm:w-auto"
                   onClick={() =>
                     setMessage({
                       tone: "success",
                       title: "튜토리얼 흐름",
-                      body: "새 프로젝트 생성 → 소스 업로드 → 스토리/프롬프트 → 영상 제작 → 내보내기 순서로 진행하면 됩니다."
+                      body: "새 프로젝트 생성, 소스 업로드, 스토리 분석, 프롬프트 생성, 영상 제작, 내보내기 순서로 진행하면 됩니다."
                     })
                   }
                 >
@@ -163,7 +158,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
                 <h2 className="text-xl font-black">{t("studio.projectsTitle")}</h2>
-                <span className="text-muted-foreground">›</span>
+                <span className="text-muted-foreground">/</span>
                 <div className="flex flex-wrap gap-2">
                   {[
                     "studio.filterAll",
@@ -214,7 +209,13 @@ export default function DashboardPage() {
                   href={`/projects/${project.id}`}
                   className="studio-panel group overflow-hidden transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-glow"
                 >
-                  <div className={cn("poster-frame h-40", `poster-${project.thumbnailTone}`)}>
+                  <div className={cn("poster-frame has-image h-40", `poster-${project.thumbnailTone}`)}>
+                    <img
+                      src={assetPath(project.thumbnailImage)}
+                      alt=""
+                      className="project-poster-image"
+                      aria-hidden="true"
+                    />
                     <div className="absolute left-3 top-3 z-10 rounded-md border border-current/30 bg-background/70 px-2 py-1 text-xs font-black text-primary backdrop-blur">
                       {project.badge}
                     </div>
@@ -266,7 +267,7 @@ export default function DashboardPage() {
                   setMessage({
                     tone: "warning",
                     title: "프로젝트 목록 API 연결 대기",
-                    body: "현재 대시보드는 mock slate를 표시합니다. 실제 목록은 /api/projects와 연결하면 확장됩니다."
+                    body: "현재 대시보드는 샘플 제작 보드를 표시합니다. 실제 목록은 /api/projects 연결 후 자동으로 확장됩니다."
                   })
                 }
               >
@@ -288,7 +289,14 @@ export default function DashboardPage() {
             <div className="mt-4 space-y-4">
               {queueJobs.map((job) => (
                 <div key={job.id} className="grid grid-cols-[78px_1fr] gap-3">
-                  <div className={cn("poster-frame h-16", `poster-${job.thumbnailTone}`)} />
+                  <div className={cn("poster-frame has-image h-16", `poster-${job.thumbnailTone}`)}>
+                    <img
+                      src={assetPath(job.thumbnailImage)}
+                      alt=""
+                      className="project-poster-image"
+                      aria-hidden="true"
+                    />
+                  </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-black">{job.title}</div>
                     <div className="mt-1 text-xs text-muted-foreground">{job.spec}</div>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Anime boy overlooking a sunset city">
+  <defs>
+    <linearGradient id="a" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#243b73"/><stop offset=".48" stop-color="#f47731"/><stop offset="1" stop-color="#ffd17b"/></linearGradient>
+    <radialGradient id="sun" cx="78%" cy="22%" r="35%"><stop stop-color="#fff7ad"/><stop offset=".45" stop-color="#ffb65a"/><stop offset="1" stop-color="#fb7185" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="640" height="400" fill="#070b17"/>
+  <rect width="640" height="400" fill="url(#a)"/>
+  <rect width="640" height="400" fill="url(#sun)"/>
+  <g fill="#111827" opacity=".82">
+    <path d="M0 327c95-50 160-45 235-6 105-84 240-82 405 6v73H0z"/>
+    <rect x="52" y="190" width="28" height="180"/><rect x="94" y="154" width="35" height="216"/><rect x="150" y="215" width="24" height="155"/>
+    <rect x="438" y="172" width="38" height="198"/><rect x="494" y="122" width="46" height="248"/><rect x="566" y="212" width="24" height="158"/>
+  </g>
+  <g transform="translate(260 112)">
+    <path d="M64 92c-36 6-60 44-62 116h144c-6-72-34-110-70-116z" fill="#0b1120"/>
+    <ellipse cx="78" cy="54" rx="49" ry="55" fill="#1f2937"/>
+    <path d="M30 45c5-62 78-80 113-30 12 18 10 44 1 68-36-20-77-27-114-38z" fill="#030712"/>
+    <path d="M53 113c21 21 49 22 72 1l34 94H18z" fill="#111827"/>
+    <path d="M58 35c19 15 41 26 67 29" stroke="#475569" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g opacity=".42" stroke="#fff" stroke-width="2"><path d="M0 42h640M0 358h640"/></g>
+</svg>

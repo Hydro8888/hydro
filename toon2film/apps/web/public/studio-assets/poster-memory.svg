@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Anime heroine in bright cinematic clouds">
+  <defs>
+    <linearGradient id="b" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#0ea5e9"/><stop offset=".5" stop-color="#fde68a"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+    <radialGradient id="c" cx="45%" cy="22%" r="70%"><stop stop-color="#fff"/><stop offset=".35" stop-color="#fff7ed" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#b)"/>
+  <rect width="640" height="400" fill="url(#c)"/>
+  <g fill="#fff" opacity=".62">
+    <ellipse cx="104" cy="92" rx="96" ry="28"/><ellipse cx="196" cy="110" rx="124" ry="34"/><ellipse cx="502" cy="84" rx="118" ry="32"/>
+    <ellipse cx="548" cy="248" rx="126" ry="36"/><ellipse cx="100" cy="286" rx="132" ry="38"/>
+  </g>
+  <g transform="translate(220 48)">
+    <path d="M65 48c-83 28-108 116-64 250h268c38-144-13-233-91-252-38-9-73-8-113 2z" fill="#facc15" opacity=".72"/>
+    <path d="M73 54c-60 52-82 134-68 244h52c-20-82-4-163 47-236zM174 58c54 74 72 153 51 240h52c19-113-11-198-90-250z" fill="#fef3c7" opacity=".7"/>
+    <ellipse cx="138" cy="116" rx="58" ry="66" fill="#ffe2c6"/>
+    <path d="M80 103c9-72 98-98 133-30 12 24 13 50 5 74-47-21-89-29-138-44z" fill="#f5c451"/>
+    <path d="M83 205c38 30 72 31 111 0l39 95H44z" fill="#fff7ed"/>
+    <path d="M92 228c27 28 64 30 93 0" stroke="#c084fc" stroke-width="8" fill="none" stroke-linecap="round"/>
+  </g>
+  <g opacity=".35" fill="#020617"><path d="M0 350c116-55 230-45 342-8 114-48 213-48 298 2v56H0z"/></g>
+</svg>

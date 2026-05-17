@@ -134,9 +134,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0 lg:pl-[250px]">
+      <main className="min-w-0 overflow-x-hidden lg:pl-[250px]">
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/78 backdrop-blur-xl">
-          <div className="flex min-h-[72px] items-center gap-3 px-4 sm:px-6 lg:px-7">
+          <div className="flex min-h-[72px] min-w-0 flex-wrap items-center gap-3 px-4 sm:flex-nowrap sm:px-6 lg:px-7">
             <Link href="/" className="min-w-0 lg:hidden">
               <div className="text-lg font-black tracking-tight">
                 Toon<span className="text-primary">2</span>Film
@@ -164,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             </form>
 
-            <div className="ml-auto flex items-center gap-2 sm:gap-4">
+            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:gap-4">
               <LanguageSwitcher />
               <div className="hidden h-9 items-center gap-2 rounded-full border border-border/80 bg-surface/70 px-3 text-xs font-bold md:flex">
                 <span>{t("shell.apiStatus")}</span>
@@ -193,7 +193,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-border/60 px-4 py-2 sm:grid-cols-3 lg:hidden">
+          <div className="grid grid-cols-1 gap-2 border-t border-border/60 px-4 py-2 sm:grid-cols-3 lg:hidden">
             {navItems.slice(0, 6).map((item) => {
               const Icon = item.icon;
               const active = isActive(pathname, item.href);
@@ -209,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
-                  <span className="truncate">{t(item.labelKey)}</span>
+                  <span className="min-w-0 truncate">{t(item.labelKey)}</span>
                 </Link>
               );
             })}

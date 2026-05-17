@@ -72,6 +72,10 @@ fi
 if [[ -d "$TARGET_DIR/.git" ]]; then
   log "Update existing repository: $TARGET_DIR"
   cd "$TARGET_DIR"
+  # This helper is executed through python3, so it must not dirty the repo via chmod +x.
+  if [[ -f "$APP_DIR/deploy/rewrite_nginx_site.py" ]]; then
+    chmod 0644 "$APP_DIR/deploy/rewrite_nginx_site.py" || true
+  fi
   if ! git diff --quiet || ! git diff --cached --quiet; then
     die "Local changes exist in $TARGET_DIR. Commit, stash, or remove them before deploy."
   fi
@@ -87,7 +91,7 @@ fi
 
 log "Run Toon2Film safe deploy script"
 cd "$APP_DIR"
-chmod +x deploy/install_server.sh deploy/install_from_ssh.sh deploy/rewrite_nginx_site.py
+chmod +x deploy/install_server.sh deploy/install_from_ssh.sh
 ./deploy/install_server.sh $INSTALL_FLAGS
 
 ok "Toon2Film bootstrap install completed"

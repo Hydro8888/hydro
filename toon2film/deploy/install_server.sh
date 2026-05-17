@@ -164,14 +164,19 @@ compare_service_snapshots() {
 ensure_port_free_or_owned() {
   local port="$1"
   local pm2_name="$2"
-  if ss -tlnp 2>/dev/null | grep -Eq "[:.]${port}[[:space:]]"; then
-    if pm2 describe "$pm2_name" >/dev/null 2>&1; then
-      warn "Port $port is in use by existing $pm2_name; it will be restarted."
-    else
-      ss -tlnp | grep -E "[:.]${port}[[:space:]]" || true
-      die "Port $port is already in use by another process."
-    fi
+  local listeners
+  listeners="$(ss -tlnp 2>/dev/null | grep -E "[:.]${port}[[:space:]]" || true)"
+  [[ -n "$listeners" ]] || return 0
+
+  local pm2_pid
+  pm2_pid="$(pm2 pid "$pm2_name" 2>/dev/null | tr -d '[:space:]' || true)"
+  if [[ -n "$pm2_pid" && "$pm2_pid" != "0" && "$pm2_pid" != "N/A" && "$listeners" == *"pid=${pm2_pid},"* ]]; then
+    warn "Port $port is in use by existing $pm2_name pid=$pm2_pid; it will be restarted."
+    return 0
   fi
+
+  printf '%s\n' "$listeners"
+  die "Port $port is already in use by another process. Choose WEB_PORT/API_PORT or stop the conflicting process."
 }
 
 write_api_env() {
@@ -263,7 +268,7 @@ wait_for_url() {
     sleep 1
   done
   warn "$label did not become healthy. Last code: $code ($url)"
-  pm2 status | grep -E "toon2film|name|─" || true
+  pm2 status | grep -E "toon2film|name" || true
   ss -tlnp | grep -E ":(${WEB_PORT}|${API_PORT})[[:space:]]" || true
   pm2 logs "$API_PM2_NAME" --err --lines 40 --nostream || true
   pm2 logs "$WEB_PM2_NAME" --err --lines 40 --nostream || true
@@ -348,38 +353,80 @@ legacy_paths = {
     base_path + "/api/",
 }
 
-text = pattern.sub("\n", text)
-
 location_re = re.compile(r"^\s*location\s+(?:=\s+|\^~\s+)?(?P<path>[^\s{]+)")
-lines = text.splitlines(keepends=True)
-kept: list[str] = []
-removed = 0
-i = 0
-while i < len(lines):
-    line = lines[i]
-    match = location_re.match(line)
-    if match and match.group("path") in legacy_paths:
-        removed += 1
+server_re = re.compile(r"(?m)^[ \t]*server\s*\{")
+
+
+def find_server_blocks(src: str) -> list[tuple[int, int]]:
+    blocks: list[tuple[int, int]] = []
+    for match in server_re.finditer(src):
+        open_index = src.find("{", match.start(), match.end())
+        if open_index == -1:
+            continue
         depth = 0
-        seen_open = False
-        while i < len(lines):
-            depth += lines[i].count("{") - lines[i].count("}")
-            seen_open = seen_open or "{" in lines[i]
-            i += 1
-            if seen_open and depth <= 0:
-                break
-        continue
-    kept.append(line)
-    i += 1
+        for index in range(open_index, len(src)):
+            char = src[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    blocks.append((match.start(), index + 1))
+                    break
+    return blocks
 
-text = "".join(kept)
-if removed:
-    print(f"Removed {removed} legacy {base_path} location block(s)")
 
-idx = text.rfind("}")
-if idx == -1:
-    raise SystemExit("No closing brace found in Nginx site file")
-text = text[:idx].rstrip() + "\n\n" + block + "\n" + text[idx:]
+def strip_legacy_locations(src: str) -> tuple[str, int]:
+    lines = src.splitlines(keepends=True)
+    kept: list[str] = []
+    removed = 0
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        match = location_re.match(line)
+        if match and match.group("path") in legacy_paths:
+            removed += 1
+            depth = 0
+            seen_open = False
+            while index < len(lines):
+                depth += lines[index].count("{") - lines[index].count("}")
+                seen_open = seen_open or "{" in lines[index]
+                index += 1
+                if seen_open and depth <= 0:
+                    break
+            continue
+        kept.append(line)
+        index += 1
+    return "".join(kept), removed
+
+
+def is_http_server(src: str) -> bool:
+    return bool(re.search(r"(?m)^[ \t]*listen\s+[^;]*(:)?80(?:\s|;)", src))
+
+
+text = pattern.sub("\n", text)
+servers = find_server_blocks(text)
+targets = [(start, end) for start, end in servers if is_http_server(text[start:end])]
+if not targets and len(servers) == 1:
+    targets = servers
+
+if not targets:
+    raise SystemExit(f"No HTTP server block found in {site}")
+
+total_removed = 0
+for start, end in reversed(targets):
+    server_text = text[start:end]
+    server_text, removed = strip_legacy_locations(server_text)
+    total_removed += removed
+    close_index = server_text.rfind("}")
+    if close_index == -1:
+        raise SystemExit(f"No closing brace found in server block for {site}")
+    server_text = server_text[:close_index].rstrip() + "\n\n" + block + "\n" + server_text[close_index:]
+    text = text[:start] + server_text + text[end:]
+
+if total_removed:
+    print(f"Removed {total_removed} legacy {base_path} location block(s)")
+print(f"Updated {len(targets)} HTTP server block(s) in {site}")
 
 site.write_text(text)
 PY
@@ -445,6 +492,8 @@ main() {
   if [[ "$WITH_NGINX" -eq 1 && "$SKIP_NGINX_RELOAD" -eq 0 ]]; then
     wait_for_url "Nginx internal web" "http://127.0.0.1${BASE_PATH}" "^(2|3)[0-9][0-9]$"
     wait_for_url "Nginx internal API" "http://127.0.0.1${BASE_PATH}/api/health" "^200$"
+    wait_for_url "Nginx host web" "http://${INTERNAL_HOST}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
+    wait_for_url "Nginx host API" "http://${INTERNAL_HOST}${BASE_PATH}/api/health" "^200$"
   fi
 
   log "Postflight existing service snapshot"

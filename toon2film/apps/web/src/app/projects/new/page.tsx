@@ -48,7 +48,7 @@ export default function NewProjectPage() {
       </div>
 
       <form className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <section className="cinema-card p-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t("newProject.projectName")}>
               <TextInput placeholder="Muyang" />
@@ -111,13 +111,14 @@ export default function NewProjectPage() {
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+          <section className="cinema-card-highlight overflow-hidden p-5">
+            <div className="cinema-screen mb-5 aspect-video rounded-md border border-border/80" />
             <h2 className="text-lg font-semibold">{t("newProject.mode")}</h2>
             <div className="mt-4 grid gap-2">
               {modes.map((modeKey, index) => (
                 <label
                   key={modeKey}
-                  className="flex cursor-pointer items-center gap-3 rounded-md border border-border p-3 transition hover:bg-muted"
+                  className="flex cursor-pointer items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3 transition hover:border-primary/40 hover:bg-muted/70"
                 >
                   <input
                     name="mode"
@@ -131,7 +132,7 @@ export default function NewProjectPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+          <section className="cinema-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <ShieldCheck className="h-5 w-5 text-success" aria-hidden="true" />
               {t("newProject.rights")}

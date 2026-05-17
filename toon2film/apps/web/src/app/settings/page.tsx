@@ -18,7 +18,7 @@ export default function SettingsPage() {
       </div>
 
       <section className="grid gap-6 xl:grid-cols-3">
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="cinema-card p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <KeyRound className="h-5 w-5 text-primary" aria-hidden="true" />
             {t("settings.apiKeys")}
@@ -34,7 +34,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="cinema-card p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <WalletCards className="h-5 w-5 text-accent" aria-hidden="true" />
             {t("settings.billing")}
@@ -43,7 +43,7 @@ export default function SettingsPage() {
           <p className="mt-2 text-sm text-muted-foreground">{t("settings.currentMonth")}</p>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+        <div className="cinema-card p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Server className="h-5 w-5 text-success" aria-hidden="true" />
             {t("settings.storage")}

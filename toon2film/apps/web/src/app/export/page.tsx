@@ -29,9 +29,11 @@ export default function ExportPage() {
           return (
             <div
               key={item.labelKey}
-              className="rounded-lg border border-border bg-surface p-5 shadow-soft"
+              className="cinema-card p-5"
             >
-              <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
+                <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+              </div>
               <h2 className="mt-4 font-semibold">{t(item.labelKey)}</h2>
               <Button className="mt-4 w-full" variant="secondary">
                 <Download className="h-4 w-4" aria-hidden="true" />

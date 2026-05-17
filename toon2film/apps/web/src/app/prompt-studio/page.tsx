@@ -40,8 +40,8 @@ export default function PromptStudioPage() {
       </div>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="rounded-lg border border-border bg-surface shadow-soft">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="cinema-card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border/80 px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold">S#01 / Shot 02</h2>
               <p className="text-sm text-muted-foreground">6 sec / 16:9</p>
@@ -50,7 +50,7 @@ export default function PromptStudioPage() {
               <Copy className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/80">
             {promptSections.map(([labelKey, value]) => (
               <div key={labelKey} className="grid gap-2 px-5 py-4 md:grid-cols-[120px_1fr]">
                 <div className="text-sm font-semibold">{t(labelKey)}</div>
@@ -61,14 +61,14 @@ export default function PromptStudioPage() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+          <section className="cinema-card p-5">
             <h2 className="text-lg font-semibold">{t("prompt.presets")}</h2>
             <div className="mt-4 grid gap-2">
               {["Korean thriller", "Muted daylight", "Slow slider", "32mm lens"].map(
                 (preset) => (
                   <button
                     key={preset}
-                    className="h-10 rounded-md border border-border px-3 text-left text-sm font-medium transition hover:bg-muted"
+                    className="h-10 rounded-md border border-border/80 bg-background/30 px-3 text-left text-sm font-medium transition hover:border-primary/40 hover:bg-muted/70"
                   >
                     {preset}
                   </button>
@@ -77,7 +77,7 @@ export default function PromptStudioPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
+          <section className="cinema-card p-5">
             <h2 className="text-lg font-semibold">{t("prompt.providerFormat")}</h2>
             <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
               <div className="flex justify-between">

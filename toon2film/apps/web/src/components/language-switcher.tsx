@@ -9,13 +9,13 @@ export function LanguageSwitcher() {
 
   return (
     <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <Globe2 className="h-4 w-4" aria-hidden="true" />
+      <Globe2 className="hidden h-4 w-4 sm:block" aria-hidden="true" />
       <span className="hidden sm:inline">{t("language.label")}</span>
       <select
         aria-label={t("language.label")}
         value={language}
         onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-        className="h-9 rounded-md border border-border bg-surface px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+        className="fixed right-4 top-3 z-50 h-9 w-24 rounded-md border border-border/80 bg-surface/90 px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 sm:static sm:w-auto"
       >
         {languages.map((item) => (
           <option key={item.code} value={item.code}>

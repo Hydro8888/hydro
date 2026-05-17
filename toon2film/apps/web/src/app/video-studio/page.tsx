@@ -24,14 +24,14 @@ export default function VideoStudioPage() {
         </Button>
       </div>
 
-      <section className="rounded-lg border border-border bg-surface shadow-soft">
-        <div className="border-b border-border px-5 py-4">
+      <section className="cinema-card overflow-hidden">
+        <div className="border-b border-border/80 px-5 py-4">
           <h2 className="text-lg font-semibold">{t("video.jobs")}</h2>
           <p className="text-sm text-muted-foreground">{t("video.providerTaskStatus")}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead className="bg-muted text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted/80 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-semibold">{t("video.job")}</th>
                 <th className="px-5 py-3 font-semibold">{t("video.provider")}</th>
@@ -42,7 +42,7 @@ export default function VideoStudioPage() {
                 <th className="px-5 py-3 font-semibold">{t("video.action")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/80">
               {queueJobs.map((job) => (
                 <tr key={job.id}>
                   <td className="px-5 py-4 font-semibold">{job.id}</td>
@@ -74,9 +74,11 @@ export default function VideoStudioPage() {
         {[1, 2, 3].map((take) => (
           <div
             key={take}
-            className="overflow-hidden rounded-lg border border-border bg-surface shadow-soft"
+            className="cinema-card overflow-hidden"
           >
-            <div className="aspect-video bg-[linear-gradient(135deg,#12335f,#0d9488_55%,#f59e0b)]" />
+            <div className="cinema-screen relative aspect-video">
+              <div className="film-perforation absolute inset-x-3 top-3 h-6 rounded border border-border/40 bg-background/30" />
+            </div>
             <div className="flex items-center justify-between p-4">
               <div>
                 <h3 className="font-semibold">{t("video.take")} {take}</h3>

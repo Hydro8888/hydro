@@ -70,7 +70,7 @@ export default function ProjectPage() {
           return (
             <div
               key={doc.titleKey}
-              className="rounded-lg border border-border bg-surface p-5 shadow-soft"
+              className="cinema-card p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -83,8 +83,8 @@ export default function ProjectPage() {
         })}
       </section>
 
-      <section className="rounded-lg border border-border bg-surface shadow-soft">
-        <div className="border-b border-border px-5 py-4">
+      <section className="cinema-card overflow-hidden">
+        <div className="border-b border-border/80 px-5 py-4">
           <h2 className="text-lg font-semibold">{t("project.shotList")}</h2>
           <p className="text-sm text-muted-foreground">
             {t("project.shotPlanning")}
@@ -92,7 +92,7 @@ export default function ProjectPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-            <thead className="bg-muted text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted/80 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-semibold">{t("project.scene")}</th>
                 <th className="px-5 py-3 font-semibold">{t("project.shot")}</th>
@@ -103,7 +103,7 @@ export default function ProjectPage() {
                 <th className="px-5 py-3 font-semibold">{t("project.status")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/80">
               {shots.map((shot) => (
                 <tr key={shot.id}>
                   <td className="px-5 py-4 font-medium">{shot.scene}</td>

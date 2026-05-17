@@ -25,9 +25,18 @@ export default function AudioStudioPage() {
         {tracks.map((trackKey) => (
           <div
             key={trackKey}
-            className="rounded-lg border border-border bg-surface p-5 shadow-soft"
+            className="cinema-card p-5"
           >
             <h2 className="font-semibold">{t(trackKey)}</h2>
+            <div className="mt-4 flex h-16 items-end gap-1 rounded-md border border-border/80 bg-background/30 p-3">
+              {[32, 48, 22, 58, 42, 68, 28, 54, 36].map((height, index) => (
+                <span
+                  key={`${trackKey}-${index}`}
+                  className="w-full rounded-t bg-accent/80"
+                  style={{ height: `${height}%` }}
+                />
+              ))}
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">{t("audio.clipsAssigned")}</p>
           </div>
         ))}

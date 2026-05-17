@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
 import { Check, ShieldCheck, WandSparkles } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
+import { Notice } from "@/components/ui/notice";
+import { apiJson } from "@/lib/api-client";
 import type { TranslationKey } from "@/lib/i18n";
 
 const modes = [
@@ -37,6 +40,79 @@ const projectLanguages = [
 
 export default function NewProjectPage() {
   const { t } = useI18n();
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const projectName = String(form.get("projectName") || "").trim();
+    const rights = ["rightsSource", "rightsLikeness", "rightsCommercial"].every(
+      (key) => form.get(key) === "on"
+    );
+
+    if (!projectName) {
+      setMessage({
+        tone: "error",
+        title: "프로젝트명을 입력해주세요.",
+        body: "새 프로젝트를 만들려면 최소한 프로젝트명이 필요합니다."
+      });
+      return;
+    }
+
+    if (!rights) {
+      setMessage({
+        tone: "error",
+        title: "권리 확인이 필요합니다.",
+        body: "원본 권리, 초상권, 상업적 이용 허가 항목을 모두 확인해야 제작을 시작할 수 있습니다."
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    const duration = Number(String(form.get("targetLength") || "60 sec").replace(/\D/g, "")) || 60;
+    const result = await apiJson<{ id: string }>("/projects", {
+      method: "POST",
+      body: JSON.stringify({
+        title: projectName,
+        original_title: String(form.get("originalTitle") || "").trim() || null,
+        project_type: String(form.get("productionType") || "Trailer").toLowerCase(),
+        target_duration: duration,
+        style: String(form.get("style") || "Korean thriller"),
+        language: String(form.get("language") || "Korean"),
+        aspect_ratio: String(form.get("aspectRatio") || "16:9"),
+        rights_confirmed: true
+      })
+    });
+
+    if (result.ok) {
+      setMessage({
+        tone: "success",
+        title: "프로젝트가 생성되었습니다.",
+        body: `백엔드에 프로젝트 ID ${result.data.id}로 저장되었습니다.`
+      });
+    } else {
+      const draft = {
+        title: projectName,
+        originalTitle: String(form.get("originalTitle") || "").trim(),
+        savedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem("toon2film.projectDraft", JSON.stringify(draft));
+      setMessage({
+        tone: "warning",
+        title: "API 연결은 실패했지만 초안을 보존했습니다.",
+        body: `${result.error}. 입력값은 이 브라우저의 로컬 초안으로 저장했습니다.`
+      });
+    }
+
+    setIsSubmitting(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -59,17 +135,23 @@ export default function NewProjectPage() {
         </div>
       </div>
 
-      <form className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      {message ? (
+        <Notice tone={message.tone} title={message.title}>
+          {message.body}
+        </Notice>
+      ) : null}
+
+      <form className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
         <section className="studio-panel p-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t("newProject.projectName")}>
-              <TextInput placeholder="Muyang" />
+              <TextInput name="projectName" placeholder="Muyang" required minLength={1} />
             </Field>
             <Field label={t("newProject.originalTitle")}>
-              <TextInput placeholder="Line 9 Shaman" />
+              <TextInput name="originalTitle" placeholder="Line 9 Shaman" />
             </Field>
             <Field label={t("newProject.productionType")}>
-              <SelectInput defaultValue="Trailer">
+              <SelectInput name="productionType" defaultValue="Trailer">
                 {productionTypes.map(([value, labelKey]) => (
                   <option key={value} value={value}>
                     {t(labelKey)}
@@ -78,7 +160,7 @@ export default function NewProjectPage() {
               </SelectInput>
             </Field>
             <Field label={t("newProject.targetLength")}>
-              <SelectInput defaultValue="60 sec">
+              <SelectInput name="targetLength" defaultValue="60 sec">
                 <option>30 sec</option>
                 <option>60 sec</option>
                 <option>3 min</option>
@@ -87,7 +169,7 @@ export default function NewProjectPage() {
               </SelectInput>
             </Field>
             <Field label={t("newProject.style")}>
-              <SelectInput defaultValue="Korean thriller">
+              <SelectInput name="style" defaultValue="Korean thriller">
                 {styles.map(([value, labelKey]) => (
                   <option key={value} value={value}>
                     {t(labelKey)}
@@ -96,7 +178,7 @@ export default function NewProjectPage() {
               </SelectInput>
             </Field>
             <Field label={t("newProject.language")}>
-              <SelectInput defaultValue="Korean">
+              <SelectInput name="language" defaultValue="Korean">
                 {projectLanguages.map(([value, labelKey]) => (
                   <option key={value} value={value}>
                     {t(labelKey)}
@@ -105,14 +187,14 @@ export default function NewProjectPage() {
               </SelectInput>
             </Field>
             <Field label={t("newProject.aspectRatio")}>
-              <SelectInput defaultValue="16:9">
+              <SelectInput name="aspectRatio" defaultValue="16:9">
                 <option>16:9</option>
                 <option>9:16</option>
                 <option>1:1</option>
               </SelectInput>
             </Field>
             <Field label={t("newProject.ratingGuardrail")}>
-              <SelectInput defaultValue="15+">
+              <SelectInput name="ratingGuardrail" defaultValue="15+">
                 <option value="All ages">{t("option.allAges")}</option>
                 <option>12+</option>
                 <option>15+</option>
@@ -151,25 +233,36 @@ export default function NewProjectPage() {
             </h2>
             <div className="mt-4 grid gap-3 text-sm">
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsSource" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("newProject.rights.source")}</span>
               </label>
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsLikeness" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("newProject.rights.likeness")}</span>
               </label>
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsCommercial" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("newProject.rights.commercial")}</span>
               </label>
             </div>
           </section>
 
-          <Button className="w-full">
+          <Button className="w-full" disabled={isSubmitting} type="submit">
             <Check className="h-4 w-4" aria-hidden="true" />
-            {t("newProject.create")}
+            {isSubmitting ? "생성 중..." : t("newProject.create")}
           </Button>
-          <Button className="w-full" variant="secondary">
+          <Button
+            className="w-full"
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              setMessage({
+                tone: "success",
+                title: "소스 기반 초안이 준비되었습니다.",
+                body: "업로드 화면에서 원본을 추가하면 Story Architect 단계로 이어집니다."
+              })
+            }
+          >
             <WandSparkles className="h-4 w-4" aria-hidden="true" />
             {t("newProject.draft")}
           </Button>

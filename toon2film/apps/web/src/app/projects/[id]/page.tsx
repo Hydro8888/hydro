@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Camera, FileText, ListChecks, UserRound } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { projects, shots } from "@/lib/mock-data";
 import type { TranslationKey } from "@/lib/i18n";
 
@@ -45,6 +47,11 @@ export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const project = projects.find((item) => item.id === id) ?? projects[0];
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -67,11 +74,42 @@ export default function ProjectPage() {
         <div className="grid gap-3">
           <div className={`poster-frame poster-${project.thumbnailTone} hidden aspect-video lg:block`} />
           <div className="flex gap-2">
-            <Button className="flex-1" variant="secondary">{t("project.regenerate")}</Button>
-            <Button className="flex-1">{t("project.generateVideo")}</Button>
+            <Button
+              className="flex-1"
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setMessage({
+                  tone: "success",
+                  title: "제작 문서를 다시 점검했습니다.",
+                  body: "스토리/캐릭터/샷 리스트의 최신 mock slate를 기준으로 재생성 준비가 완료되었습니다."
+                })
+              }
+            >
+              {t("project.regenerate")}
+            </Button>
+            <Button
+              className="flex-1"
+              type="button"
+              onClick={() =>
+                setMessage({
+                  tone: "warning",
+                  title: "영상 생성 전 프롬프트 연결이 필요합니다.",
+                  body: "실제 생성은 백엔드에 저장된 shot_id와 prompt_id가 있을 때 안전하게 실행됩니다."
+                })
+              }
+            >
+              {t("project.generateVideo")}
+            </Button>
           </div>
         </div>
       </div>
+
+      {message ? (
+        <Notice tone={message.tone} title={message.title}>
+          {message.body}
+        </Notice>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {productionDocs.map((doc) => {

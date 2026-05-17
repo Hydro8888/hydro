@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
 import {
   Bell,
@@ -54,6 +55,14 @@ function isActive(pathname: string, href: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = query.trim();
+    router.push(trimmed ? `/?q=${encodeURIComponent(trimmed)}` : "/");
+  }
 
   return (
     <div className="studio-shell">
@@ -137,17 +146,23 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </Link>
 
-            <div className="hidden min-w-[220px] max-w-sm flex-1 items-center gap-2 rounded-lg border border-border/80 bg-surface/55 px-3 py-2 shadow-soft md:flex">
+            <form
+              className="hidden min-w-[220px] max-w-sm flex-1 items-center gap-2 rounded-lg border border-border/80 bg-surface/55 px-3 py-2 shadow-soft md:flex"
+              onSubmit={handleSearch}
+            >
               <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                aria-label={t("shell.searchPlaceholder")}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("shell.searchPlaceholder")}
                 type="search"
               />
               <span className="rounded border border-border/70 bg-background/50 px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                 {t("shell.commandKey")}
               </span>
-            </div>
+            </form>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-4">
               <LanguageSwitcher />

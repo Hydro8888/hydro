@@ -1,13 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { CircleStop, Play, RefreshCcw } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { queueJobs } from "@/lib/mock-data";
 
 export default function VideoStudioPage() {
   const { t } = useI18n();
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
 
   return (
     <div className="space-y-6">
@@ -21,11 +28,26 @@ export default function VideoStudioPage() {
             {t("video.subtitle")}
           </p>
         </div>
-        <Button>
+        <Button
+          type="button"
+          onClick={() =>
+            setMessage({
+              tone: "warning",
+              title: "샷 프롬프트 연결이 필요합니다.",
+              body: "실제 일괄 생성은 백엔드에 저장된 prompt_id가 있어야 안전하게 큐에 등록됩니다."
+            })
+          }
+        >
           <Play className="h-4 w-4" aria-hidden="true" />
           {t("video.generateBatch")}
         </Button>
       </div>
+
+      {message ? (
+        <Notice tone={message.tone} title={message.title}>
+          {message.body}
+        </Notice>
+      ) : null}
 
       <section className="studio-panel overflow-hidden">
         <div className="border-b border-border/80 px-5 py-4">
@@ -58,10 +80,32 @@ export default function VideoStudioPage() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
-                      <Button className="h-8 px-3" variant="secondary">
+                      <Button
+                        className="h-8 px-3"
+                        type="button"
+                        variant="secondary"
+                        onClick={() =>
+                          setMessage({
+                            tone: "success",
+                            title: "재시도 요청을 확인했습니다.",
+                            body: `${job.id} 작업은 실제 API 연결 시 /api/video-jobs/{job_id}/retry로 전송됩니다.`
+                          })
+                        }
+                      >
                         <RefreshCcw className="h-4 w-4" aria-hidden="true" />
                       </Button>
-                      <Button className="h-8 px-3" variant="ghost">
+                      <Button
+                        className="h-8 px-3"
+                        type="button"
+                        variant="ghost"
+                        onClick={() =>
+                          setMessage({
+                            tone: "warning",
+                            title: "취소 요청을 확인했습니다.",
+                            body: `${job.id} 작업은 실제 API 연결 시 /api/video-jobs/{job_id}/cancel로 전송됩니다.`
+                          })
+                        }
+                      >
                         <CircleStop className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
@@ -87,7 +131,19 @@ export default function VideoStudioPage() {
                 <h3 className="font-semibold">{t("video.take")} {take}</h3>
                 <p className="text-sm text-muted-foreground">S#01 / Shot 02</p>
               </div>
-              <Button variant="secondary">{t("video.select")}</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  setMessage({
+                    tone: "success",
+                    title: `${t("video.take")} ${take} 선택됨`,
+                    body: "선택된 테이크가 최종 타임라인 후보로 표시되었습니다."
+                  })
+                }
+              >
+                {t("video.select")}
+              </Button>
             </div>
           </div>
         ))}

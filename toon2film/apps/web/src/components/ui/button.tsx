@@ -10,6 +10,7 @@ export function Button({
   className,
   variant = "primary",
   children,
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
@@ -23,6 +24,7 @@ export function Button({
         variant === "ghost" && "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
         className
       )}
+      type={type}
       {...props}
     >
       {children}

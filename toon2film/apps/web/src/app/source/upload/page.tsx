@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { FileArchive, FileImage, FileText, UploadCloud } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { apiJson } from "@/lib/api-client";
 
 const fileTypes = [
   { label: "PDF", icon: FileText },
@@ -12,6 +15,82 @@ const fileTypes = [
 
 export default function SourceUploadPage() {
   const { t } = useI18n();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [projectId, setProjectId] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setProjectId(new URLSearchParams(window.location.search).get("projectId") || "");
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const rightsConfirmed = ["rightsSource", "rightsLikeness", "rightsCommercial"].every(
+      (key) => form.get(key) === "on"
+    );
+
+    if (!selectedFile) {
+      setMessage({
+        tone: "error",
+        title: "업로드할 파일을 선택해 주세요.",
+        body: "PDF, JPG, PNG, ZIP 또는 긴 웹툰 이미지를 선택해야 분석 단계로 이동할 수 있습니다."
+      });
+      return;
+    }
+
+    if (!rightsConfirmed) {
+      setMessage({
+        tone: "error",
+        title: "권리 확인이 필요합니다.",
+        body: "원본 권리와 상업적 이용 가능 여부를 모두 확인해야 업로드를 진행할 수 있습니다."
+      });
+      return;
+    }
+
+    if (!projectId) {
+      setMessage({
+        tone: "warning",
+        title: "프로젝트 ID가 필요합니다.",
+        body: "실제 업로드 저장은 /source/upload?projectId=<UUID> 형태로 진입했을 때 백엔드와 연결됩니다. 현재는 파일 검증까지만 완료했습니다."
+      });
+      return;
+    }
+
+    const uploadPayload = new FormData();
+    uploadPayload.set("rights_confirmed", "true");
+    uploadPayload.set("file", selectedFile);
+    setIsSubmitting(true);
+    const result = await apiJson<{ id: string; original_filename: string }>(
+      `/projects/${projectId}/upload`,
+      {
+        method: "POST",
+        body: uploadPayload
+      }
+    );
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      setMessage({
+        tone: "error",
+        title: "업로드에 실패했습니다.",
+        body: result.error
+      });
+      return;
+    }
+
+    setMessage({
+      tone: "success",
+      title: "업로드가 완료되었습니다.",
+      body: `${result.data.original_filename || selectedFile.name} 파일이 프로젝트 소스로 저장되었습니다.`
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -30,7 +109,13 @@ export default function SourceUploadPage() {
         </div>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      {message ? (
+        <Notice tone={message.tone} title={message.title}>
+          {message.body}
+        </Notice>
+      ) : null}
+
+      <form className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
         <div className="studio-panel-hot relative overflow-hidden border-dashed p-8 text-center">
           <div className="comic-paper absolute inset-x-8 top-8 h-28 rounded-md border border-primary/20 opacity-30" />
           <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-md border border-primary/40 bg-primary/10">
@@ -40,7 +125,30 @@ export default function SourceUploadPage() {
           <p className="relative mt-2 text-sm text-muted-foreground">
             {t("source.supported")}
           </p>
-          <Button className="relative mt-6">{t("source.chooseFiles")}</Button>
+          <input
+            ref={fileInputRef}
+            className="sr-only"
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.zip,image/jpeg,image/png,application/pdf,application/zip"
+            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+          />
+          <Button
+            className="relative mt-6"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {t("source.chooseFiles")}
+          </Button>
+          {selectedFile ? (
+            <p className="relative mt-3 text-sm font-semibold text-foreground">
+              {selectedFile.name}
+            </p>
+          ) : null}
+          {projectId ? (
+            <p className="relative mt-2 text-xs text-muted-foreground">
+              Project ID: {projectId}
+            </p>
+          ) : null}
         </div>
 
         <aside className="space-y-4">
@@ -66,21 +174,25 @@ export default function SourceUploadPage() {
             <h2 className="text-lg font-semibold">{t("source.rightsCheck")}</h2>
             <div className="mt-4 grid gap-3 text-sm">
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsSource" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("source.rights.source")}</span>
               </label>
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsLikeness" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("source.rights.likeness")}</span>
               </label>
               <label className="flex items-start gap-3">
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
+                <input name="rightsCommercial" type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
                 <span>{t("source.rights.commercial")}</span>
               </label>
             </div>
           </section>
+          <Button className="w-full" type="submit" disabled={isSubmitting}>
+            <UploadCloud className="h-4 w-4" aria-hidden="true" />
+            {isSubmitting ? "업로드 중..." : "분석 큐 준비"}
+          </Button>
         </aside>
-      </section>
+      </form>
     </div>
   );
 }

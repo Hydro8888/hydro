@@ -17,6 +17,7 @@ WITH_NGINX=0
 WITH_PM2_STARTUP=0
 SKIP_BUILD=0
 SKIP_NGINX_RELOAD=0
+RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-1}"
 
 WATCH_PATHS_DEFAULT="contact matching hacker agentmarket fundmanager gonak jobworld"
 WATCH_PATHS="${WATCH_PATHS:-$WATCH_PATHS_DEFAULT}"
@@ -35,6 +36,7 @@ Options:
   --with-nginx         Add or update the Nginx location block for ${BASE_PATH}.
   --with-pm2-startup   Configure PM2 systemd startup for the ubuntu user.
   --skip-build         Skip npm build and Python dependency install.
+  --skip-db-migrate    Skip Alembic database migrations.
   --skip-nginx-reload  Write/test Nginx config but do not reload it.
   -h, --help           Show this help.
 
@@ -44,6 +46,7 @@ Environment overrides:
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
   CLEAN_STALE_TOON2FILM_WORKERS=1
+  RUN_DB_MIGRATIONS=1
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
 USAGE
 }
@@ -54,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --with-nginx) WITH_NGINX=1 ;;
     --with-pm2-startup) WITH_PM2_STARTUP=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
+    --skip-db-migrate) RUN_DB_MIGRATIONS=0 ;;
     --skip-nginx-reload) SKIP_NGINX_RELOAD=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -239,6 +243,16 @@ build_app() {
   [[ -f "$APP_ROOT/node_modules/next/dist/bin/next" ]] || die "Next.js binary not found under root node_modules"
 }
 
+run_db_migrations() {
+  [[ "$RUN_DB_MIGRATIONS" -eq 1 ]] || { warn "Skipping database migrations by request"; return 0; }
+
+  log "Run Alembic database migrations"
+  (
+    cd "$APP_ROOT/apps/api"
+    "$APP_ROOT/.venv/bin/alembic" upgrade head
+  ) || die "Database migration failed. Check apps/api/.env DATABASE_URL and database service status."
+}
+
 start_pm2() {
   log "Start only Toon2Film PM2 apps"
   export TOON2FILM_WEB_PORT="$WEB_PORT"
@@ -409,6 +423,7 @@ main() {
 
   write_api_env
   build_app
+  run_db_migrations
   start_pm2
 
   wait_for_url "API direct health" "http://127.0.0.1:${API_PORT}/health" "^200$"

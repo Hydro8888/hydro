@@ -1,12 +1,51 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
 import { KeyRound, Server, WalletCards } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput } from "@/components/ui/field";
+import { Notice } from "@/components/ui/notice";
 
 export default function SettingsPage() {
   const { t } = useI18n();
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const seedanceKey = String(form.get("seedanceKey") || "").trim();
+    const llmKey = String(form.get("llmKey") || "").trim();
+
+    if (!seedanceKey && !llmKey) {
+      setMessage({
+        tone: "warning",
+        title: "저장할 키가 없습니다.",
+        body: "운영 서버에서는 API 키를 브라우저가 아니라 서버 .env 또는 암호화 저장소에서 관리해야 합니다."
+      });
+      return;
+    }
+
+    if (seedanceKey && seedanceKey.length < 12) {
+      setMessage({
+        tone: "error",
+        title: "Seedance 키 형식을 확인해주세요.",
+        body: "입력값이 너무 짧습니다. 실제 키를 저장하지 않고 형식만 점검했습니다."
+      });
+      return;
+    }
+
+    setMessage({
+      tone: "success",
+      title: "키 형식 점검 완료",
+      body: "보안을 위해 실제 키 값은 브라우저에 저장하지 않았습니다. 서버의 .env 또는 암호화 키 저장소에 반영해주세요."
+    });
+    event.currentTarget.reset();
+  }
 
   return (
     <div className="space-y-6">
@@ -20,22 +59,28 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {message ? (
+        <Notice tone={message.tone} title={message.title}>
+          {message.body}
+        </Notice>
+      ) : null}
+
       <section className="grid gap-6 xl:grid-cols-3">
-        <div className="studio-panel p-5">
+        <form className="studio-panel p-5" noValidate onSubmit={handleSubmit}>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <KeyRound className="h-5 w-5 text-primary" aria-hidden="true" />
             {t("settings.apiKeys")}
           </h2>
           <div className="mt-4 grid gap-4">
             <Field label={t("settings.seedanceKey")}>
-              <TextInput type="password" placeholder={t("settings.storedEncrypted")} />
+              <TextInput name="seedanceKey" type="password" placeholder={t("settings.storedEncrypted")} autoComplete="off" />
             </Field>
             <Field label={t("settings.llmKey")}>
-              <TextInput type="password" placeholder={t("settings.storedEncrypted")} />
+              <TextInput name="llmKey" type="password" placeholder={t("settings.storedEncrypted")} autoComplete="off" />
             </Field>
-            <Button>{t("settings.saveKeys")}</Button>
+            <Button type="submit">{t("settings.saveKeys")}</Button>
           </div>
-        </div>
+        </form>
 
         <div className="studio-panel p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">

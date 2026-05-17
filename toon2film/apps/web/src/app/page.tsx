@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import { useI18n } from "@/components/language-provider";
 import {
   opsAlerts,
@@ -50,6 +52,11 @@ const quickIcons = [KeyRound, BookOpen, Sparkles, MessageSquare];
 
 export default function DashboardPage() {
   const { t } = useI18n();
+  const [message, setMessage] = useState<{
+    tone: "success" | "warning" | "error";
+    title: string;
+    body: string;
+  } | null>(null);
 
   return (
     <div className="space-y-5">
@@ -99,13 +106,30 @@ export default function DashboardPage() {
                   <Plus className="h-5 w-5" aria-hidden="true" />
                   {t("dashboard.newProject")}
                 </Link>
-                <Button variant="secondary" className="h-11">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11"
+                  onClick={() =>
+                    setMessage({
+                      tone: "success",
+                      title: "튜토리얼 흐름",
+                      body: "새 프로젝트 생성 → 소스 업로드 → 스토리/프롬프트 → 영상 제작 → 내보내기 순서로 진행하면 됩니다."
+                    })
+                  }
+                >
                   <PlayCircle className="h-5 w-5" aria-hidden="true" />
                   {t("studio.tutorial")}
                 </Button>
               </div>
             </div>
           </section>
+
+          {message ? (
+            <Notice tone={message.tone} title={message.title}>
+              {message.body}
+            </Notice>
+          ) : null}
 
           <section className="studio-panel p-4 sm:p-5">
             <h2 className="text-lg font-bold">{t("studio.pipelineTitle")}</h2>
@@ -235,7 +259,17 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex justify-center">
-              <Button variant="secondary">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  setMessage({
+                    tone: "warning",
+                    title: "프로젝트 목록 API 연결 대기",
+                    body: "현재 대시보드는 mock slate를 표시합니다. 실제 목록은 /api/projects와 연결하면 확장됩니다."
+                  })
+                }
+              >
                 {t("studio.moreProjects")}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>

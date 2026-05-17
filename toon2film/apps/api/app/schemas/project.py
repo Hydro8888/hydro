@@ -9,11 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field
 class ProjectBase(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     original_title: str | None = Field(default=None, max_length=200)
-    project_type: str = "trailer"
-    target_duration: int = 60
-    style: str = "cinematic realism"
-    language: str = "Korean"
-    aspect_ratio: str = "16:9"
+    project_type: str = Field(default="trailer", min_length=1, max_length=50)
+    target_duration: int = Field(default=60, ge=1, le=3600)
+    style: str = Field(default="cinematic realism", min_length=1, max_length=100)
+    language: str = Field(default="Korean", min_length=1, max_length=40)
+    aspect_ratio: str = Field(default="16:9", min_length=1, max_length=20)
     rights_confirmed: bool = False
 
 
@@ -24,12 +24,12 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     original_title: str | None = Field(default=None, max_length=200)
-    project_type: str | None = None
-    target_duration: int | None = None
-    style: str | None = None
-    language: str | None = None
-    aspect_ratio: str | None = None
-    status: str | None = None
+    project_type: str | None = Field(default=None, min_length=1, max_length=50)
+    target_duration: int | None = Field(default=None, ge=1, le=3600)
+    style: str | None = Field(default=None, min_length=1, max_length=100)
+    language: str | None = Field(default=None, min_length=1, max_length=40)
+    aspect_ratio: str | None = Field(default=None, min_length=1, max_length=20)
+    status: str | None = Field(default=None, min_length=1, max_length=40)
     rights_confirmed: bool | None = None
 
 

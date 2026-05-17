@@ -14,6 +14,9 @@ from app.schemas import SourceFileRead
 
 router = APIRouter()
 
+ALLOWED_SOURCE_EXTENSIONS = {"jpg", "jpeg", "pdf", "png", "zip"}
+MAX_SOURCE_FILE_BYTES = 200 * 1024 * 1024
+
 
 @router.post(
     "/projects/{project_id}/upload",
@@ -32,7 +35,22 @@ def upload_source_file(
     if not rights_confirmed:
         raise HTTPException(status_code=400, detail="Rights confirmation is required")
 
-    suffix = Path(file.filename or "source").suffix.lower().lstrip(".") or "binary"
+    suffix = Path(file.filename or "source").suffix.lower().lstrip(".")
+    if suffix not in ALLOWED_SOURCE_EXTENSIONS:
+        allowed = ", ".join(sorted(ALLOWED_SOURCE_EXTENSIONS))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed extensions: {allowed}",
+        )
+
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+    if file_size <= 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    if file_size > MAX_SOURCE_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="Uploaded file exceeds 200 MB")
+
     target_dir = Path("uploads") / str(project_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = target_dir / f"{uuid.uuid4()}.{suffix}"

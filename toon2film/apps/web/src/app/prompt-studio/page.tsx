@@ -20,9 +20,12 @@ export default function PromptStudioPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="studio-panel-hot flex flex-col gap-4 overflow-hidden p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal">{t("prompt.title")}</h1>
+          <div className="inline-flex h-8 items-center rounded-md border border-primary/30 bg-primary/10 px-3 text-xs font-black uppercase tracking-[0.18em] text-primary">
+            Prompt Room
+          </div>
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("prompt.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("prompt.subtitle")}
           </p>
@@ -40,7 +43,7 @@ export default function PromptStudioPage() {
       </div>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="cinema-card overflow-hidden">
+        <div className="studio-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border/80 px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold">S#01 / Shot 02</h2>
@@ -61,7 +64,7 @@ export default function PromptStudioPage() {
         </div>
 
         <aside className="space-y-4">
-          <section className="cinema-card p-5">
+          <section className="studio-panel p-5">
             <h2 className="text-lg font-semibold">{t("prompt.presets")}</h2>
             <div className="mt-4 grid gap-2">
               {["Korean thriller", "Muted daylight", "Slow slider", "32mm lens"].map(
@@ -77,7 +80,7 @@ export default function PromptStudioPage() {
             </div>
           </section>
 
-          <section className="cinema-card p-5">
+          <section className="studio-panel p-5">
             <h2 className="text-lg font-semibold">{t("prompt.providerFormat")}</h2>
             <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
               <div className="flex justify-between">

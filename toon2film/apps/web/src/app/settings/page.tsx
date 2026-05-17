@@ -10,15 +10,18 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-normal">{t("settings.title")}</h1>
+      <div className="studio-panel-hot overflow-hidden p-5">
+        <div className="inline-flex h-8 items-center rounded-md border border-success/35 bg-success/10 px-3 text-xs font-black uppercase tracking-[0.18em] text-success">
+          Safe Ops
+        </div>
+        <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("settings.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("settings.subtitle")}
         </p>
       </div>
 
       <section className="grid gap-6 xl:grid-cols-3">
-        <div className="cinema-card p-5">
+        <div className="studio-panel p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <KeyRound className="h-5 w-5 text-primary" aria-hidden="true" />
             {t("settings.apiKeys")}
@@ -34,7 +37,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="cinema-card p-5">
+        <div className="studio-panel p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <WalletCards className="h-5 w-5 text-accent" aria-hidden="true" />
             {t("settings.billing")}
@@ -43,7 +46,7 @@ export default function SettingsPage() {
           <p className="mt-2 text-sm text-muted-foreground">{t("settings.currentMonth")}</p>
         </div>
 
-        <div className="cinema-card p-5">
+        <div className="studio-panel p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Server className="h-5 w-5 text-success" aria-hidden="true" />
             {t("settings.storage")}

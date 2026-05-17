@@ -48,19 +48,28 @@ export default function ProjectPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="studio-panel-hot grid gap-5 overflow-hidden p-5 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-normal">{project.title}</h1>
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{project.title}</h1>
             <StatusBadge status={project.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {project.originalTitle} / {project.type} / {project.duration}
           </p>
+          <div className="mt-4 h-2 max-w-md overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(271_91%_65%))]"
+              style={{ width: `${project.progress}%` }}
+            />
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary">{t("project.regenerate")}</Button>
-          <Button>{t("project.generateVideo")}</Button>
+        <div className="grid gap-3">
+          <div className={`poster-frame poster-${project.thumbnailTone} hidden aspect-video lg:block`} />
+          <div className="flex gap-2">
+            <Button className="flex-1" variant="secondary">{t("project.regenerate")}</Button>
+            <Button className="flex-1">{t("project.generateVideo")}</Button>
+          </div>
         </div>
       </div>
 
@@ -70,7 +79,7 @@ export default function ProjectPage() {
           return (
             <div
               key={doc.titleKey}
-              className="cinema-card p-5"
+              className="studio-panel p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -83,7 +92,7 @@ export default function ProjectPage() {
         })}
       </section>
 
-      <section className="cinema-card overflow-hidden">
+      <section className="studio-panel overflow-hidden">
         <div className="border-b border-border/80 px-5 py-4">
           <h2 className="text-lg font-semibold">{t("project.shotList")}</h2>
           <p className="text-sm text-muted-foreground">

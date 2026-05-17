@@ -11,9 +11,12 @@ export default function VideoStudioPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="studio-panel-hot flex flex-col gap-4 overflow-hidden p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal">{t("video.title")}</h1>
+          <div className="inline-flex h-8 items-center rounded-md border border-warning/35 bg-warning/10 px-3 text-xs font-black uppercase tracking-[0.18em] text-warning">
+            Render Room
+          </div>
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("video.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("video.subtitle")}
           </p>
@@ -24,7 +27,7 @@ export default function VideoStudioPage() {
         </Button>
       </div>
 
-      <section className="cinema-card overflow-hidden">
+      <section className="studio-panel overflow-hidden">
         <div className="border-b border-border/80 px-5 py-4">
           <h2 className="text-lg font-semibold">{t("video.jobs")}</h2>
           <p className="text-sm text-muted-foreground">{t("video.providerTaskStatus")}</p>
@@ -74,9 +77,9 @@ export default function VideoStudioPage() {
         {[1, 2, 3].map((take) => (
           <div
             key={take}
-            className="cinema-card overflow-hidden"
+            className="studio-panel overflow-hidden"
           >
-            <div className="cinema-screen relative aspect-video">
+            <div className="poster-frame poster-sunset relative aspect-video">
               <div className="film-perforation absolute inset-x-3 top-3 h-6 rounded border border-border/40 bg-background/30" />
             </div>
             <div className="flex items-center justify-between p-4">

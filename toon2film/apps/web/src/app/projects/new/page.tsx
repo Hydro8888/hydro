@@ -40,15 +40,27 @@ export default function NewProjectPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-normal">{t("newProject.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("newProject.subtitle")}
-        </p>
+      <div className="studio-panel-hot grid gap-5 overflow-hidden p-5 md:grid-cols-[1fr_300px] md:items-center">
+        <div>
+          <div className="inline-flex h-8 items-center rounded-md border border-primary/30 bg-primary/10 px-3 text-xs font-black uppercase tracking-[0.18em] text-primary">
+            Start Project
+          </div>
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("newProject.title")}</h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+            {t("newProject.subtitle")}
+          </p>
+        </div>
+        <div className="manga-board hidden h-36 rounded-lg border border-primary/20 p-3 md:block">
+          <div className="grid h-full grid-cols-3 gap-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <span key={index} className="rounded border border-background/30 bg-background/25" />
+            ))}
+          </div>
+        </div>
       </div>
 
       <form className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <section className="cinema-card p-5">
+        <section className="studio-panel p-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t("newProject.projectName")}>
               <TextInput placeholder="Muyang" />
@@ -111,8 +123,8 @@ export default function NewProjectPage() {
         </section>
 
         <aside className="space-y-4">
-          <section className="cinema-card-highlight overflow-hidden p-5">
-            <div className="cinema-screen mb-5 aspect-video rounded-md border border-border/80" />
+          <section className="studio-panel-hot overflow-hidden p-5">
+            <div className="poster-frame poster-sunset mb-5 aspect-video" />
             <h2 className="text-lg font-semibold">{t("newProject.mode")}</h2>
             <div className="mt-4 grid gap-2">
               {modes.map((modeKey, index) => (
@@ -132,7 +144,7 @@ export default function NewProjectPage() {
             </div>
           </section>
 
-          <section className="cinema-card p-5">
+          <section className="studio-panel p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <ShieldCheck className="h-5 w-5 text-success" aria-hidden="true" />
               {t("newProject.rights")}

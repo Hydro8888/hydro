@@ -1,28 +1,34 @@
 "use client";
 
-import { Globe2 } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
-import { languages, type LanguageCode } from "@/lib/i18n";
+import { languages } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useI18n();
 
   return (
-    <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <Globe2 className="hidden h-4 w-4 sm:block" aria-hidden="true" />
-      <span className="hidden sm:inline">{t("language.label")}</span>
-      <select
-        aria-label={t("language.label")}
-        value={language}
-        onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-        className="fixed right-4 top-3 z-50 h-9 w-24 rounded-md border border-border/80 bg-surface/90 px-3 text-sm font-semibold text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 sm:static sm:w-auto"
-      >
-        {languages.map((item) => (
-          <option key={item.code} value={item.code}>
-            {item.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div
+      aria-label={t("language.label")}
+      className="grid h-10 grid-cols-4 overflow-hidden rounded-md border border-border/80 bg-background/45 p-1 shadow-soft"
+      role="group"
+    >
+      {languages.map((item) => (
+        <button
+          key={item.code}
+          type="button"
+          aria-pressed={language === item.code}
+          onClick={() => setLanguage(item.code)}
+          className={cn(
+            "min-w-11 rounded px-3 text-xs font-bold text-muted-foreground transition hover:text-foreground",
+            language === item.code &&
+              "bg-[linear-gradient(135deg,hsl(257_84%_59%),hsl(253_88%_66%))] text-white shadow-[0_8px_20px_rgb(124_58_237/0.28)]"
+          )}
+          title={item.label}
+        >
+          {item.shortLabel}
+        </button>
+      ))}
+    </div>
   );
 }

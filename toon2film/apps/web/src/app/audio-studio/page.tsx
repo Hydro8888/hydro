@@ -15,8 +15,11 @@ export default function AudioStudioPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-normal">{t("audio.title")}</h1>
+      <div className="studio-panel-hot overflow-hidden p-5">
+        <div className="inline-flex h-8 items-center rounded-md border border-accent/35 bg-accent/10 px-3 text-xs font-black uppercase tracking-[0.18em] text-accent">
+          Sound Stage
+        </div>
+        <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("audio.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("audio.subtitle")}
         </p>
@@ -25,7 +28,7 @@ export default function AudioStudioPage() {
         {tracks.map((trackKey) => (
           <div
             key={trackKey}
-            className="cinema-card p-5"
+            className="studio-panel p-5"
           >
             <h2 className="font-semibold">{t(trackKey)}</h2>
             <div className="mt-4 flex h-16 items-end gap-1 rounded-md border border-border/80 bg-background/30 p-3">

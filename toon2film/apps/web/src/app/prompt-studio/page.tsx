@@ -1,34 +1,40 @@
+"use client";
+
 import { Copy, Languages, RefreshCcw, WandSparkles } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
+import type { TranslationKey } from "@/lib/i18n";
 
 const promptSections = [
-  ["Subject", "A pale Korean man in his early 30s, tired eyes, black coat"],
-  ["Action", "Sits silently between commuters while watching a shaman broadcast"],
-  ["Location", "Interior of Seoul subway line 9 during daytime"],
-  ["Camera", "Medium shot, slow left-to-right slider movement, 32mm lens"],
-  ["Lighting", "Cold fluorescent subway light, muted reflections"],
-  ["Style", "Realistic Korean psychological thriller, subtle film grain"],
-  ["Negative", "Avoid cartoon style, distorted face, extra fingers, unreadable text"]
-];
+  ["prompt.subject", "A pale Korean man in his early 30s, tired eyes, black coat"],
+  ["prompt.action", "Sits silently between commuters while watching a shaman broadcast"],
+  ["prompt.location", "Interior of Seoul subway line 9 during daytime"],
+  ["prompt.camera", "Medium shot, slow left-to-right slider movement, 32mm lens"],
+  ["prompt.lighting", "Cold fluorescent subway light, muted reflections"],
+  ["prompt.style", "Realistic Korean psychological thriller, subtle film grain"],
+  ["prompt.negative", "Avoid cartoon style, distorted face, extra fingers, unreadable text"]
+] satisfies Array<[TranslationKey, string]>;
 
 export default function PromptStudioPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal">Prompt Studio</h1>
+          <h1 className="text-3xl font-bold tracking-normal">{t("prompt.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Seedance-ready shot prompts
+            {t("prompt.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary">
             <Languages className="h-4 w-4" aria-hidden="true" />
-            Translate
+            {t("prompt.translate")}
           </Button>
           <Button>
             <WandSparkles className="h-4 w-4" aria-hidden="true" />
-            Generate
+            {t("prompt.generate")}
           </Button>
         </div>
       </div>
@@ -45,9 +51,9 @@ export default function PromptStudioPage() {
             </Button>
           </div>
           <div className="divide-y divide-border">
-            {promptSections.map(([label, value]) => (
-              <div key={label} className="grid gap-2 px-5 py-4 md:grid-cols-[120px_1fr]">
-                <div className="text-sm font-semibold">{label}</div>
+            {promptSections.map(([labelKey, value]) => (
+              <div key={labelKey} className="grid gap-2 px-5 py-4 md:grid-cols-[120px_1fr]">
+                <div className="text-sm font-semibold">{t(labelKey)}</div>
                 <div className="text-sm leading-6 text-muted-foreground">{value}</div>
               </div>
             ))}
@@ -56,7 +62,7 @@ export default function PromptStudioPage() {
 
         <aside className="space-y-4">
           <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">Presets</h2>
+            <h2 className="text-lg font-semibold">{t("prompt.presets")}</h2>
             <div className="mt-4 grid gap-2">
               {["Korean thriller", "Muted daylight", "Slow slider", "32mm lens"].map(
                 (preset) => (
@@ -72,18 +78,18 @@ export default function PromptStudioPage() {
           </section>
 
           <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">Provider Format</h2>
+            <h2 className="text-lg font-semibold">{t("prompt.providerFormat")}</h2>
             <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
               <div className="flex justify-between">
-                <span>Provider</span>
+                <span>{t("prompt.provider")}</span>
                 <span className="font-medium text-foreground">Seedance</span>
               </div>
               <div className="flex justify-between">
-                <span>Model</span>
-                <span className="font-medium text-foreground">env configured</span>
+                <span>{t("prompt.model")}</span>
+                <span className="font-medium text-foreground">{t("prompt.modelConfigured")}</span>
               </div>
               <div className="flex justify-between">
-                <span>Input</span>
+                <span>{t("prompt.input")}</span>
                 <span className="font-medium text-foreground">Text/Image</span>
               </div>
             </div>
@@ -91,7 +97,7 @@ export default function PromptStudioPage() {
 
           <Button className="w-full" variant="secondary">
             <RefreshCcw className="h-4 w-4" aria-hidden="true" />
-            Regenerate Shot Prompt
+            {t("prompt.regenerate")}
           </Button>
         </aside>
       </section>

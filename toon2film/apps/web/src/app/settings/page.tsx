@@ -1,14 +1,19 @@
+"use client";
+
 import { KeyRound, Server, WalletCards } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput } from "@/components/ui/field";
 
 export default function SettingsPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-normal">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-normal">{t("settings.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Provider keys, billing, and storage
+          {t("settings.subtitle")}
         </p>
       </div>
 
@@ -16,35 +21,35 @@ export default function SettingsPage() {
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <KeyRound className="h-5 w-5 text-primary" aria-hidden="true" />
-            API Keys
+            {t("settings.apiKeys")}
           </h2>
           <div className="mt-4 grid gap-4">
-            <Field label="Seedance key">
-              <TextInput type="password" placeholder="Stored encrypted" />
+            <Field label={t("settings.seedanceKey")}>
+              <TextInput type="password" placeholder={t("settings.storedEncrypted")} />
             </Field>
-            <Field label="LLM key">
-              <TextInput type="password" placeholder="Stored encrypted" />
+            <Field label={t("settings.llmKey")}>
+              <TextInput type="password" placeholder={t("settings.storedEncrypted")} />
             </Field>
-            <Button>Save Keys</Button>
+            <Button>{t("settings.saveKeys")}</Button>
           </div>
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <WalletCards className="h-5 w-5 text-accent" aria-hidden="true" />
-            Billing
+            {t("settings.billing")}
           </h2>
           <div className="mt-4 text-3xl font-bold">$184.20</div>
-          <p className="mt-2 text-sm text-muted-foreground">Current month</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("settings.currentMonth")}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-5 shadow-soft">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Server className="h-5 w-5 text-success" aria-hidden="true" />
-            Storage
+            {t("settings.storage")}
           </h2>
           <div className="mt-4 text-3xl font-bold">42 GB</div>
-          <p className="mt-2 text-sm text-muted-foreground">Project media</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("settings.projectMedia")}</p>
         </div>
       </section>
     </div>

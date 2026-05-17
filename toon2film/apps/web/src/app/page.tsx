@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   AlertCircle,
@@ -11,23 +13,32 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/language-provider";
 import { projects, queueJobs } from "@/lib/mock-data";
+import type { TranslationKey } from "@/lib/i18n";
 
 const stats = [
-  { label: "Projects", value: "12", icon: Database, tone: "text-primary" },
-  { label: "Processing", value: "3", icon: ServerCog, tone: "text-accent" },
-  { label: "API Cost", value: "$184", icon: Gauge, tone: "text-warning" },
-  { label: "Render Queue", value: "7", icon: Clock3, tone: "text-success" }
-];
+  { labelKey: "dashboard.stats.projects", value: "12", icon: Database, tone: "text-primary" },
+  { labelKey: "dashboard.stats.processing", value: "3", icon: ServerCog, tone: "text-accent" },
+  { labelKey: "dashboard.stats.apiCost", value: "$184", icon: Gauge, tone: "text-warning" },
+  { labelKey: "dashboard.stats.renderQueue", value: "7", icon: Clock3, tone: "text-success" }
+] satisfies Array<{
+  labelKey: TranslationKey;
+  value: string;
+  icon: typeof Database;
+  tone: string;
+}>;
 
 export default function DashboardPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-normal">{t("dashboard.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Toon source to cinematic video pipeline
+            {t("dashboard.subtitle")}
           </p>
         </div>
         <Link
@@ -35,7 +46,7 @@ export default function DashboardPage() {
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          New Project
+          {t("dashboard.newProject")}
         </Link>
       </div>
 
@@ -44,12 +55,12 @@ export default function DashboardPage() {
           const Icon = stat.icon;
           return (
             <div
-              key={stat.label}
+              key={stat.labelKey}
               className="rounded-lg border border-border bg-surface p-5 shadow-soft"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
+                  {t(stat.labelKey)}
                 </span>
                 <Icon className={`h-5 w-5 ${stat.tone}`} aria-hidden="true" />
               </div>
@@ -63,12 +74,12 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-border bg-surface shadow-soft">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <div>
-              <h2 className="text-lg font-semibold">Recent Projects</h2>
-              <p className="text-sm text-muted-foreground">Active production slate</p>
+              <h2 className="text-lg font-semibold">{t("dashboard.recentProjects")}</h2>
+              <p className="text-sm text-muted-foreground">{t("dashboard.activeSlate")}</p>
             </div>
             <Button variant="secondary">
               <Film className="h-4 w-4" aria-hidden="true" />
-              Export
+              {t("nav.export")}
             </Button>
           </div>
           <div className="divide-y divide-border">
@@ -104,8 +115,8 @@ export default function DashboardPage() {
 
         <div className="rounded-lg border border-border bg-surface shadow-soft">
           <div className="border-b border-border px-5 py-4">
-            <h2 className="text-lg font-semibold">Render Queue</h2>
-            <p className="text-sm text-muted-foreground">Video generation jobs</p>
+            <h2 className="text-lg font-semibold">{t("dashboard.renderQueue")}</h2>
+            <p className="text-sm text-muted-foreground">{t("dashboard.videoJobs")}</p>
           </div>
           <div className="divide-y divide-border">
             {queueJobs.map((job) => (
@@ -128,7 +139,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 border-t border-border px-5 py-4 text-sm text-muted-foreground">
             <AlertCircle className="h-4 w-4 text-warning" aria-hidden="true" />
-            Rights confirmation is required before provider submission.
+            {t("dashboard.rightsWarning")}
           </div>
         </div>
       </section>

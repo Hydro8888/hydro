@@ -1,4 +1,7 @@
+"use client";
+
 import { FileArchive, FileImage, FileText, UploadCloud } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 
 const fileTypes = [
@@ -8,12 +11,14 @@ const fileTypes = [
 ];
 
 export default function SourceUploadPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-normal">Source Upload</h1>
+        <h1 className="text-3xl font-bold tracking-normal">{t("source.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Toon pages, webtoon strips, and source packages
+          {t("source.subtitle")}
         </p>
       </div>
 
@@ -22,16 +27,16 @@ export default function SourceUploadPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
             <UploadCloud className="h-8 w-8 text-primary" aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-xl font-semibold">Drop files</h2>
+          <h2 className="mt-5 text-xl font-semibold">{t("source.dropFiles")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            PDF, JPG, PNG, ZIP, or long webtoon image
+            {t("source.supported")}
           </p>
-          <Button className="mt-6">Choose Files</Button>
+          <Button className="mt-6">{t("source.chooseFiles")}</Button>
         </div>
 
         <aside className="space-y-4">
           <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">Accepted Source</h2>
+            <h2 className="text-lg font-semibold">{t("source.accepted")}</h2>
             <div className="mt-4 grid gap-3">
               {fileTypes.map((type) => {
                 const Icon = type.icon;
@@ -49,19 +54,19 @@ export default function SourceUploadPage() {
           </section>
 
           <section className="rounded-lg border border-border bg-surface p-5 shadow-soft">
-            <h2 className="text-lg font-semibold">Rights Check</h2>
+            <h2 className="text-lg font-semibold">{t("source.rightsCheck")}</h2>
             <div className="mt-4 grid gap-3 text-sm">
               <label className="flex items-start gap-3">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
-                <span>I have the source rights.</span>
+                <span>{t("source.rights.source")}</span>
               </label>
               <label className="flex items-start gap-3">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
-                <span>No unauthorized likeness is included.</span>
+                <span>{t("source.rights.likeness")}</span>
               </label>
               <label className="flex items-start gap-3">
                 <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" />
-                <span>Commercial usage is cleared.</span>
+                <span>{t("source.rights.commercial")}</span>
               </label>
             </div>
           </section>

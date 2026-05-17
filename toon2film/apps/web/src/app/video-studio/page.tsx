@@ -1,40 +1,45 @@
+"use client";
+
 import { CircleStop, Play, RefreshCcw } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueJobs } from "@/lib/mock-data";
 
 export default function VideoStudioPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-normal">Video Studio</h1>
+          <h1 className="text-3xl font-bold tracking-normal">{t("video.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Generation jobs, takes, and clip review
+            {t("video.subtitle")}
           </p>
         </div>
         <Button>
           <Play className="h-4 w-4" aria-hidden="true" />
-          Generate Batch
+          {t("video.generateBatch")}
         </Button>
       </div>
 
       <section className="rounded-lg border border-border bg-surface shadow-soft">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-lg font-semibold">Jobs</h2>
-          <p className="text-sm text-muted-foreground">Provider task status</p>
+          <h2 className="text-lg font-semibold">{t("video.jobs")}</h2>
+          <p className="text-sm text-muted-foreground">{t("video.providerTaskStatus")}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left text-sm">
             <thead className="bg-muted text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-5 py-3 font-semibold">Job</th>
-                <th className="px-5 py-3 font-semibold">Provider</th>
-                <th className="px-5 py-3 font-semibold">Shot</th>
-                <th className="px-5 py-3 font-semibold">Cost</th>
-                <th className="px-5 py-3 font-semibold">ETA</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Action</th>
+                <th className="px-5 py-3 font-semibold">{t("video.job")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.provider")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.shot")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.cost")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.eta")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.status")}</th>
+                <th className="px-5 py-3 font-semibold">{t("video.action")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -74,10 +79,10 @@ export default function VideoStudioPage() {
             <div className="aspect-video bg-[linear-gradient(135deg,#12335f,#0d9488_55%,#f59e0b)]" />
             <div className="flex items-center justify-between p-4">
               <div>
-                <h3 className="font-semibold">Take {take}</h3>
+                <h3 className="font-semibold">{t("video.take")} {take}</h3>
                 <p className="text-sm text-muted-foreground">S#01 / Shot 02</p>
               </div>
-              <Button variant="secondary">Select</Button>
+              <Button variant="secondary">{t("video.select")}</Button>
             </div>
           </div>
         ))}

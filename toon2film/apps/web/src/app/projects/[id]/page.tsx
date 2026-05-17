@@ -1,41 +1,49 @@
+"use client";
+
+import { useParams } from "next/navigation";
 import { Camera, FileText, ListChecks, UserRound } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { projects, shots } from "@/lib/mock-data";
+import type { TranslationKey } from "@/lib/i18n";
 
 const productionDocs = [
   {
-    title: "Story Bible",
+    titleKey: "project.storyBible",
     icon: FileText,
     status: "review" as const,
-    value: "Logline, synopsis, 3-act structure"
+    valueKey: "project.storyBibleValue"
   },
   {
-    title: "Character Bible",
+    titleKey: "project.characterBible",
     icon: UserRound,
     status: "processing" as const,
-    value: "4 characters, 2 reference images"
+    valueKey: "project.characterBibleValue"
   },
   {
-    title: "Scene Breakdown",
+    titleKey: "project.sceneBreakdown",
     icon: ListChecks,
     status: "done" as const,
-    value: "5 scenes, 18 total shots"
+    valueKey: "project.sceneBreakdownValue"
   },
   {
-    title: "Shot List",
+    titleKey: "project.shotList",
     icon: Camera,
     status: "processing" as const,
-    value: "12 prompts ready"
+    valueKey: "project.shotListValue"
   }
-];
+] satisfies Array<{
+  titleKey: TranslationKey;
+  icon: typeof FileText;
+  status: "review" | "processing" | "done";
+  valueKey: TranslationKey;
+}>;
 
-export default async function ProjectPage({
-  params
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+export default function ProjectPage() {
+  const { t } = useI18n();
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const project = projects.find((item) => item.id === id) ?? projects[0];
 
   return (
@@ -51,8 +59,8 @@ export default async function ProjectPage({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary">Regenerate</Button>
-          <Button>Generate Video</Button>
+          <Button variant="secondary">{t("project.regenerate")}</Button>
+          <Button>{t("project.generateVideo")}</Button>
         </div>
       </div>
 
@@ -61,15 +69,15 @@ export default async function ProjectPage({
           const Icon = doc.icon;
           return (
             <div
-              key={doc.title}
+              key={doc.titleKey}
               className="rounded-lg border border-border bg-surface p-5 shadow-soft"
             >
               <div className="flex items-start justify-between gap-3">
                 <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
                 <StatusBadge status={doc.status} />
               </div>
-              <h2 className="mt-4 font-semibold">{doc.title}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{doc.value}</p>
+              <h2 className="mt-4 font-semibold">{t(doc.titleKey)}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{t(doc.valueKey)}</p>
             </div>
           );
         })}
@@ -77,22 +85,22 @@ export default async function ProjectPage({
 
       <section className="rounded-lg border border-border bg-surface shadow-soft">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-lg font-semibold">Shot List</h2>
+          <h2 className="text-lg font-semibold">{t("project.shotList")}</h2>
           <p className="text-sm text-muted-foreground">
-            Camera and prompt planning
+            {t("project.shotPlanning")}
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead className="bg-muted text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-5 py-3 font-semibold">Scene</th>
-                <th className="px-5 py-3 font-semibold">Shot</th>
-                <th className="px-5 py-3 font-semibold">Framing</th>
-                <th className="px-5 py-3 font-semibold">Camera</th>
-                <th className="px-5 py-3 font-semibold">Action</th>
-                <th className="px-5 py-3 font-semibold">Length</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">{t("project.scene")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.shot")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.framing")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.camera")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.action")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.length")}</th>
+                <th className="px-5 py-3 font-semibold">{t("project.status")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

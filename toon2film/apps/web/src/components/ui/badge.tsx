@@ -1,4 +1,7 @@
+"use client";
+
 import type { PipelineStatus } from "@/lib/types";
+import { useI18n } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 
 const statusStyles: Record<PipelineStatus, string> = {
@@ -10,14 +13,16 @@ const statusStyles: Record<PipelineStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: PipelineStatus }) {
+  const { t } = useI18n();
+
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium capitalize",
+        "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium",
         statusStyles[status]
       )}
     >
-      {status}
+      {t(`status.${status}`)}
     </span>
   );
 }

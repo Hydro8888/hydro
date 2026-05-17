@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { LanguageProvider } from "@/components/language-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,9 +14,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body>
-        <AppShell>{children}</AppShell>
+        <LanguageProvider>
+          <AppShell>{children}</AppShell>
+        </LanguageProvider>
       </body>
     </html>
   );

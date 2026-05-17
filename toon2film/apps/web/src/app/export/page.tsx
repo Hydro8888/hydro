@@ -1,20 +1,26 @@
+"use client";
+
 import { Download, FileJson, FileText, Film } from "lucide-react";
+import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
+import type { TranslationKey } from "@/lib/i18n";
 
 const exportTypes = [
-  { label: "MP4 movie", icon: Film },
-  { label: "Prompt package", icon: FileJson },
-  { label: "Scenario PDF", icon: FileText },
-  { label: "Storyboard PDF", icon: FileText }
-];
+  { labelKey: "export.mp4", icon: Film },
+  { labelKey: "export.promptPackage", icon: FileJson },
+  { labelKey: "export.scenarioPdf", icon: FileText },
+  { labelKey: "export.storyboardPdf", icon: FileText }
+] satisfies Array<{ labelKey: TranslationKey; icon: typeof Film }>;
 
 export default function ExportPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-normal">Export</h1>
+        <h1 className="text-3xl font-bold tracking-normal">{t("export.title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Final render files and production documents
+          {t("export.subtitle")}
         </p>
       </div>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -22,14 +28,14 @@ export default function ExportPage() {
           const Icon = item.icon;
           return (
             <div
-              key={item.label}
+              key={item.labelKey}
               className="rounded-lg border border-border bg-surface p-5 shadow-soft"
             >
               <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
-              <h2 className="mt-4 font-semibold">{item.label}</h2>
+              <h2 className="mt-4 font-semibold">{t(item.labelKey)}</h2>
               <Button className="mt-4 w-full" variant="secondary">
                 <Download className="h-4 w-4" aria-hidden="true" />
-                Prepare
+                {t("export.prepare")}
               </Button>
             </div>
           );

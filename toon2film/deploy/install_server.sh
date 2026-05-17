@@ -246,6 +246,8 @@ build_app() {
 }
 
 run_db_migrations() {
+  local migration_log="$BACKUP_ROOT/$TS/alembic-migration.log"
+
   case "$RUN_DB_MIGRATIONS" in
     0|false|skip)
       warn "Skipping database migrations by request"
@@ -262,17 +264,19 @@ run_db_migrations() {
   if (
     cd "$APP_ROOT/apps/api"
     "$APP_ROOT/.venv/bin/alembic" upgrade head
-  ); then
+  ) > "$migration_log" 2>&1; then
     ok "Database migrations applied"
     return 0
   fi
 
   if [[ "$RUN_DB_MIGRATIONS" == "required" || "$RUN_DB_MIGRATIONS" == "1" || "$RUN_DB_MIGRATIONS" == "true" ]]; then
+    cat "$migration_log" >&2 || true
     die "Database migration failed. Check apps/api/.env DATABASE_URL and database service status."
   fi
 
   warn "Database migration failed, but deployment continues because RUN_DB_MIGRATIONS=auto."
   warn "Project CRUD/upload APIs may fail until apps/api/.env DATABASE_URL matches the server database."
+  warn "Migration details: $migration_log"
 }
 
 start_pm2() {

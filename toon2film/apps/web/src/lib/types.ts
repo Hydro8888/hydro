@@ -81,3 +81,11 @@ export type QuickLink = {
   titleKey: TranslationKey;
   href: string;
 };
+
+export type FeaturedStill = {
+  id: string;
+  title: string;
+  caption: string;
+  image: string;
+  size: "wide" | "portrait" | "standard";
+};

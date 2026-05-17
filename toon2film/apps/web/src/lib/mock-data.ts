@@ -1,4 +1,5 @@
 import type {
+  FeaturedStill,
   OpsAlert,
   PipelineStep,
   Project,
@@ -23,7 +24,7 @@ export const projects: Project[] = [
     status: "processing",
     updatedAt: "2 hours ago",
     thumbnailTone: "sunset",
-    thumbnailImage: "/studio-assets/poster-hiero.svg",
+    thumbnailImage: "/studio-assets/cinema-city-boy.png",
     crew: ["HY", "MJ", "+2"],
     badge: "렌더링 중"
   },
@@ -41,7 +42,7 @@ export const projects: Project[] = [
     status: "review",
     updatedAt: "5 hours ago",
     thumbnailTone: "blonde",
-    thumbnailImage: "/studio-assets/poster-memory.svg",
+    thumbnailImage: "/studio-assets/cinema-blonde-portrait.png",
     crew: ["JM", "AK"],
     badge: "진행 중"
   },
@@ -59,7 +60,7 @@ export const projects: Project[] = [
     status: "ready",
     updatedAt: "1 day ago",
     thumbnailTone: "night",
-    thumbnailImage: "/studio-assets/poster-moon.svg",
+    thumbnailImage: "/studio-assets/cinema-moon-village.png",
     crew: ["SA", "NO", "+1"],
     badge: "대기 중"
   },
@@ -77,9 +78,54 @@ export const projects: Project[] = [
     status: "done",
     updatedAt: "2 days ago",
     thumbnailTone: "sky",
-    thumbnailImage: "/studio-assets/poster-summer.svg",
+    thumbnailImage: "/studio-assets/cinema-sky-duo.png",
     crew: ["JM"],
     badge: "완료"
+  }
+];
+
+export const featuredStills: FeaturedStill[] = [
+  {
+    id: "manga-to-cinema",
+    title: "만화 원고에서 도시 시퀀스로",
+    caption: "원작 페이지와 필름 프레임을 한 컷에 겹친 메인 비주얼",
+    image: "/studio-assets/cinema-manga-hero.png",
+    size: "wide"
+  },
+  {
+    id: "sunset-city",
+    title: "석양의 히어로",
+    caption: "도시 스케일과 주인공의 고독한 실루엣",
+    image: "/studio-assets/cinema-city-boy.png",
+    size: "standard"
+  },
+  {
+    id: "night-character",
+    title: "야간 캐릭터 클로즈업",
+    caption: "감정선을 강조하는 시네마틱 포트레이트",
+    image: "/studio-assets/cinema-girl-night.png",
+    size: "portrait"
+  },
+  {
+    id: "blue-sky",
+    title: "푸른 하늘의 대면",
+    caption: "청춘 드라마 톤의 와이드 샷",
+    image: "/studio-assets/cinema-sky-duo.png",
+    size: "wide"
+  },
+  {
+    id: "golden-character",
+    title: "골든 아워 캐릭터",
+    caption: "햇빛과 헤어 디테일을 살린 캐릭터 기준 컷",
+    image: "/studio-assets/cinema-blonde-portrait.png",
+    size: "portrait"
+  },
+  {
+    id: "moon-village",
+    title: "달빛 아래 한옥 마을",
+    caption: "판타지와 미스터리 장면을 위한 야간 배경",
+    image: "/studio-assets/cinema-moon-village.png",
+    size: "standard"
   }
 ];
 
@@ -180,7 +226,7 @@ export const queueJobs: QueueJob[] = [
     eta: "00:08:45",
     progress: 65,
     thumbnailTone: "sunset",
-    thumbnailImage: "/studio-assets/poster-hiero.svg"
+    thumbnailImage: "/studio-assets/cinema-city-boy.png"
   },
   {
     id: "job-428",
@@ -193,7 +239,7 @@ export const queueJobs: QueueJob[] = [
     eta: "00:05:12",
     progress: 32,
     thumbnailTone: "blonde",
-    thumbnailImage: "/studio-assets/poster-memory.svg"
+    thumbnailImage: "/studio-assets/cinema-girl-night.png"
   },
   {
     id: "job-427",
@@ -206,7 +252,7 @@ export const queueJobs: QueueJob[] = [
     eta: "waiting",
     progress: 0,
     thumbnailTone: "sky",
-    thumbnailImage: "/studio-assets/poster-summer.svg",
+    thumbnailImage: "/studio-assets/cinema-moon-village.png",
     queueOrder: "3"
   }
 ];

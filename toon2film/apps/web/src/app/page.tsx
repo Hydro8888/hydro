@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { useI18n } from "@/components/language-provider";
 import {
+  featuredStills,
   opsAlerts,
   pipelineSteps,
   projects,
@@ -70,16 +71,15 @@ export default function DashboardPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_348px]">
         <main className="min-w-0 space-y-5">
-          <section className="studio-panel-hot hero-reel relative min-h-[280px] overflow-hidden p-5 sm:p-7">
-            <div className="absolute inset-y-0 right-0 hidden w-[66%] md:block">
+          <section className="studio-panel-hot hero-reel relative min-h-[360px] overflow-hidden p-5 sm:p-7">
+            <div className="absolute inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[74%]">
               <div className="hero-image-wrap absolute inset-4 left-0 overflow-hidden rounded-xl border border-primary/25 bg-background/30 shadow-glow">
                 <img
-                  src={assetPath("/studio-assets/manga-cinema-hero.svg")}
-                  alt=""
+                  src={assetPath("/studio-assets/cinema-manga-hero.png")}
+                  alt="Toon2Film cinematic manga to film hero"
                   className="h-full w-full object-cover"
-                  aria-hidden="true"
                 />
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/.76)_27%,transparent_62%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--background))_0%,hsl(var(--background)/.82)_31%,hsl(var(--background)/.22)_72%,transparent_100%)]" />
               </div>
             </div>
 
@@ -154,6 +154,47 @@ export default function DashboardPage() {
             </div>
           </section>
 
+          <section className="studio-panel overflow-hidden p-4 sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-[220px] shrink-0">
+                <div className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-primary">
+                  <Film className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("studio.stillsEyebrow")}
+                </div>
+                <h2 className="mt-3 text-xl font-black sm:whitespace-nowrap">{t("studio.stillsTitle")}</h2>
+              </div>
+              <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+                {t("studio.stillsSubtitle")}
+              </p>
+            </div>
+            <div className="cinematic-stills-grid mt-5">
+              {featuredStills.map((still, index) => (
+                <article
+                  key={still.id}
+                  className={cn(
+                    "cinematic-still-card",
+                    still.size === "wide" && "sm:col-span-2",
+                    still.size === "portrait" && "cinematic-still-card-portrait"
+                  )}
+                >
+                  <img
+                    src={assetPath(still.image)}
+                    alt={still.title}
+                    className="cinematic-still-image"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_32%,rgb(2_6_23/.84)_100%)]" />
+                  <div className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/45 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/90 backdrop-blur">
+                    Shot {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h3 className="line-clamp-1 text-sm font-black text-white">{still.title}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/72">{still.caption}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -212,9 +253,8 @@ export default function DashboardPage() {
                   <div className={cn("poster-frame has-image h-40", `poster-${project.thumbnailTone}`)}>
                     <img
                       src={assetPath(project.thumbnailImage)}
-                      alt=""
+                      alt={`${project.title} poster`}
                       className="project-poster-image"
-                      aria-hidden="true"
                     />
                     <div className="absolute left-3 top-3 z-10 rounded-md border border-current/30 bg-background/70 px-2 py-1 text-xs font-black text-primary backdrop-blur">
                       {project.badge}
@@ -292,9 +332,8 @@ export default function DashboardPage() {
                   <div className={cn("poster-frame has-image h-16", `poster-${job.thumbnailTone}`)}>
                     <img
                       src={assetPath(job.thumbnailImage)}
-                      alt=""
+                      alt={`${job.title} thumbnail`}
                       className="project-poster-image"
-                      aria-hidden="true"
                     />
                   </div>
                   <div className="min-w-0">

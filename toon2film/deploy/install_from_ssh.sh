@@ -87,7 +87,7 @@ fi
 
 log "Run Toon2Film safe deploy script"
 cd "$APP_DIR"
-chmod +x deploy/install_server.sh
+chmod +x deploy/install_server.sh deploy/install_from_ssh.sh deploy/rewrite_nginx_site.py
 ./deploy/install_server.sh $INSTALL_FLAGS
 
 ok "Toon2Film bootstrap install completed"

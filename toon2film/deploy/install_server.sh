@@ -43,6 +43,7 @@ Environment overrides:
   WEB_PORT=3610
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
+  CLEAN_STALE_TOON2FILM_WORKERS=1
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
 USAGE
 }
@@ -91,7 +92,7 @@ install_deps() {
 
 detect_nginx_sites() {
   if [[ -n "${NGINX_SITE:-}" ]]; then
-    echo "$NGINX_SITE"
+    printf '%s\n' $NGINX_SITE
     return
   fi
 
@@ -246,6 +247,22 @@ start_pm2() {
   export TOON2FILM_WEB_PM2_NAME="$WEB_PM2_NAME"
   export TOON2FILM_API_PM2_NAME="$API_PM2_NAME"
 
+  if [[ "${CLEAN_STALE_TOON2FILM_WORKERS:-1}" -eq 1 ]]; then
+    log "Clean stale Toon2Film worker PM2 apps if present"
+    for stale in \
+      toon2film-worker-orchestrator \
+      toon2film-worker-vision \
+      toon2film-worker-i2v \
+      toon2film-worker-performance \
+      toon2film-worker-audio-dialogue \
+      toon2film-worker-audio-ambience \
+      toon2film-worker-audio-foley \
+      toon2film-worker-audio-music \
+      toon2film-worker-assembly; do
+      pm2 delete "$stale" >/dev/null 2>&1 || true
+    done
+  fi
+
   pm2 delete "$WEB_PM2_NAME" >/dev/null 2>&1 || true
   pm2 delete "$API_PM2_NAME" >/dev/null 2>&1 || true
   pm2 start "$APP_ROOT/ecosystem.config.cjs" --only "$API_PM2_NAME" --update-env
@@ -335,101 +352,11 @@ configure_nginx() {
     cp "$backup" "$work_file"
 
     log "Insert or replace managed Nginx block in temporary copy: $site"
-    SITE="$work_file" BLOCK_FILE="$block_file" SERVICE_NAME="$SERVICE_NAME" BASE_PATH="$BASE_PATH" python3 <<'PY'
-from pathlib import Path
-import os
-import re
-
-site = Path(os.environ["SITE"])
-block = Path(os.environ["BLOCK_FILE"]).read_text()
-service = os.environ["SERVICE_NAME"]
-base_path = os.environ["BASE_PATH"].rstrip("/") or "/"
-text = site.read_text()
-pattern = re.compile(rf"\n?\s*# BEGIN {re.escape(service)} managed block.*?\s*# END {re.escape(service)} managed block\n?", re.S)
-legacy_paths = {
-    base_path,
-    base_path + "/",
-    base_path + "/api",
-    base_path + "/api/",
-}
-
-location_re = re.compile(r"^\s*location\s+(?:=\s+|\^~\s+)?(?P<path>[^\s{]+)")
-server_re = re.compile(r"(?m)^[ \t]*server\s*\{")
-
-
-def find_server_blocks(src: str) -> list[tuple[int, int]]:
-    blocks: list[tuple[int, int]] = []
-    for match in server_re.finditer(src):
-        open_index = src.find("{", match.start(), match.end())
-        if open_index == -1:
-            continue
-        depth = 0
-        for index in range(open_index, len(src)):
-            char = src[index]
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    blocks.append((match.start(), index + 1))
-                    break
-    return blocks
-
-
-def strip_legacy_locations(src: str) -> tuple[str, int]:
-    lines = src.splitlines(keepends=True)
-    kept: list[str] = []
-    removed = 0
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        match = location_re.match(line)
-        if match and match.group("path") in legacy_paths:
-            removed += 1
-            depth = 0
-            seen_open = False
-            while index < len(lines):
-                depth += lines[index].count("{") - lines[index].count("}")
-                seen_open = seen_open or "{" in lines[index]
-                index += 1
-                if seen_open and depth <= 0:
-                    break
-            continue
-        kept.append(line)
-        index += 1
-    return "".join(kept), removed
-
-
-def is_http_server(src: str) -> bool:
-    return bool(re.search(r"(?m)^[ \t]*listen\s+[^;]*(:)?80(?:\s|;)", src))
-
-
-text = pattern.sub("\n", text)
-servers = find_server_blocks(text)
-targets = [(start, end) for start, end in servers if is_http_server(text[start:end])]
-if not targets and len(servers) == 1:
-    targets = servers
-
-if not targets:
-    raise SystemExit(f"No HTTP server block found in {site}")
-
-total_removed = 0
-for start, end in reversed(targets):
-    server_text = text[start:end]
-    server_text, removed = strip_legacy_locations(server_text)
-    total_removed += removed
-    close_index = server_text.rfind("}")
-    if close_index == -1:
-        raise SystemExit(f"No closing brace found in server block for {site}")
-    server_text = server_text[:close_index].rstrip() + "\n\n" + block + "\n" + server_text[close_index:]
-    text = text[:start] + server_text + text[end:]
-
-if total_removed:
-    print(f"Removed {total_removed} legacy {base_path} location block(s)")
-print(f"Updated {len(targets)} HTTP server block(s) in {site}")
-
-site.write_text(text)
-PY
+    python3 "$APP_ROOT/deploy/rewrite_nginx_site.py" \
+      --site "$work_file" \
+      --block-file "$block_file" \
+      --service-name "$SERVICE_NAME" \
+      --base-path "$BASE_PATH"
 
     run_sudo cp "$work_file" "$site"
     modified_sites+=("$site")

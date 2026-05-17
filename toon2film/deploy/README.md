@@ -1,6 +1,7 @@
 # Toon2Film Server Deploy
 
-Recommended one-script install after SSH login:
+SSH 접속 후 아래 블록을 그대로 붙여 넣으면 저장소를 클론/업데이트하고 바로 서버에 반영합니다.
+GitHub는 서버의 SSH 인증을 사용하므로 아이디/비밀번호 입력이 필요 없습니다.
 
 ```bash
 cat > /home/ubuntu/install_toon2film.sh <<'BASH'
@@ -46,11 +47,11 @@ chmod +x /home/ubuntu/install_toon2film.sh
 /home/ubuntu/install_toon2film.sh
 ```
 
-After the repository exists, this shorter repo script is also available:
+이미 저장소가 있는 서버에서는 아래만 실행해도 됩니다.
 
 ```bash
 cd /home/ubuntu/toon2film-deploy/toon2film
-deploy/install_from_ssh.sh
+./deploy/install_from_ssh.sh
 ```
 
 Safe defaults:
@@ -62,13 +63,31 @@ Safe defaults:
 - API port: `8600`
 - Public path: `/toon2film`
 
-The script checks existing services before and after deploy:
+안전장치:
+
+- `toon2film-web`, `toon2film-api`만 삭제/재시작합니다. `sudo pm2`는 사용하지 않습니다.
+- 예전 배포에서 남은 `toon2film-worker-*` PM2 프로세스는 Toon2Film 이름만 대상으로 정리합니다.
+- `/etc/nginx/sites-enabled/hydro`, `/etc/nginx/sites-enabled/multi-service`를 함께 검사해 `127.0.0.1`과 `172.30.1.99`가 다른 server 블록을 타는 문제를 방지합니다.
+- 기존 `/toon2film`, `/toon2film/`, `/toon2film/api`, `/toon2film/api/` location을 모두 제거한 뒤 관리 블록을 하나만 다시 삽입합니다.
+- 백업은 `/home/ubuntu/.toon2film-deploy-backup/<timestamp>`에 저장하며 `sites-enabled` 안에는 `.bak` 파일을 만들지 않습니다.
+- `sudo nginx -t`가 실패하면 즉시 백업을 복원하고 reload하지 않습니다.
+- Nginx는 `restart`가 아니라 `reload`만 사용합니다.
+- 기존 서비스 응답을 배포 전/후 비교해 새 5xx 또는 000 회귀가 생기면 실패 처리합니다.
+
+기존 서비스 체크 대상:
 
 ```bash
 contact matching hacker agentmarket fundmanager gonak jobworld
 ```
 
-It backs up the active Nginx site file outside `sites-enabled`, runs `sudo nginx -t`,
-and reloads Nginx only after the syntax test passes.
+배포 완료 후 확인 URL:
+
+```bash
+curl -sI http://127.0.0.1:3610/toon2film | head -3
+curl -sI http://127.0.0.1:8600/health | head -3
+curl -sI http://127.0.0.1/toon2film | head -3
+curl -sI http://172.30.1.99/toon2film | head -3
+curl -sI http://172.30.1.99/toon2film/api/health | head -3
+```
 
 Do not commit real API keys. Put provider keys in the server-only `.env` file after deploy.

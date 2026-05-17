@@ -314,7 +314,7 @@ configure_nginx() {
   nginx_block > "$block_file"
 
   log "Insert or replace managed Nginx block in temporary copy"
-  SITE="$work_file" BLOCK_FILE="$block_file" SERVICE_NAME="$SERVICE_NAME" python3 <<'PY'
+  SITE="$work_file" BLOCK_FILE="$block_file" SERVICE_NAME="$SERVICE_NAME" BASE_PATH="$BASE_PATH" python3 <<'PY'
 from pathlib import Path
 import os
 import re
@@ -322,18 +322,48 @@ import re
 site = Path(os.environ["SITE"])
 block = Path(os.environ["BLOCK_FILE"]).read_text()
 service = os.environ["SERVICE_NAME"]
+base_path = os.environ["BASE_PATH"].rstrip("/") or "/"
 text = site.read_text()
-start = f"    # BEGIN {service} managed block"
-end = f"    # END {service} managed block"
 pattern = re.compile(rf"\n?\s*# BEGIN {re.escape(service)} managed block.*?\s*# END {re.escape(service)} managed block\n?", re.S)
+legacy_paths = {
+    base_path,
+    base_path + "/",
+    base_path + "/api",
+    base_path + "/api/",
+}
 
-if pattern.search(text):
-    text = pattern.sub("\n" + block + "\n", text)
-else:
-    idx = text.rfind("}")
-    if idx == -1:
-        raise SystemExit("No closing brace found in Nginx site file")
-    text = text[:idx].rstrip() + "\n\n" + block + "\n" + text[idx:]
+text = pattern.sub("\n", text)
+
+location_re = re.compile(r"^\s*location\s+(?:=\s+|\^~\s+)?(?P<path>[^\s{]+)")
+lines = text.splitlines(keepends=True)
+kept: list[str] = []
+removed = 0
+i = 0
+while i < len(lines):
+    line = lines[i]
+    match = location_re.match(line)
+    if match and match.group("path") in legacy_paths:
+        removed += 1
+        depth = 0
+        seen_open = False
+        while i < len(lines):
+            depth += lines[i].count("{") - lines[i].count("}")
+            seen_open = seen_open or "{" in lines[i]
+            i += 1
+            if seen_open and depth <= 0:
+                break
+        continue
+    kept.append(line)
+    i += 1
+
+text = "".join(kept)
+if removed:
+    print(f"Removed {removed} legacy {base_path} location block(s)")
+
+idx = text.rfind("}")
+if idx == -1:
+    raise SystemExit("No closing brace found in Nginx site file")
+text = text[:idx].rstrip() + "\n\n" + block + "\n" + text[idx:]
 
 site.write_text(text)
 PY

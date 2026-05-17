@@ -17,7 +17,7 @@ WITH_NGINX=0
 WITH_PM2_STARTUP=0
 SKIP_BUILD=0
 SKIP_NGINX_RELOAD=0
-RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-1}"
+RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-auto}"
 
 WATCH_PATHS_DEFAULT="contact matching hacker agentmarket fundmanager gonak jobworld"
 WATCH_PATHS="${WATCH_PATHS:-$WATCH_PATHS_DEFAULT}"
@@ -37,6 +37,7 @@ Options:
   --with-pm2-startup   Configure PM2 systemd startup for the ubuntu user.
   --skip-build         Skip npm build and Python dependency install.
   --skip-db-migrate    Skip Alembic database migrations.
+  --require-db-migrate Fail deployment when Alembic migration fails.
   --skip-nginx-reload  Write/test Nginx config but do not reload it.
   -h, --help           Show this help.
 
@@ -46,7 +47,7 @@ Environment overrides:
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
   CLEAN_STALE_TOON2FILM_WORKERS=1
-  RUN_DB_MIGRATIONS=1
+  RUN_DB_MIGRATIONS=auto  # auto | required | 0
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
 USAGE
 }
@@ -58,6 +59,7 @@ while [[ $# -gt 0 ]]; do
     --with-pm2-startup) WITH_PM2_STARTUP=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     --skip-db-migrate) RUN_DB_MIGRATIONS=0 ;;
+    --require-db-migrate) RUN_DB_MIGRATIONS=required ;;
     --skip-nginx-reload) SKIP_NGINX_RELOAD=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -244,13 +246,33 @@ build_app() {
 }
 
 run_db_migrations() {
-  [[ "$RUN_DB_MIGRATIONS" -eq 1 ]] || { warn "Skipping database migrations by request"; return 0; }
+  case "$RUN_DB_MIGRATIONS" in
+    0|false|skip)
+      warn "Skipping database migrations by request"
+      return 0
+      ;;
+    1|true|required|auto)
+      ;;
+    *)
+      die "Invalid RUN_DB_MIGRATIONS=$RUN_DB_MIGRATIONS. Use auto, required, or 0."
+      ;;
+  esac
 
   log "Run Alembic database migrations"
-  (
+  if (
     cd "$APP_ROOT/apps/api"
     "$APP_ROOT/.venv/bin/alembic" upgrade head
-  ) || die "Database migration failed. Check apps/api/.env DATABASE_URL and database service status."
+  ); then
+    ok "Database migrations applied"
+    return 0
+  fi
+
+  if [[ "$RUN_DB_MIGRATIONS" == "required" || "$RUN_DB_MIGRATIONS" == "1" || "$RUN_DB_MIGRATIONS" == "true" ]]; then
+    die "Database migration failed. Check apps/api/.env DATABASE_URL and database service status."
+  fi
+
+  warn "Database migration failed, but deployment continues because RUN_DB_MIGRATIONS=auto."
+  warn "Project CRUD/upload APIs may fail until apps/api/.env DATABASE_URL matches the server database."
 }
 
 start_pm2() {
@@ -423,11 +445,11 @@ main() {
 
   write_api_env
   build_app
-  run_db_migrations
   start_pm2
 
   wait_for_url "API direct health" "http://127.0.0.1:${API_PORT}/health" "^200$"
   wait_for_url "Web direct base path" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
+  run_db_migrations
 
   configure_nginx
 

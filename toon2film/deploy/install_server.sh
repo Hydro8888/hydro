@@ -89,25 +89,36 @@ install_deps() {
   fi
 }
 
-detect_nginx_site() {
+detect_nginx_sites() {
   if [[ -n "${NGINX_SITE:-}" ]]; then
     echo "$NGINX_SITE"
     return
   fi
 
-  local candidates=(
+  local active_candidates=(
     "/etc/nginx/sites-enabled/hydro"
     "/etc/nginx/sites-enabled/multi-service"
-    "/etc/nginx/sites-available/multi-service"
   )
   local file
-  for file in "${candidates[@]}"; do
+  local found=0
+  for file in "${active_candidates[@]}"; do
     if [[ -f "$file" ]]; then
       echo "$file"
-      return
+      found=1
     fi
   done
-  die "No Nginx site file found. Set NGINX_SITE=/path/to/active/site."
+  [[ "$found" -eq 1 ]] && return
+
+  local fallback_candidates=(
+    "/etc/nginx/sites-available/multi-service"
+  )
+  for file in "${fallback_candidates[@]}"; do
+    if [[ -f "$file" ]]; then
+      echo "$file"
+      found=1
+    fi
+  done
+  [[ "$found" -eq 1 ]] || die "No Nginx site file found. Set NGINX_SITE=/path/to/active/site."
 }
 
 curl_code() {
@@ -292,9 +303,9 @@ EOF
 configure_nginx() {
   [[ "$WITH_NGINX" -eq 1 ]] || { warn "Skipping Nginx config. Pass --with-nginx to enable."; return 0; }
 
-  local site
-  site="$(detect_nginx_site)"
-  [[ -f "$site" ]] || die "Nginx site file does not exist: $site"
+  local sites=()
+  mapfile -t sites < <(detect_nginx_sites)
+  [[ "${#sites[@]}" -gt 0 ]] || die "No Nginx site file found. Set NGINX_SITE=/path/to/active/site."
 
   log "Active Nginx files"
   ls -la /etc/nginx/sites-enabled/ || true
@@ -303,18 +314,23 @@ configure_nginx() {
     die "Backup-like files exist inside sites-enabled. Move them out before continuing."
   fi
 
-  local backup="$BACKUP_ROOT/$TS/$(basename "$site").bak"
-  local work_file="$BACKUP_ROOT/$TS/$(basename "$site").new"
-  log "Backup Nginx site to $backup"
-  run_sudo cp "$site" "$backup"
-  run_sudo chown ubuntu:ubuntu "$backup"
-  cp "$backup" "$work_file"
-
   local block_file="$BACKUP_ROOT/$TS/${SERVICE_NAME}-nginx-block.conf"
   nginx_block > "$block_file"
+  local modified_sites=()
+  local backup_files=()
+  local site backup work_file
 
-  log "Insert or replace managed Nginx block in temporary copy"
-  SITE="$work_file" BLOCK_FILE="$block_file" SERVICE_NAME="$SERVICE_NAME" BASE_PATH="$BASE_PATH" python3 <<'PY'
+  for site in "${sites[@]}"; do
+    [[ -f "$site" ]] || die "Nginx site file does not exist: $site"
+    backup="$BACKUP_ROOT/$TS/$(basename "$site").bak"
+    work_file="$BACKUP_ROOT/$TS/$(basename "$site").new"
+    log "Backup Nginx site to $backup"
+    run_sudo cp "$site" "$backup"
+    run_sudo chown ubuntu:ubuntu "$backup"
+    cp "$backup" "$work_file"
+
+    log "Insert or replace managed Nginx block in temporary copy: $site"
+    SITE="$work_file" BLOCK_FILE="$block_file" SERVICE_NAME="$SERVICE_NAME" BASE_PATH="$BASE_PATH" python3 <<'PY'
 from pathlib import Path
 import os
 import re
@@ -368,12 +384,18 @@ text = text[:idx].rstrip() + "\n\n" + block + "\n" + text[idx:]
 site.write_text(text)
 PY
 
-  run_sudo cp "$work_file" "$site"
+    run_sudo cp "$work_file" "$site"
+    modified_sites+=("$site")
+    backup_files+=("$backup")
+  done
 
   log "nginx -t"
   if ! run_sudo nginx -t; then
-    warn "Nginx test failed. Restoring backup."
-    run_sudo cp "$backup" "$site"
+    warn "Nginx test failed. Restoring backups."
+    local i
+    for i in "${!modified_sites[@]}"; do
+      run_sudo cp "${backup_files[$i]}" "${modified_sites[$i]}"
+    done
     run_sudo nginx -t || true
     die "Nginx configuration was restored after failed test."
   fi

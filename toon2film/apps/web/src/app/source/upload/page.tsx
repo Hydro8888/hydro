@@ -24,11 +24,13 @@ type UploadItem = {
   status: UploadStatus;
   progress: number;
   error?: string;
+  analysisStatus?: string;
 };
 
 type SourceFileResponse = {
   id: string;
   original_filename: string;
+  page_count: number | null;
   status: string;
 };
 
@@ -57,6 +59,10 @@ function extensionOf(file: File) {
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isAnalysisComplete(status: string) {
+  return ["analyzed", "processed", "processed_without_ai"].includes(status);
 }
 
 export default function SourceUploadPage() {
@@ -110,7 +116,7 @@ export default function SourceUploadPage() {
     if (errors.length > 0) {
       setMessage({
         tone: "warning",
-        title: "일부 파일을 추가하지 못했습니다.",
+        title: "일부 파일은 추가하지 못했습니다.",
         body: errors.join(" ")
       });
     }
@@ -137,7 +143,7 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "error",
         title: "업로드할 파일을 선택해 주세요.",
-        body: "PDF, JPG, PNG, ZIP 또는 긴 웹툰 이미지를 하나 이상 추가해야 합니다."
+        body: "PDF, JPG, PNG, ZIP 원고 파일을 하나 이상 추가해야 합니다."
       });
       return;
     }
@@ -163,16 +169,24 @@ export default function SourceUploadPage() {
     setIsSubmitting(true);
     setMessage(null);
     let successCount = 0;
+    let analyzedCount = 0;
 
     for (const item of items) {
       if (item.status === "success") {
         successCount += 1;
+        if (item.analysisStatus && isAnalysisComplete(item.analysisStatus)) analyzedCount += 1;
         continue;
       }
 
-      updateItem(item.id, { status: "uploading", progress: 35, error: undefined });
+      updateItem(item.id, {
+        status: "uploading",
+        progress: 45,
+        error: undefined,
+        analysisStatus: "AI 분석 중"
+      });
       const uploadPayload = new FormData();
       uploadPayload.set("rights_confirmed", "true");
+      uploadPayload.set("auto_analyze", "true");
       uploadPayload.set("file", item.file);
 
       const result = await apiJson<SourceFileResponse>(`/projects/${projectId}/upload`, {
@@ -182,7 +196,16 @@ export default function SourceUploadPage() {
 
       if (result.ok) {
         successCount += 1;
-        updateItem(item.id, { status: "success", progress: 100 });
+        if (isAnalysisComplete(result.data.status)) analyzedCount += 1;
+        updateItem(item.id, {
+          status: result.data.status === "analysis_failed" ? "error" : "success",
+          progress: 100,
+          analysisStatus: result.data.status,
+          error:
+            result.data.status === "analysis_failed"
+              ? "파일은 저장됐지만 AI 분석에 실패했습니다. API 키와 서버 로그를 확인해 주세요."
+              : undefined
+        });
       } else {
         updateItem(item.id, { status: "error", progress: 100, error: result.error });
       }
@@ -190,9 +213,17 @@ export default function SourceUploadPage() {
 
     setIsSubmitting(false);
     setMessage({
-      tone: successCount === items.length ? "success" : "warning",
-      title: successCount === items.length ? "원본 업로드가 완료되었습니다." : "일부 파일 업로드가 실패했습니다.",
-      body: `${items.length}개 중 ${successCount}개 파일이 프로젝트 소스로 저장되었습니다. 다음 단계에서 스토리 분석을 실행할 수 있습니다.`
+      tone: analyzedCount === items.length ? "success" : successCount > 0 ? "warning" : "error",
+      title:
+        analyzedCount === items.length
+          ? "업로드와 AI 분석이 완료되었습니다."
+          : successCount > 0
+            ? "업로드는 완료됐지만 일부 분석을 확인해야 합니다."
+            : "파일 업로드가 실패했습니다.",
+      body:
+        analyzedCount === items.length
+          ? "스토리 분석, 캐릭터 설계, 콘티 생성 데이터가 프로젝트에 자동 저장되었습니다."
+          : `${items.length}개 중 ${successCount}개 파일이 저장됐고 ${analyzedCount}개 파일이 분석됐습니다.`
     });
   }
 
@@ -238,9 +269,7 @@ export default function SourceUploadPage() {
               <UploadCloud className="h-8 w-8 text-primary" aria-hidden="true" />
             </div>
             <h2 className="relative mt-5 text-xl font-semibold">{t("source.dropFiles")}</h2>
-            <p className="relative mt-2 text-sm text-muted-foreground">
-              {t("source.supported")}
-            </p>
+            <p className="relative mt-2 text-sm text-muted-foreground">{t("source.supported")}</p>
             <input
               ref={fileInputRef}
               className="sr-only"
@@ -252,17 +281,11 @@ export default function SourceUploadPage() {
                 event.currentTarget.value = "";
               }}
             />
-            <Button
-              className="relative mt-6"
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-            >
+            <Button className="relative mt-6" type="button" onClick={() => fileInputRef.current?.click()}>
               {t("source.chooseFiles")}
             </Button>
             {projectId ? (
-              <p className="relative mt-3 text-xs text-muted-foreground">
-                Project ID: {projectId}
-              </p>
+              <p className="relative mt-3 text-xs text-muted-foreground">Project ID: {projectId}</p>
             ) : null}
           </div>
 
@@ -275,12 +298,7 @@ export default function SourceUploadPage() {
                 </p>
               </div>
               {items.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setItems([])}
-                  disabled={isSubmitting}
-                >
+                <Button type="button" variant="ghost" onClick={() => setItems([])} disabled={isSubmitting}>
                   목록 비우기
                 </Button>
               ) : null}
@@ -288,16 +306,13 @@ export default function SourceUploadPage() {
             <div className="grid gap-3 p-4">
               {items.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
-                  아직 선택한 원본 파일이 없습니다.
+                  아직 선택된 원본 파일이 없습니다.
                 </div>
               ) : (
                 items.map((item) => {
                   const Icon = item.status === "success" ? CheckCircle2 : item.status === "error" ? XCircle : FileText;
                   return (
-                    <div
-                      key={item.id}
-                      className="rounded-lg border border-border/80 bg-background/35 p-4"
-                    >
+                    <div key={item.id} className="rounded-lg border border-border/80 bg-background/35 p-4">
                       <div className="flex items-start gap-3">
                         <Icon
                           className={cn(
@@ -320,9 +335,12 @@ export default function SourceUploadPage() {
                               style={{ width: `${item.progress}%` }}
                             />
                           </div>
-                          {item.error ? (
-                            <p className="mt-2 text-xs text-destructive">{item.error}</p>
+                          {item.analysisStatus ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              분석 상태: {item.analysisStatus}
+                            </p>
                           ) : null}
+                          {item.error ? <p className="mt-2 text-xs text-destructive">{item.error}</p> : null}
                         </div>
                       </div>
                     </div>
@@ -340,10 +358,7 @@ export default function SourceUploadPage() {
               {fileTypes.map((type) => {
                 const Icon = type.icon;
                 return (
-                  <div
-                    key={type.label}
-                    className="flex items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3"
-                  >
+                  <div key={type.label} className="flex items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3">
                     <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
                     <span className="text-sm font-medium">{type.label}</span>
                   </div>
@@ -370,8 +385,12 @@ export default function SourceUploadPage() {
             </div>
           </section>
           <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-4 w-4" aria-hidden="true" />}
-            {isSubmitting ? "업로드 중..." : "분석 전 원본 저장"}
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <UploadCloud className="h-4 w-4" aria-hidden="true" />
+            )}
+            {isSubmitting ? "업로드 및 AI 분석 중..." : "업로드 후 AI 분석"}
           </Button>
         </aside>
       </form>

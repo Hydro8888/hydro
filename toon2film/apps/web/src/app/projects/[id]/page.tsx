@@ -65,6 +65,17 @@ function assetPath(path: string) {
   return `${basePath}${path}`;
 }
 
+function statusLabel(status: PipelineState["status"] | undefined) {
+  if (!status) return "연결 대기";
+  return {
+    DRAFT: "초안",
+    RAW_UPLOADED: "원본 업로드 완료",
+    STORY_ANALYZED: "스토리 분석 완료",
+    CHAR_DESIGNED: "캐릭터 설계 완료",
+    STORYBOARD_READY: "콘티 준비 완료"
+  }[status];
+}
+
 export default function ProjectPage() {
   const { t } = useI18n();
   const params = useParams<{ id: string }>();
@@ -105,7 +116,7 @@ export default function ProjectPage() {
       setMessage({
         tone: "warning",
         title: "실제 프로젝트 ID가 필요합니다.",
-        body: "대시보드 샘플 카드에서는 API 실행 대신 화면 미리보기만 제공합니다. 새 프로젝트를 생성한 뒤 진입하면 실행됩니다."
+        body: "샘플 프로젝트에서는 미리보기만 제공됩니다. 새 프로젝트를 만든 뒤 진입하면 API 단계가 실행됩니다."
       });
       return;
     }
@@ -139,7 +150,7 @@ export default function ProjectPage() {
           ? "스토리 분석과 씬 분할이 생성되었습니다."
           : action === "characters"
             ? "캐릭터 바이블이 생성되었습니다."
-            : "콘티/샷 리스트가 생성되었습니다."
+            : "콘티와 샷 리스트가 생성되었습니다."
     });
   }
 
@@ -256,7 +267,7 @@ export default function ProjectPage() {
           </div>
           {isApiProject ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              API 프로젝트: {isLoading ? "상태 확인 중..." : pipeline?.status ?? "연결 대기"}
+              API 프로젝트: {isLoading ? "상태 확인 중..." : statusLabel(pipeline?.status)}
             </p>
           ) : null}
         </div>
@@ -326,9 +337,7 @@ export default function ProjectPage() {
       <section className="studio-panel overflow-hidden">
         <div className="border-b border-border/80 px-5 py-4">
           <h2 className="text-lg font-semibold">{t("project.shotList")}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t("project.shotPlanning")}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("project.shotPlanning")}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-left text-sm">
@@ -350,9 +359,7 @@ export default function ProjectPage() {
                   <td className="px-5 py-4">{shot.shot}</td>
                   <td className="px-5 py-4">{shot.framing}</td>
                   <td className="px-5 py-4">{shot.camera}</td>
-                  <td className="px-5 py-4 text-muted-foreground">
-                    {shot.summary}
-                  </td>
+                  <td className="px-5 py-4 text-muted-foreground">{shot.summary}</td>
                   <td className="px-5 py-4">{shot.duration}</td>
                   <td className="px-5 py-4">
                     <StatusBadge status={shot.status} />

@@ -8,9 +8,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import Project, SourceFile
 from app.schemas import SourceFileRead
+from app.services.comic_analyzer import ComicAnalysisError, ComicAnalyzerService
 
 router = APIRouter()
 
@@ -26,6 +28,7 @@ MAX_SOURCE_FILE_BYTES = 200 * 1024 * 1024
 def upload_source_file(
     project_id: uuid.UUID,
     rights_confirmed: bool = Form(False),
+    auto_analyze: bool = Form(True),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> SourceFile:
@@ -69,6 +72,19 @@ def upload_source_file(
     db.add_all([project, source_file])
     db.commit()
     db.refresh(source_file)
+
+    if auto_analyze and settings.openai_auto_analyze_on_upload:
+        try:
+            source_file.status = "analyzing"
+            db.add(source_file)
+            db.commit()
+            ComicAnalyzerService().analyze_source_file(source_file=source_file, project=project, db=db)
+        except (ComicAnalysisError, OSError, ValueError):
+            source_file.status = "analysis_failed"
+            db.add(source_file)
+            db.commit()
+        db.refresh(source_file)
+
     return source_file
 
 
@@ -89,10 +105,18 @@ def process_source_file(file_id: uuid.UUID, db: Session = Depends(get_db)) -> di
     if source_file is None:
         raise HTTPException(status_code=404, detail="Source file not found")
 
-    from app.workers.source_tasks import process_source_file_task
+    project = db.get(Project, source_file.project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    task = process_source_file_task.delay(str(file_id))
-    source_file.status = "queued"
+    source_file.status = "analyzing"
     db.add(source_file)
     db.commit()
-    return {"task_id": task.id, "status": "queued"}
+    try:
+        ComicAnalyzerService().analyze_source_file(source_file=source_file, project=project, db=db)
+    except ComicAnalysisError as exc:
+        source_file.status = "analysis_failed"
+        db.add(source_file)
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"source_file_id": str(file_id), "status": source_file.status}

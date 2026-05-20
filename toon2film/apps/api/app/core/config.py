@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     s3_secret_access_key: str | None = None
 
     openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-5.5"
+    openai_reasoning_effort: str = "high"
+    openai_max_pages: int = 6
+    openai_max_output_tokens: int = 5000
+    openai_auto_analyze_on_upload: bool = True
     seedance_api_key: str | None = None
     seedance_base_url: str | None = None
     seedance_model: str = "seedance"

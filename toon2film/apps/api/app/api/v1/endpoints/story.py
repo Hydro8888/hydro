@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Character, Project, Scene, Shot, SourceFile, SourcePanel, StoryBible
+from app.models import AudioTrack, Character, Export, Project, Scene, Shot, SourceFile, SourcePanel, StoryBible, VideoJob
 from app.schemas import (
     CharacterBibleRead,
     PipelineStateRead,
@@ -16,6 +16,7 @@ from app.schemas import (
     StorySceneRead,
     StoryboardShotRead,
 )
+from app.services.production_pipeline import ProductionPipelineService
 from app.services.story_architect import StoryArchitectService
 
 router = APIRouter()
@@ -80,12 +81,48 @@ def _shots(project_id: uuid.UUID, db: Session) -> list[Shot]:
     )
 
 
+def _video_jobs(project_id: uuid.UUID, db: Session) -> list[VideoJob]:
+    return list(
+        db.scalars(
+            select(VideoJob).where(VideoJob.project_id == project_id).order_by(VideoJob.created_at)
+        ).all()
+    )
+
+
+def _exports(project_id: uuid.UUID, db: Session) -> list[Export]:
+    return list(
+        db.scalars(
+            select(Export).where(Export.project_id == project_id).order_by(Export.created_at)
+        ).all()
+    )
+
+
+def _subtitle_track_count(project_id: uuid.UUID, db: Session) -> int:
+    return len(
+        list(
+            db.scalars(
+                select(AudioTrack).where(
+                    AudioTrack.project_id == project_id,
+                    AudioTrack.track_type == "subtitle",
+                )
+            ).all()
+        )
+    )
+
+
 def _status_for(
     raw_files: list[SourceFile],
     story_bible: StoryBible | None,
     characters: list[Character],
     storyboard: list[Shot],
+    render_jobs: list[VideoJob],
+    exports: list[Export],
+    subtitle_tracks: int,
 ) -> str:
+    if exports or subtitle_tracks:
+        return "EXPORT_READY"
+    if render_jobs:
+        return "VIDEO_RENDER_READY"
     if storyboard:
         return "STORYBOARD_READY"
     if characters:
@@ -95,6 +132,75 @@ def _status_for(
     if raw_files:
         return "RAW_UPLOADED"
     return "DRAFT"
+
+
+def _step_status(done: bool, active: bool = False) -> str:
+    if done:
+        return "done"
+    if active:
+        return "processing"
+    return "ready"
+
+
+def _pipeline_steps(
+    raw_files: list[SourceFile],
+    story_bible: StoryBible | None,
+    characters: list[Character],
+    storyboard: list[Shot],
+    render_jobs: list[VideoJob],
+    exports: list[Export],
+    subtitle_tracks: int,
+) -> list[dict[str, str | int]]:
+    has_raw = bool(raw_files)
+    has_story = story_bible is not None
+    has_characters = bool(characters)
+    has_storyboard = bool(storyboard)
+    has_render = bool(render_jobs)
+    has_export = bool(exports or subtitle_tracks)
+    return [
+        {
+            "id": "upload",
+            "title": "원본 업로드",
+            "subtitle": "만화 / JPG / PDF",
+            "status": _step_status(has_raw, not has_raw),
+            "count": len(raw_files),
+        },
+        {
+            "id": "story",
+            "title": "스토리 분석",
+            "subtitle": "AI 스토리 생성",
+            "status": _step_status(has_story, has_raw and not has_story),
+            "count": 1 if has_story else 0,
+        },
+        {
+            "id": "character",
+            "title": "캐릭터 설계",
+            "subtitle": "캐릭터 바이블",
+            "status": _step_status(has_characters, has_story and not has_characters),
+            "count": len(characters),
+        },
+        {
+            "id": "storyboard",
+            "title": "콘티 생성",
+            "subtitle": "샷 & 시퀀스 구성",
+            "status": _step_status(has_storyboard, has_characters and not has_storyboard),
+            "count": len(storyboard),
+        },
+        {
+            "id": "render",
+            "title": "영상 렌더",
+            "subtitle": "AI 영상 생성",
+            "status": _step_status(has_render, has_storyboard and not has_render),
+            "count": len(render_jobs),
+        },
+        {
+            "id": "export",
+            "title": "자막 / 출력",
+            "subtitle": "편집 & 내보내기",
+            "status": _step_status(has_export, has_render and not has_export),
+            "count": len(exports) + subtitle_tracks,
+        },
+    ]
 
 
 def _scene_read(scene: Scene) -> StorySceneRead:
@@ -198,11 +304,22 @@ def get_pipeline_state(project_id: uuid.UUID, db: Session = Depends(get_db)) -> 
     scenes = _scenes(project_id, db)
     characters = _characters(project_id, db)
     storyboard = _shots(project_id, db)
+    render_jobs = _video_jobs(project_id, db)
+    exports = _exports(project_id, db)
+    subtitle_tracks = _subtitle_track_count(project_id, db)
 
     return PipelineStateRead(
         project_id=str(project.id),
         project_name=project.title,
-        status=_status_for(raw_files, story_bible, characters, storyboard),
+        status=_status_for(
+            raw_files,
+            story_bible,
+            characters,
+            storyboard,
+            render_jobs,
+            exports,
+            subtitle_tracks,
+        ),
         raw_files=[
             {
                 "file_id": str(source.id),
@@ -216,6 +333,33 @@ def get_pipeline_state(project_id: uuid.UUID, db: Session = Depends(get_db)) -> 
         story_analysis=_story_analysis_read(story_bible, scenes),
         character_bible=[_character_read(character) for character in characters],
         storyboard=[_shot_read(shot) for shot in storyboard],
+        render_jobs=[
+            {
+                "job_id": str(job.id),
+                "shot_id": str(job.shot_id),
+                "provider": job.provider,
+                "status": job.status,
+            }
+            for job in render_jobs
+        ],
+        exports=[
+            {
+                "export_id": str(export.id),
+                "export_type": export.export_type,
+                "status": export.status,
+            }
+            for export in exports
+        ],
+        subtitle_tracks=subtitle_tracks,
+        steps=_pipeline_steps(
+            raw_files,
+            story_bible,
+            characters,
+            storyboard,
+            render_jobs,
+            exports,
+            subtitle_tracks,
+        ),
     )
 
 
@@ -382,6 +526,7 @@ def generate_storyboard(
 
     existing = _shots(project_id, db)
     if existing:
+        ProductionPipelineService().ensure_post_story_pipeline(project, db)
         return [_shot_read(shot) for shot in existing]
 
     shots: list[Shot] = []
@@ -393,6 +538,7 @@ def generate_storyboard(
     db.commit()
     for shot in shots:
         db.refresh(shot)
+    ProductionPipelineService().ensure_post_story_pipeline(project, db)
     return [_shot_read(shot) for shot in shots]
 
 

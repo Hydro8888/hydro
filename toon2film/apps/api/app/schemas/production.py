@@ -105,6 +105,27 @@ class StoryboardShotRead(BaseModel):
     dialogue_or_action: str
 
 
+class PipelineStepRead(BaseModel):
+    id: str
+    title: str
+    subtitle: str
+    status: str
+    count: int = 0
+
+
+class PipelineRenderJobRead(BaseModel):
+    job_id: str
+    shot_id: str
+    provider: str
+    status: str
+
+
+class PipelineExportRead(BaseModel):
+    export_id: str
+    export_type: str
+    status: str
+
+
 class PipelineStateRead(BaseModel):
     project_id: str
     project_name: str
@@ -113,3 +134,7 @@ class PipelineStateRead(BaseModel):
     story_analysis: StoryAnalysisRead | None = None
     character_bible: list[CharacterBibleRead]
     storyboard: list[StoryboardShotRead]
+    render_jobs: list[PipelineRenderJobRead] = []
+    exports: list[PipelineExportRead] = []
+    subtitle_tracks: int = 0
+    steps: list[PipelineStepRead] = []

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Camera, FileText, Loader2, ListChecks, UploadCloud, UserRound } from "lucide-react";
+import { Captions, Clapperboard, FileText, Film, Loader2, ListChecks, UploadCloud, UserRound } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,14 @@ import type { PipelineStatus } from "@/lib/types";
 type PipelineState = {
   project_id: string;
   project_name: string;
-  status: "DRAFT" | "RAW_UPLOADED" | "STORY_ANALYZED" | "CHAR_DESIGNED" | "STORYBOARD_READY";
+  status:
+    | "DRAFT"
+    | "RAW_UPLOADED"
+    | "STORY_ANALYZED"
+    | "CHAR_DESIGNED"
+    | "STORYBOARD_READY"
+    | "VIDEO_RENDER_READY"
+    | "EXPORT_READY";
   raw_files: Array<{
     file_id: string;
     url: string;
@@ -48,6 +55,25 @@ type PipelineState = {
     camera_angle: string;
     dialogue_or_action: string;
   }>;
+  render_jobs: Array<{
+    job_id: string;
+    shot_id: string;
+    provider: string;
+    status: string;
+  }>;
+  exports: Array<{
+    export_id: string;
+    export_type: string;
+    status: string;
+  }>;
+  subtitle_tracks: number;
+  steps: Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    status: PipelineStatus;
+    count: number;
+  }>;
 };
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/toon2film";
@@ -58,7 +84,19 @@ const statusMap: Record<PipelineState["status"], PipelineStatus> = {
   RAW_UPLOADED: "processing",
   STORY_ANALYZED: "review",
   CHAR_DESIGNED: "processing",
-  STORYBOARD_READY: "done"
+  STORYBOARD_READY: "processing",
+  VIDEO_RENDER_READY: "blocked",
+  EXPORT_READY: "done"
+};
+
+const progressByStatus: Record<PipelineState["status"], number> = {
+  DRAFT: 5,
+  RAW_UPLOADED: 18,
+  STORY_ANALYZED: 38,
+  CHAR_DESIGNED: 55,
+  STORYBOARD_READY: 72,
+  VIDEO_RENDER_READY: 88,
+  EXPORT_READY: 100
 };
 
 function assetPath(path: string) {
@@ -72,7 +110,9 @@ function statusLabel(status: PipelineState["status"] | undefined) {
     RAW_UPLOADED: "원본 업로드 완료",
     STORY_ANALYZED: "스토리 분석 완료",
     CHAR_DESIGNED: "캐릭터 설계 완료",
-    STORYBOARD_READY: "콘티 준비 완료"
+    STORYBOARD_READY: "콘티 생성 완료",
+    VIDEO_RENDER_READY: "영상 렌더 초안 준비",
+    EXPORT_READY: "자막 / 출력 초안 준비"
   }[status];
 }
 
@@ -223,8 +263,8 @@ export default function ProjectPage() {
         )
       },
       {
-        label: t("project.shotList"),
-        icon: Camera,
+        label: "콘티 생성",
+        icon: Clapperboard,
         status: pipeline?.storyboard.length ? ("done" as const) : ("processing" as const),
         value: pipeline?.storyboard.length
           ? `${pipeline.storyboard.length}개 콘티 샷 생성 완료`
@@ -240,6 +280,33 @@ export default function ProjectPage() {
             {runningAction === "storyboard" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             콘티 생성
           </Button>
+        )
+      },
+      {
+        label: "영상 렌더",
+        icon: Film,
+        status: pipeline?.render_jobs.length ? ("blocked" as const) : ("ready" as const),
+        value: pipeline?.render_jobs.length
+          ? `${pipeline.render_jobs.length}개 AI 영상 렌더 작업 준비`
+          : "콘티 생성 후 샷별 AI 영상 프롬프트를 준비합니다.",
+        action: (
+          <Link href="/video-studio" className="text-xs font-bold text-primary">
+            영상 제작실로 이동
+          </Link>
+        )
+      },
+      {
+        label: "자막 / 출력",
+        icon: Captions,
+        status: pipeline?.exports.length || pipeline?.subtitle_tracks ? ("done" as const) : ("ready" as const),
+        value:
+          pipeline?.exports.length || pipeline?.subtitle_tracks
+            ? `자막 ${pipeline.subtitle_tracks}개 / 출력 ${pipeline.exports.length}개 준비`
+            : "렌더 작업 이후 편집과 내보내기 초안을 만듭니다.",
+        action: (
+          <Link href="/export" className="text-xs font-bold text-primary">
+            내보내기로 이동
+          </Link>
         )
       }
     ],
@@ -261,7 +328,7 @@ export default function ProjectPage() {
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(271_91%_65%))]"
               style={{
-                width: `${pipeline?.status === "STORYBOARD_READY" ? 100 : mockProject.progress}%`
+                width: `${pipeline ? progressByStatus[pipeline.status] : mockProject.progress}%`
               }}
             />
           </div>
@@ -309,7 +376,7 @@ export default function ProjectPage() {
         </Notice>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {productionDocs.map((doc) => {
           const Icon = doc.icon;
           return (

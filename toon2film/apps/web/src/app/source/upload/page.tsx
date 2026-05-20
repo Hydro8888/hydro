@@ -223,7 +223,7 @@ export default function SourceUploadPage() {
             : "파일 업로드가 실패했습니다.",
       body:
         analyzedCount === items.length
-          ? "스토리 분석, 캐릭터 설계, 콘티 생성 데이터가 프로젝트에 자동 저장되었습니다."
+          ? "스토리 분석, 캐릭터 바이블, 콘티, 영상 렌더 작업 초안, 자막/출력 초안이 프로젝트에 자동 저장되었습니다."
           : `${items.length}개 중 ${successCount}개 파일이 저장됐고 ${analyzedCount}개 파일이 분석됐습니다.`
     });
   }

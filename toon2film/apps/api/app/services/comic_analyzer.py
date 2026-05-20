@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import Character, Project, Scene, Shot, SourceFile, SourcePage, SourcePanel, StoryBible
+from app.services.production_pipeline import ProductionPipelineService
 from app.workers.source_tasks import normalize_local_url
 
 
@@ -505,6 +506,8 @@ class ComicAnalyzerService:
         project.status = "STORYBOARD_READY" if self._project_shots(project.id, db) else "STORY_ANALYZED"
         db.add_all([project, source_file])
         db.commit()
+        if self._project_shots(project.id, db):
+            ProductionPipelineService().ensure_post_story_pipeline(project, db)
 
     def _latest_story_bible(self, project_id: uuid.UUID, db: Session) -> StoryBible | None:
         return db.scalars(

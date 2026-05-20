@@ -1,7 +1,10 @@
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.schemas.production import (
     CharacterBibleRead,
+    PipelineExportRead,
+    PipelineRenderJobRead,
     PipelineStateRead,
+    PipelineStepRead,
     PromptRead,
     SourceFileRead,
     StoryBibleRead,
@@ -16,7 +19,10 @@ __all__ = [
     "ProjectRead",
     "ProjectUpdate",
     "CharacterBibleRead",
+    "PipelineExportRead",
+    "PipelineRenderJobRead",
     "PipelineStateRead",
+    "PipelineStepRead",
     "PromptRead",
     "SourceFileRead",
     "StoryBibleRead",

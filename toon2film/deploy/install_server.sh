@@ -484,9 +484,76 @@ wait_for_url() {
   die "$label health check failed. PM2 logs printed above."
 }
 
+first_stylesheet_href() {
+  local url="$1"
+  curl -fsS --max-time 8 "$url" 2>/dev/null | python3 -c '
+import re
+import sys
+
+html = sys.stdin.read()
+match = re.search(r"<link[^>]+rel=[\"'\'' ]stylesheet[\"'\'' ][^>]+href=[\"'\'']([^\"'\'']+)", html, re.I)
+if not match:
+    match = re.search(r"<link[^>]+href=[\"'\'']([^\"'\'']+\.css)[\"'\''][^>]+rel=[\"'\'' ]stylesheet[\"'\'' ]", html, re.I)
+print(match.group(1) if match else "")
+'
+}
+
+join_origin_path() {
+  local origin="$1"
+  local href="$2"
+  if [[ "$href" =~ ^https?:// ]]; then
+    printf '%s\n' "$href"
+  elif [[ "$href" == /* ]]; then
+    printf '%s%s\n' "$origin" "$href"
+  else
+    printf '%s/%s\n' "${origin%/}" "$href"
+  fi
+}
+
+wait_for_stylesheet_asset() {
+  local label="$1"
+  local origin="$2"
+  local page_url="$3"
+  local href asset_url code content_type i
+
+  for i in $(seq 1 30); do
+    href="$(first_stylesheet_href "$page_url" || true)"
+    if [[ -n "$href" ]]; then
+      asset_url="$(join_origin_path "$origin" "$href")"
+      code="$(curl_code "$asset_url")"
+      content_type="$(curl -sSI --max-time 8 "$asset_url" 2>/dev/null | awk -F': ' 'tolower($1)=="content-type" {print tolower($2); exit}' | tr -d '\r')"
+      if [[ "$code" == "200" && "$content_type" == *"css"* ]]; then
+        ok "$label => $code ($href)"
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+
+  warn "$label failed. href=${href:-missing} code=${code:-missing} content-type=${content_type:-missing}"
+  pm2 logs "$WEB_PM2_NAME" --err --lines 60 --nostream || true
+  die "$label failed. The page may render as unstyled HTML because CSS/JS static assets are not reachable."
+}
+
 nginx_block() {
   cat <<EOF
     # BEGIN ${SERVICE_NAME} managed block
+    location ^~ ${BASE_PATH}/_next/static/ {
+        alias ${APP_ROOT}/apps/web/.next/static/;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
+    location ^~ ${BASE_PATH}/studio-assets/ {
+        alias ${APP_ROOT}/apps/web/public/studio-assets/;
+        access_log off;
+        expires 1h;
+        add_header Cache-Control "public, max-age=3600";
+        try_files \$uri =404;
+    }
+
     location ${BASE_PATH}/api/ {
         rewrite ^${BASE_PATH}/api/(.*)$ /api/\$1 break;
         proxy_pass http://127.0.0.1:${API_PORT};
@@ -608,14 +675,17 @@ main() {
 
   wait_for_url "API direct health" "http://127.0.0.1:${API_PORT}/health" "^200$"
   wait_for_url "Web direct base path" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
+  wait_for_stylesheet_asset "Web direct stylesheet asset" "http://127.0.0.1:${WEB_PORT}" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}"
 
   configure_nginx
 
   if [[ "$WITH_NGINX" -eq 1 && "$SKIP_NGINX_RELOAD" -eq 0 ]]; then
     wait_for_url "Nginx internal web" "http://127.0.0.1${BASE_PATH}" "^(2|3)[0-9][0-9]$"
     wait_for_url "Nginx internal API" "http://127.0.0.1${BASE_PATH}/api/health" "^200$"
+    wait_for_stylesheet_asset "Nginx internal stylesheet asset" "http://127.0.0.1" "http://127.0.0.1${BASE_PATH}"
     wait_for_url "Nginx host web" "http://${INTERNAL_HOST}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
     wait_for_url "Nginx host API" "http://${INTERNAL_HOST}${BASE_PATH}/api/health" "^200$"
+    wait_for_stylesheet_asset "Nginx host stylesheet asset" "http://${INTERNAL_HOST}" "http://${INTERNAL_HOST}${BASE_PATH}"
   fi
 
   log "Postflight existing service snapshot"

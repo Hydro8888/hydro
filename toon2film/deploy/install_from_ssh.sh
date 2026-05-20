@@ -6,6 +6,7 @@ BRANCH="${BRANCH:-codex/toon2film-platform-full}"
 TARGET_DIR="${TARGET_DIR:-/home/ubuntu/toon2film-deploy}"
 APP_DIR="${TARGET_DIR}/toon2film"
 INSTALL_FLAGS="${INSTALL_FLAGS:---install-deps --with-nginx --with-pm2-startup}"
+AUTO_STASH_LOCAL_CHANGES="${AUTO_STASH_LOCAL_CHANGES:-1}"
 
 log() { printf '[*] %s\n' "$*"; }
 ok() { printf '[OK] %s\n' "$*"; }
@@ -36,6 +37,7 @@ Environment overrides:
   WEB_PORT=3610
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
+  AUTO_STASH_LOCAL_CHANGES=1  # stash local repo changes before pull instead of failing
 USAGE
 }
 
@@ -76,8 +78,13 @@ if [[ -d "$TARGET_DIR/.git" ]]; then
   if [[ -f "$APP_DIR/deploy/rewrite_nginx_site.py" ]]; then
     chmod 0644 "$APP_DIR/deploy/rewrite_nginx_site.py" || true
   fi
-  if ! git diff --quiet || ! git diff --cached --quiet; then
-    die "Local changes exist in $TARGET_DIR. Commit, stash, or remove them before deploy."
+  if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    if [[ "$AUTO_STASH_LOCAL_CHANGES" == "1" || "$AUTO_STASH_LOCAL_CHANGES" == "true" ]]; then
+      warn "Local changes exist in $TARGET_DIR. Stashing them before deploy."
+      git stash push -u -m "toon2film deploy auto-stash $(date +%Y%m%d-%H%M%S)"
+    else
+      die "Local changes exist in $TARGET_DIR. Commit, stash, or remove them before deploy."
+    fi
   fi
   git fetch origin "$BRANCH"
   git checkout "$BRANCH"

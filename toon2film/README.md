@@ -126,3 +126,21 @@ PM2: toon2film-web, toon2film-api
 ```
 
 The script backs up the active Nginx site outside `sites-enabled`, checks port conflicts, restarts only Toon2Film PM2 processes, runs `nginx -t` before reload, and compares existing service health before and after deployment.
+
+### If the page opens without styling
+
+If `http://172.30.1.99/toon2film` returns HTML but looks like a plain unstyled page, the CSS chunk under `/toon2film/_next/static/...` is not reachable. The deploy script now checks this explicitly and configures Nginx to serve Next.js static assets directly from the app build directory.
+
+Quick server-side checks:
+
+```bash
+curl -s http://172.30.1.99/toon2film | grep -o '/toon2film/_next/static/[^"]*\.css' | head -1
+curl -I "http://172.30.1.99$(curl -s http://172.30.1.99/toon2film | grep -o '/toon2film/_next/static/[^"]*\.css' | head -1)"
+```
+
+The CSS URL must return `200` with a CSS content type. If it returns `500` or `404`, rerun:
+
+```bash
+cd /home/ubuntu/toon2film-deploy/toon2film
+./deploy/install_from_ssh.sh
+```

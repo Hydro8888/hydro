@@ -59,7 +59,7 @@ npm run dev:web
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3000/toon2film
 ```
 
 ## Safety Notes

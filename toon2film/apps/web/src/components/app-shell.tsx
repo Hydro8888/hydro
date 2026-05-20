@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
 import {
   Bell,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/components/language-provider";
+import { getApiBaseUrl } from "@/lib/api-client";
 import type { TranslationKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -53,10 +54,29 @@ function isActive(pathname: string, href: string) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "down">("checking");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3000);
+
+    fetch(`${getApiBaseUrl()}/health`, {
+      cache: "no-store",
+      signal: controller.signal
+    })
+      .then((response) => setApiStatus(response.ok ? "ok" : "down"))
+      .catch(() => setApiStatus("down"))
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,14 +84,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push(trimmed ? `/?q=${encodeURIComponent(trimmed)}` : "/");
   }
 
+  const apiStatusLabel =
+    apiStatus === "ok"
+      ? t("shell.apiOk")
+      : apiStatus === "checking"
+        ? ({ ko: "확인 중", en: "Checking", ja: "確認中", zh: "检查中" } as const)[language]
+        : ({ ko: "점검", en: "Check", ja: "点検", zh: "检查" } as const)[language];
+
   return (
     <div className="studio-shell">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[250px] border-r border-border/80 bg-[linear-gradient(180deg,hsl(224_44%_7%),hsl(225_43%_9%)_48%,hsl(229_49%_6%))] lg:block">
         <div className="film-perforation pointer-events-none absolute inset-y-0 right-0 w-9 opacity-35" />
         <div className="relative flex h-full flex-col">
           <Link href="/" className="block border-b border-border/80 px-8 py-6">
-            <div className="text-2xl font-black tracking-tight text-red-500">
-              Toon<span className="text-red-500">2</span>Film
+            <div className="brand-logo-red text-2xl font-black tracking-tight">
+              Toon<span>2</span>Film
             </div>
             <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-foreground/85">
               {t("product.subtitle")}
@@ -141,8 +168,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/78 backdrop-blur-xl">
           <div className="flex min-h-[72px] min-w-0 flex-wrap items-center gap-3 px-4 sm:flex-nowrap sm:px-6 lg:px-7">
             <Link href="/" className="min-w-0 lg:hidden">
-              <div className="text-lg font-black tracking-tight text-red-500">
-                Toon<span className="text-red-500">2</span>Film
+              <div className="brand-logo-red text-lg font-black tracking-tight">
+                Toon<span>2</span>Film
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {t("product.subtitle")}
@@ -171,9 +198,23 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LanguageSwitcher />
               <div className="hidden h-9 items-center gap-2 rounded-full border border-border/80 bg-surface/70 px-3 text-xs font-bold md:flex">
                 <span>{t("shell.apiStatus")}</span>
-                <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-success">
-                  <span className="h-2 w-2 rounded-full bg-success" />
-                  {t("shell.apiOk")}
+                <span
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-1",
+                    apiStatus === "ok" && "bg-success/10 text-success",
+                    apiStatus === "checking" && "bg-warning/10 text-warning",
+                    apiStatus === "down" && "bg-warning/10 text-warning"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      apiStatus === "ok" && "bg-success",
+                      apiStatus === "checking" && "bg-warning",
+                      apiStatus === "down" && "bg-warning"
+                    )}
+                  />
+                  {apiStatusLabel}
                 </span>
               </div>
               <button

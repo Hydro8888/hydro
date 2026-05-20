@@ -2,7 +2,8 @@ type ApiResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string };
 
-const fallbackBaseUrl = "/api";
+const fallbackBasePath = process.env.NEXT_PUBLIC_BASE_PATH || "/toon2film";
+const fallbackBaseUrl = `${fallbackBasePath}/api`;
 
 function friendlyApiError(status: number, message: string) {
   const normalized = message.trim();

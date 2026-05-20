@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -57,11 +57,37 @@ function assetPath(path: string) {
 
 export default function DashboardPage() {
   const { t } = useI18n();
+  const [projectQuery, setProjectQuery] = useState("");
   const [message, setMessage] = useState<{
     tone: "success" | "warning" | "error";
     title: string;
     body: string;
   } | null>(null);
+
+  useEffect(() => {
+    setProjectQuery(new URLSearchParams(window.location.search).get("q") ?? "");
+  }, []);
+
+  const filteredProjects = useMemo(() => {
+    const normalizedQuery = projectQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return projects;
+    }
+
+    return projects.filter((project) =>
+      [
+        project.title,
+        project.originalTitle,
+        project.type,
+        project.style,
+        project.language,
+        project.badge
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery)
+    );
+  }, [projectQuery]);
 
   return (
     <div className="space-y-5">
@@ -128,7 +154,7 @@ export default function DashboardPage() {
 
           <section className="studio-panel p-4 sm:p-5">
             <h2 className="text-lg font-bold">{t("studio.pipelineTitle")}</h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {pipelineSteps.map((step, index) => {
                 const Icon = pipelineIcons[index] ?? WandSparkles;
                 return (
@@ -146,8 +172,12 @@ export default function DashboardPage() {
                       </span>
                       {step.count ? <span className="text-xs font-black">{step.count}</span> : null}
                     </div>
-                    <h3 className="mt-4 text-sm font-black text-foreground">{t(step.titleKey)}</h3>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{t(step.subtitleKey)}</p>
+                    <h3 className="mt-4 break-keep text-sm font-black text-foreground">
+                      {t(step.titleKey)}
+                    </h3>
+                    <p className="mt-1 break-keep text-xs leading-5 text-muted-foreground">
+                      {t(step.subtitleKey)}
+                    </p>
                   </div>
                 );
               })}
@@ -243,8 +273,16 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {projectQuery ? (
+              <Notice tone="success" title={`Search: ${projectQuery}`}>
+                {filteredProjects.length
+                  ? `${filteredProjects.length} matching project(s) found.`
+                  : "No matching project was found. Clear the search field to see the full studio board."}
+              </Notice>
+            ) : null}
+
             <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}

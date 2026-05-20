@@ -56,6 +56,15 @@ a {
 }
 
 @layer components {
+  .brand-logo-red {
+    color: #ef4444;
+    text-shadow: 0 0 18px rgb(239 68 68 / 0.34);
+  }
+
+  .brand-logo-red span {
+    color: inherit;
+  }
+
   .studio-shell {
     @apply min-h-screen bg-background text-foreground;
   }

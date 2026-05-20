@@ -66,3 +66,50 @@ class VideoJobRead(BaseModel):
     cost_estimate: float | None
     completed_at: datetime | None
     created_at: datetime
+
+
+class PipelineRawFileRead(BaseModel):
+    file_id: str
+    url: str
+    page_num: int
+    original_filename: str
+    status: str
+
+
+class StorySceneRead(BaseModel):
+    scene_id: int
+    summary: str
+    location: str | None = None
+    time: str | None = None
+
+
+class StoryAnalysisRead(BaseModel):
+    logline: str
+    synopsis: str
+    scenes: list[StorySceneRead]
+
+
+class CharacterBibleRead(BaseModel):
+    character_id: str
+    name: str
+    appearance_description: str
+    personality: str
+    reference_image_prompt: str
+
+
+class StoryboardShotRead(BaseModel):
+    shot_id: str
+    scene_id: int
+    visual_prompt: str
+    camera_angle: str
+    dialogue_or_action: str
+
+
+class PipelineStateRead(BaseModel):
+    project_id: str
+    project_name: str
+    status: str
+    raw_files: list[PipelineRawFileRead]
+    story_analysis: StoryAnalysisRead | None = None
+    character_bible: list[CharacterBibleRead]
+    storyboard: list[StoryboardShotRead]

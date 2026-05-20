@@ -79,9 +79,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
-            {navItems.map((item) => {
+            {navItems.map((item, index) => {
               const Icon = item.icon;
-              const active = isActive(pathname, item.href);
+              const firstActiveIndex = navItems.findIndex((candidate) =>
+                isActive(pathname, candidate.href)
+              );
+              const active = firstActiveIndex === index;
               return (
                 <Link
                   key={`${item.href}-${item.labelKey}`}
@@ -194,9 +197,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="grid grid-cols-1 gap-2 border-t border-border/60 px-4 py-2 sm:grid-cols-3 lg:hidden">
-            {navItems.slice(0, 6).map((item) => {
+            {navItems.slice(0, 6).map((item, index) => {
               const Icon = item.icon;
-              const active = isActive(pathname, item.href);
+              const firstActiveIndex = navItems.findIndex((candidate) =>
+                isActive(pathname, candidate.href)
+              );
+              const active = firstActiveIndex === index;
               return (
                 <Link
                   key={`mobile-${item.href}-${item.labelKey}`}

@@ -1,11 +1,36 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { FileArchive, FileImage, FileText, UploadCloud } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import {
+  CheckCircle2,
+  FileArchive,
+  FileImage,
+  FileText,
+  Loader2,
+  UploadCloud,
+  XCircle
+} from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { apiJson } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+
+type UploadStatus = "ready" | "uploading" | "success" | "error";
+
+type UploadItem = {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  progress: number;
+  error?: string;
+};
+
+type SourceFileResponse = {
+  id: string;
+  original_filename: string;
+  status: string;
+};
 
 const fileTypes = [
   { label: "PDF", icon: FileText },
@@ -13,11 +38,33 @@ const fileTypes = [
   { label: "ZIP", icon: FileArchive }
 ];
 
+const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png", "zip"]);
+const maxFileBytes = 200 * 1024 * 1024;
+
+function makeUploadItem(file: File): UploadItem {
+  return {
+    id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+    file,
+    status: "ready",
+    progress: 0
+  };
+}
+
+function extensionOf(file: File) {
+  return file.name.split(".").pop()?.toLowerCase() || "";
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export default function SourceUploadPage() {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [projectId, setProjectId] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [items, setItems] = useState<UploadItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{
     tone: "success" | "warning" | "error";
@@ -25,9 +72,59 @@ export default function SourceUploadPage() {
     body: string;
   } | null>(null);
 
+  const summary = useMemo(() => {
+    const success = items.filter((item) => item.status === "success").length;
+    const error = items.filter((item) => item.status === "error").length;
+    return { total: items.length, success, error };
+  }, [items]);
+
   useEffect(() => {
     setProjectId(new URLSearchParams(window.location.search).get("projectId") || "");
   }, []);
+
+  function appendFiles(fileList: FileList | File[]) {
+    const incoming = Array.from(fileList);
+    const valid: UploadItem[] = [];
+    const errors: string[] = [];
+
+    for (const file of incoming) {
+      const extension = extensionOf(file);
+      if (!allowedExtensions.has(extension)) {
+        errors.push(`${file.name}: 지원하지 않는 파일 형식입니다.`);
+        continue;
+      }
+      if (file.size <= 0) {
+        errors.push(`${file.name}: 빈 파일입니다.`);
+        continue;
+      }
+      if (file.size > maxFileBytes) {
+        errors.push(`${file.name}: 200MB를 초과했습니다.`);
+        continue;
+      }
+      valid.push(makeUploadItem(file));
+    }
+
+    if (valid.length > 0) {
+      setItems((current) => [...current, ...valid]);
+    }
+    if (errors.length > 0) {
+      setMessage({
+        tone: "warning",
+        title: "일부 파일을 추가하지 못했습니다.",
+        body: errors.join(" ")
+      });
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    appendFiles(event.dataTransfer.files);
+  }
+
+  function updateItem(id: string, patch: Partial<UploadItem>) {
+    setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,11 +133,11 @@ export default function SourceUploadPage() {
       (key) => form.get(key) === "on"
     );
 
-    if (!selectedFile) {
+    if (items.length === 0) {
       setMessage({
         tone: "error",
         title: "업로드할 파일을 선택해 주세요.",
-        body: "PDF, JPG, PNG, ZIP 또는 긴 웹툰 이미지를 선택해야 분석 단계로 이동할 수 있습니다."
+        body: "PDF, JPG, PNG, ZIP 또는 긴 웹툰 이미지를 하나 이상 추가해야 합니다."
       });
       return;
     }
@@ -49,7 +146,7 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "error",
         title: "권리 확인이 필요합니다.",
-        body: "원본 권리와 상업적 이용 가능 여부를 모두 확인해야 업로드를 진행할 수 있습니다."
+        body: "원본 권리, 초상권, 상업적 이용 가능 여부를 모두 확인해야 업로드를 진행할 수 있습니다."
       });
       return;
     }
@@ -58,37 +155,44 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "warning",
         title: "프로젝트 ID가 필요합니다.",
-        body: "실제 업로드 저장은 /source/upload?projectId=<UUID> 형태로 진입했을 때 백엔드와 연결됩니다. 현재는 파일 검증까지만 완료했습니다."
+        body: "실제 업로드는 /source/upload?projectId=<UUID> 형태로 진입했을 때 백엔드에 연결됩니다."
       });
       return;
     }
 
-    const uploadPayload = new FormData();
-    uploadPayload.set("rights_confirmed", "true");
-    uploadPayload.set("file", selectedFile);
     setIsSubmitting(true);
-    const result = await apiJson<{ id: string; original_filename: string }>(
-      `/projects/${projectId}/upload`,
-      {
+    setMessage(null);
+    let successCount = 0;
+
+    for (const item of items) {
+      if (item.status === "success") {
+        successCount += 1;
+        continue;
+      }
+
+      updateItem(item.id, { status: "uploading", progress: 35, error: undefined });
+      const uploadPayload = new FormData();
+      uploadPayload.set("rights_confirmed", "true");
+      uploadPayload.set("file", item.file);
+
+      const result = await apiJson<SourceFileResponse>(`/projects/${projectId}/upload`, {
         method: "POST",
         body: uploadPayload
-      }
-    );
-    setIsSubmitting(false);
-
-    if (!result.ok) {
-      setMessage({
-        tone: "error",
-        title: "업로드에 실패했습니다.",
-        body: result.error
       });
-      return;
+
+      if (result.ok) {
+        successCount += 1;
+        updateItem(item.id, { status: "success", progress: 100 });
+      } else {
+        updateItem(item.id, { status: "error", progress: 100, error: result.error });
+      }
     }
 
+    setIsSubmitting(false);
     setMessage({
-      tone: "success",
-      title: "업로드가 완료되었습니다.",
-      body: `${result.data.original_filename || selectedFile.name} 파일이 프로젝트 소스로 저장되었습니다.`
+      tone: successCount === items.length ? "success" : "warning",
+      title: successCount === items.length ? "원본 업로드가 완료되었습니다." : "일부 파일 업로드가 실패했습니다.",
+      body: `${items.length}개 중 ${successCount}개 파일이 프로젝트 소스로 저장되었습니다. 다음 단계에서 스토리 분석을 실행할 수 있습니다.`
     });
   }
 
@@ -115,40 +219,118 @@ export default function SourceUploadPage() {
         </Notice>
       ) : null}
 
-      <form className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
-        <div className="studio-panel-hot relative overflow-hidden border-dashed p-8 text-center">
-          <div className="comic-paper absolute inset-x-8 top-8 h-28 rounded-md border border-primary/20 opacity-30" />
-          <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-md border border-primary/40 bg-primary/10">
-            <UploadCloud className="h-8 w-8 text-primary" aria-hidden="true" />
-          </div>
-          <h2 className="relative mt-5 text-xl font-semibold">{t("source.dropFiles")}</h2>
-          <p className="relative mt-2 text-sm text-muted-foreground">
-            {t("source.supported")}
-          </p>
-          <input
-            ref={fileInputRef}
-            className="sr-only"
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.zip,image/jpeg,image/png,application/pdf,application/zip"
-            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-          />
-          <Button
-            className="relative mt-6"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
+      <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" noValidate onSubmit={handleSubmit}>
+        <div className="space-y-4">
+          <div
+            className={cn(
+              "studio-panel-hot relative overflow-hidden border-dashed p-8 text-center transition",
+              isDragging && "border-primary bg-primary/10"
+            )}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
           >
-            {t("source.chooseFiles")}
-          </Button>
-          {selectedFile ? (
-            <p className="relative mt-3 text-sm font-semibold text-foreground">
-              {selectedFile.name}
+            <div className="comic-paper absolute inset-x-8 top-8 h-28 rounded-md border border-primary/20 opacity-30" />
+            <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-md border border-primary/40 bg-primary/10">
+              <UploadCloud className="h-8 w-8 text-primary" aria-hidden="true" />
+            </div>
+            <h2 className="relative mt-5 text-xl font-semibold">{t("source.dropFiles")}</h2>
+            <p className="relative mt-2 text-sm text-muted-foreground">
+              {t("source.supported")}
             </p>
-          ) : null}
-          {projectId ? (
-            <p className="relative mt-2 text-xs text-muted-foreground">
-              Project ID: {projectId}
-            </p>
-          ) : null}
+            <input
+              ref={fileInputRef}
+              className="sr-only"
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.zip,image/jpeg,image/png,application/pdf,application/zip"
+              onChange={(event) => {
+                if (event.target.files) appendFiles(event.target.files);
+                event.currentTarget.value = "";
+              }}
+            />
+            <Button
+              className="relative mt-6"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("source.chooseFiles")}
+            </Button>
+            {projectId ? (
+              <p className="relative mt-3 text-xs text-muted-foreground">
+                Project ID: {projectId}
+              </p>
+            ) : null}
+          </div>
+
+          <section className="studio-panel overflow-hidden">
+            <div className="flex flex-col gap-2 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">업로드 큐</h2>
+                <p className="text-sm text-muted-foreground">
+                  {summary.total}개 선택 / 성공 {summary.success} / 실패 {summary.error}
+                </p>
+              </div>
+              {items.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setItems([])}
+                  disabled={isSubmitting}
+                >
+                  목록 비우기
+                </Button>
+              ) : null}
+            </div>
+            <div className="grid gap-3 p-4">
+              {items.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
+                  아직 선택한 원본 파일이 없습니다.
+                </div>
+              ) : (
+                items.map((item) => {
+                  const Icon = item.status === "success" ? CheckCircle2 : item.status === "error" ? XCircle : FileText;
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-border/80 bg-background/35 p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Icon
+                          className={cn(
+                            "mt-0.5 h-5 w-5 shrink-0",
+                            item.status === "success" && "text-success",
+                            item.status === "error" && "text-destructive",
+                            item.status === "ready" && "text-muted-foreground",
+                            item.status === "uploading" && "text-primary"
+                          )}
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="truncate text-sm font-semibold">{item.file.name}</p>
+                            <span className="text-xs text-muted-foreground">{formatBytes(item.file.size)}</span>
+                          </div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--warning)))] transition-all"
+                              style={{ width: `${item.progress}%` }}
+                            />
+                          </div>
+                          {item.error ? (
+                            <p className="mt-2 text-xs text-destructive">{item.error}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </div>
 
         <aside className="space-y-4">
@@ -188,8 +370,8 @@ export default function SourceUploadPage() {
             </div>
           </section>
           <Button className="w-full" type="submit" disabled={isSubmitting}>
-            <UploadCloud className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? "업로드 중..." : "분석 큐 준비"}
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UploadCloud className="h-4 w-4" aria-hidden="true" />}
+            {isSubmitting ? "업로드 중..." : "분석 전 원본 저장"}
           </Button>
         </aside>
       </form>

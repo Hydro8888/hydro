@@ -17,7 +17,8 @@ WITH_NGINX=0
 WITH_PM2_STARTUP=0
 SKIP_BUILD=0
 SKIP_NGINX_RELOAD=0
-RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-auto}"
+RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-required}"
+AUTO_SETUP_LOCAL_POSTGRES="${AUTO_SETUP_LOCAL_POSTGRES:-1}"
 
 WATCH_PATHS_DEFAULT="contact matching hacker agentmarket fundmanager gonak jobworld"
 WATCH_PATHS="${WATCH_PATHS:-$WATCH_PATHS_DEFAULT}"
@@ -47,7 +48,8 @@ Environment overrides:
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
   CLEAN_STALE_TOON2FILM_WORKERS=1
-  RUN_DB_MIGRATIONS=auto  # auto | required | 0
+  RUN_DB_MIGRATIONS=required  # required | auto | 0
+  AUTO_SETUP_LOCAL_POSTGRES=1 # create/repair local toon2film PostgreSQL role+db when DATABASE_URL is localhost
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
 USAGE
 }
@@ -89,11 +91,70 @@ install_deps() {
   [[ "$INSTALL_DEPS" -eq 1 ]] || return 0
   log "Install basic dependencies"
   run_sudo apt-get update
-  run_sudo apt-get install -y git curl nginx python3 python3-venv python3-pip build-essential
+  run_sudo apt-get install -y git curl nginx python3 python3-venv python3-pip build-essential postgresql-client
   if ! command_exists pm2; then
     command_exists npm || die "npm is missing. Install Node.js first, then rerun."
     npm install -g pm2
   fi
+}
+
+api_env_value() {
+  local key="$1"
+  local env_file="$APP_ROOT/apps/api/.env"
+  if [[ -f "$env_file" ]]; then
+    awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$env_file"
+  fi
+}
+
+database_url() {
+  local value
+  value="$(api_env_value DATABASE_URL)"
+  if [[ -n "$value" ]]; then
+    printf '%s\n' "$value"
+  else
+    printf '%s\n' "postgresql+psycopg://toon2film:toon2film@localhost:5432/toon2film"
+  fi
+}
+
+database_parts() {
+  python3 - "$1" <<'PY'
+from urllib.parse import unquote, urlsplit
+import sys
+
+raw = sys.argv[1]
+normalized = raw.replace("postgresql+psycopg://", "postgresql://", 1)
+url = urlsplit(normalized)
+scheme = url.scheme
+host = url.hostname or "localhost"
+port = str(url.port or 5432)
+user = unquote(url.username or "")
+password = unquote(url.password or "")
+dbname = unquote((url.path or "/").lstrip("/"))
+print("\t".join([scheme, host, port, user, password, dbname]))
+PY
+}
+
+sql_ident() {
+  python3 - "$1" <<'PY'
+import sys
+value = sys.argv[1]
+print('"' + value.replace('"', '""') + '"')
+PY
+}
+
+sql_literal() {
+  python3 - "$1" <<'PY'
+import sys
+value = sys.argv[1]
+print("'" + value.replace("'", "''") + "'")
+PY
+}
+
+is_local_db_host() {
+  case "$1" in
+    localhost|127.0.0.1|::1|"") return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 detect_nginx_sites() {
@@ -249,6 +310,91 @@ build_app() {
   )
 
   [[ -f "$APP_ROOT/node_modules/next/dist/bin/next" ]] || die "Next.js binary not found under root node_modules"
+}
+
+ensure_local_postgres_database() {
+  [[ "$AUTO_SETUP_LOCAL_POSTGRES" == "1" || "$AUTO_SETUP_LOCAL_POSTGRES" == "true" ]] || {
+    warn "Skipping local PostgreSQL setup because AUTO_SETUP_LOCAL_POSTGRES=$AUTO_SETUP_LOCAL_POSTGRES"
+    return 0
+  }
+
+  local db_url scheme host port user password dbname
+  db_url="$(database_url)"
+  IFS=$'\t' read -r scheme host port user password dbname < <(database_parts "$db_url")
+
+  if [[ "$scheme" != postgresql ]]; then
+    warn "Skipping PostgreSQL setup because DATABASE_URL does not use PostgreSQL."
+    return 0
+  fi
+  if ! is_local_db_host "$host"; then
+    warn "Skipping PostgreSQL setup for non-local database host: $host"
+    return 0
+  fi
+  [[ -n "$user" && -n "$dbname" ]] || die "DATABASE_URL must include PostgreSQL user and database name."
+
+  if ! id postgres >/dev/null 2>&1; then
+    if [[ "$INSTALL_DEPS" -eq 1 ]]; then
+      log "Install local PostgreSQL server because postgres user is missing"
+      run_sudo apt-get install -y postgresql postgresql-contrib
+    else
+      die "Local PostgreSQL server is missing. Rerun with --install-deps or set DATABASE_URL to a working database."
+    fi
+  fi
+
+  if command_exists systemctl; then
+    run_sudo systemctl start postgresql >/dev/null 2>&1 || true
+  fi
+
+  if ! run_sudo -u postgres psql -tAc "select 1" >/dev/null 2>&1; then
+    die "Cannot access local PostgreSQL as postgres. Check PostgreSQL service status before deploying."
+  fi
+
+  log "Ensure local PostgreSQL role/database for Toon2Film"
+  local q_user q_password q_db
+  q_user="$(sql_ident "$user")"
+  q_password="$(sql_literal "$password")"
+  q_db="$(sql_ident "$dbname")"
+
+  if run_sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = $(sql_literal "$user")" | grep -q 1; then
+    run_sudo -u postgres psql -v ON_ERROR_STOP=1 -c "ALTER ROLE ${q_user} WITH LOGIN PASSWORD ${q_password};" >/dev/null
+  else
+    run_sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE ROLE ${q_user} LOGIN PASSWORD ${q_password};" >/dev/null
+  fi
+
+  if ! run_sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = $(sql_literal "$dbname")" | grep -q 1; then
+    run_sudo -u postgres createdb -O "$user" "$dbname"
+  fi
+
+  run_sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$dbname" <<SQL >/dev/null
+GRANT ALL PRIVILEGES ON DATABASE ${q_db} TO ${q_user};
+GRANT USAGE, CREATE ON SCHEMA public TO ${q_user};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${q_user};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO ${q_user};
+SQL
+  ok "Local PostgreSQL role/database is ready"
+}
+
+check_database_connection() {
+  local db_url
+  db_url="$(database_url)"
+  log "Check API database connection"
+  if (
+    cd "$APP_ROOT/apps/api"
+    DATABASE_URL="$db_url" "$APP_ROOT/.venv/bin/python" - <<'PY'
+from sqlalchemy import create_engine, text
+from app.core.config import settings
+
+engine = create_engine(settings.database_url, pool_pre_ping=True)
+with engine.connect() as connection:
+    connection.execute(text("select 1"))
+print("database ok")
+PY
+  ) >/dev/null 2>&1; then
+    ok "API database connection is healthy"
+    return 0
+  fi
+
+  die "API database connection failed. Check apps/api/.env DATABASE_URL or PostgreSQL credentials."
 }
 
 run_db_migrations() {
@@ -455,11 +601,13 @@ main() {
 
   write_api_env
   build_app
+  ensure_local_postgres_database
+  check_database_connection
+  run_db_migrations
   start_pm2
 
   wait_for_url "API direct health" "http://127.0.0.1:${API_PORT}/health" "^200$"
   wait_for_url "Web direct base path" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
-  run_db_migrations
 
   configure_nginx
 

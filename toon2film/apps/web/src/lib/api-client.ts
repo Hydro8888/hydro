@@ -4,6 +4,18 @@ type ApiResult<T> =
 
 const fallbackBaseUrl = "/api";
 
+function friendlyApiError(status: number, message: string) {
+  const normalized = message.trim();
+  if (
+    status >= 500 ||
+    normalized.toLowerCase() === "internal server error" ||
+    normalized.toLowerCase().includes("failed to fetch")
+  ) {
+    return "서버 저장소 연결을 확인하는 중입니다. 배포 스크립트가 데이터베이스 설정과 마이그레이션을 완료했는지 확인한 뒤 다시 시도해 주세요.";
+  }
+  return normalized || `API 요청에 실패했습니다. (${status})`;
+}
+
 export function getApiBaseUrl() {
   return (process.env.NEXT_PUBLIC_API_BASE_URL || fallbackBaseUrl).replace(/\/$/, "");
 }
@@ -35,13 +47,14 @@ export async function apiJson<T>(
     }
     if (!response.ok) {
       const errorPayload = data as { detail?: string; message?: string } | null;
+      const rawError =
+        errorPayload?.detail ||
+        errorPayload?.message ||
+        `API request failed (${response.status})`;
       return {
         ok: false,
         status: response.status,
-        error:
-          errorPayload?.detail ||
-          errorPayload?.message ||
-          `API request failed (${response.status})`
+        error: friendlyApiError(response.status, rawError)
       };
     }
     return { ok: true, status: response.status, data: data as T };
@@ -49,7 +62,7 @@ export async function apiJson<T>(
     return {
       ok: false,
       status: 0,
-      error: error instanceof Error ? error.message : "API connection failed"
+      error: friendlyApiError(0, error instanceof Error ? error.message : "API connection failed")
     };
   }
 }

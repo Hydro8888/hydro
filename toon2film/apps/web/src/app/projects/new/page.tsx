@@ -109,8 +109,8 @@ export default function NewProjectPage() {
       window.localStorage.setItem("toon2film.projectDraft", JSON.stringify(draft));
       setMessage({
         tone: "warning",
-        title: "API 연결은 실패했지만 초안을 보존했습니다.",
-        body: `${result.error}. 입력값은 이 브라우저의 로컬 초안으로 저장했습니다.`
+        title: "서버 저장소 확인이 필요합니다.",
+        body: `${result.error} 입력값은 이 브라우저에 임시 초안으로 보존했습니다. 서버 반영 후 같은 내용으로 다시 생성할 수 있습니다.`
       });
     }
 

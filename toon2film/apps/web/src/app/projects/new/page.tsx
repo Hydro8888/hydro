@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Check, ShieldCheck, WandSparkles } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ const projectLanguages = [
 
 export default function NewProjectPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const [message, setMessage] = useState<{
     tone: "success" | "warning" | "error";
     title: string;
@@ -95,8 +97,9 @@ export default function NewProjectPage() {
       setMessage({
         tone: "success",
         title: "프로젝트가 생성되었습니다.",
-        body: `백엔드에 프로젝트 ID ${result.data.id}로 저장되었습니다.`
+        body: "원본 업로드 화면으로 이동합니다."
       });
+      router.push(`/source/upload?projectId=${result.data.id}`);
     } else {
       const draft = {
         title: projectName,

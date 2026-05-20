@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
   CheckCircle2,
@@ -250,6 +251,16 @@ export default function SourceUploadPage() {
         </Notice>
       ) : null}
 
+      {!projectId ? (
+        <Notice tone="warning" title="프로젝트를 먼저 생성해 주세요.">
+          업로드는 프로젝트에 연결되어 저장됩니다. 새 프로젝트 화면에서 프로젝트를 만들면
+          이 업로드 화면으로 자동 이동합니다.{" "}
+          <Link href="/projects/new" className="font-bold text-primary underline underline-offset-4">
+            새 프로젝트 만들기
+          </Link>
+        </Notice>
+      ) : null}
+
       <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" noValidate onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div
@@ -384,7 +395,7 @@ export default function SourceUploadPage() {
               </label>
             </div>
           </section>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
+          <Button className="w-full" type="submit" disabled={isSubmitting || !projectId}>
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (

@@ -70,8 +70,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="film-perforation pointer-events-none absolute inset-y-0 right-0 w-9 opacity-35" />
         <div className="relative flex h-full flex-col">
           <Link href="/" className="block border-b border-border/80 px-8 py-6">
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              Toon<span className="text-primary">2</span>Film
+            <div className="text-2xl font-black tracking-tight text-red-500">
+              Toon<span className="text-red-500">2</span>Film
             </div>
             <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-foreground/85">
               {t("product.subtitle")}
@@ -141,8 +141,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/78 backdrop-blur-xl">
           <div className="flex min-h-[72px] min-w-0 flex-wrap items-center gap-3 px-4 sm:flex-nowrap sm:px-6 lg:px-7">
             <Link href="/" className="min-w-0 lg:hidden">
-              <div className="text-lg font-black tracking-tight">
-                Toon<span className="text-primary">2</span>Film
+              <div className="text-lg font-black tracking-tight text-red-500">
+                Toon<span className="text-red-500">2</span>Film
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {t("product.subtitle")}

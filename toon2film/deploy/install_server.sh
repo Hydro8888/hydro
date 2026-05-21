@@ -484,6 +484,27 @@ wait_for_url() {
   die "$label health check failed. PM2 logs printed above."
 }
 
+wait_for_html_marker() {
+  local label="$1"
+  local url="$2"
+  local pattern="$3"
+  local html
+  local i
+
+  for i in $(seq 1 30); do
+    html="$(curl -fsS --max-time 8 "$url" 2>/dev/null || true)"
+    if printf '%s' "$html" | grep -q "$pattern"; then
+      ok "$label => marker found"
+      return 0
+    fi
+    sleep 1
+  done
+
+  warn "$label failed. Expected marker '$pattern' was not found at $url"
+  pm2 status | grep -E "toon2film|name" || true
+  die "$label failed. The server is likely still serving an old Toon2Film build."
+}
+
 first_stylesheet_href() {
   local url="$1"
   curl -fsS --max-time 8 "$url" 2>/dev/null | python3 -c '
@@ -543,7 +564,6 @@ nginx_block() {
         access_log off;
         expires 1y;
         add_header Cache-Control "public, immutable";
-        try_files \$uri =404;
     }
 
     location ^~ ${BASE_PATH}/studio-assets/ {
@@ -551,7 +571,6 @@ nginx_block() {
         access_log off;
         expires 1h;
         add_header Cache-Control "public, max-age=3600";
-        try_files \$uri =404;
     }
 
     location ${BASE_PATH}/api/ {
@@ -675,6 +694,7 @@ main() {
 
   wait_for_url "API direct health" "http://127.0.0.1:${API_PORT}/health" "^200$"
   wait_for_url "Web direct base path" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
+  wait_for_html_marker "Web direct latest UI marker" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "brand-logo-red"
   wait_for_stylesheet_asset "Web direct stylesheet asset" "http://127.0.0.1:${WEB_PORT}" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}"
 
   configure_nginx
@@ -682,9 +702,11 @@ main() {
   if [[ "$WITH_NGINX" -eq 1 && "$SKIP_NGINX_RELOAD" -eq 0 ]]; then
     wait_for_url "Nginx internal web" "http://127.0.0.1${BASE_PATH}" "^(2|3)[0-9][0-9]$"
     wait_for_url "Nginx internal API" "http://127.0.0.1${BASE_PATH}/api/health" "^200$"
+    wait_for_html_marker "Nginx internal latest UI marker" "http://127.0.0.1${BASE_PATH}" "brand-logo-red"
     wait_for_stylesheet_asset "Nginx internal stylesheet asset" "http://127.0.0.1" "http://127.0.0.1${BASE_PATH}"
     wait_for_url "Nginx host web" "http://${INTERNAL_HOST}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
     wait_for_url "Nginx host API" "http://${INTERNAL_HOST}${BASE_PATH}/api/health" "^200$"
+    wait_for_html_marker "Nginx host latest UI marker" "http://${INTERNAL_HOST}${BASE_PATH}" "brand-logo-red"
     wait_for_stylesheet_asset "Nginx host stylesheet asset" "http://${INTERNAL_HOST}" "http://${INTERNAL_HOST}${BASE_PATH}"
   fi
 

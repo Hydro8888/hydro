@@ -566,6 +566,17 @@ wait_for_stylesheet_asset() {
   die "$label failed. The page may render as unstyled HTML because CSS/JS static assets are not reachable."
 }
 
+run_web_smoke() {
+  local label="$1"
+  local base_url="$2"
+  log "$label route smoke"
+  (
+    cd "$APP_ROOT"
+    TOON2FILM_SMOKE_BASE_URL="$base_url" npm run smoke:web
+  )
+  ok "$label route smoke passed"
+}
+
 nginx_block() {
   cat <<EOF
     # BEGIN ${SERVICE_NAME} managed block
@@ -706,6 +717,7 @@ main() {
   wait_for_url "Web direct base path" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "^(2|3)[0-9][0-9]$"
   wait_for_html_marker "Web direct latest UI marker" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}" "toon2film-critical-style"
   wait_for_stylesheet_asset "Web direct stylesheet asset" "http://127.0.0.1:${WEB_PORT}" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}"
+  run_web_smoke "Web direct" "http://127.0.0.1:${WEB_PORT}${BASE_PATH}"
 
   configure_nginx
 
@@ -718,6 +730,7 @@ main() {
     wait_for_url "Nginx host API" "http://${INTERNAL_HOST}${BASE_PATH}/api/health" "^200$"
     wait_for_html_marker "Nginx host latest UI marker" "http://${INTERNAL_HOST}${BASE_PATH}" "toon2film-critical-style"
     wait_for_stylesheet_asset "Nginx host stylesheet asset" "http://${INTERNAL_HOST}" "http://${INTERNAL_HOST}${BASE_PATH}"
+    run_web_smoke "Nginx host" "http://${INTERNAL_HOST}${BASE_PATH}"
   fi
 
   log "Postflight existing service snapshot"

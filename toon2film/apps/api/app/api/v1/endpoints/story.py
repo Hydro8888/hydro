@@ -7,7 +7,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import AudioTrack, Character, Export, Project, Scene, Shot, SourceFile, SourcePanel, StoryBible, VideoJob
+from app.models import (
+    AudioTrack,
+    Character,
+    Export,
+    Project,
+    Scene,
+    Shot,
+    SourceFile,
+    SourcePanel,
+    StoryBible,
+    VideoJob,
+)
 from app.schemas import (
     CharacterBibleRead,
     PipelineStateRead,
@@ -68,7 +79,9 @@ def _scenes(project_id: uuid.UUID, db: Session) -> list[Scene]:
 def _characters(project_id: uuid.UUID, db: Session) -> list[Character]:
     return list(
         db.scalars(
-            select(Character).where(Character.project_id == project_id).order_by(Character.created_at)
+            select(Character)
+            .where(Character.project_id == project_id)
+            .order_by(Character.created_at)
         ).all()
     )
 
@@ -76,7 +89,9 @@ def _characters(project_id: uuid.UUID, db: Session) -> list[Character]:
 def _shots(project_id: uuid.UUID, db: Session) -> list[Shot]:
     return list(
         db.scalars(
-            select(Shot).where(Shot.project_id == project_id).order_by(Shot.scene_id, Shot.shot_number)
+            select(Shot)
+            .where(Shot.project_id == project_id)
+            .order_by(Shot.scene_id, Shot.shot_number)
         ).all()
     )
 

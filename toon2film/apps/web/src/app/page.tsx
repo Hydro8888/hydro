@@ -274,10 +274,10 @@ export default function DashboardPage() {
             </div>
 
             {projectQuery ? (
-              <Notice tone="success" title={`Search: ${projectQuery}`}>
+              <Notice tone="success" title={`검색: ${projectQuery}`}>
                 {filteredProjects.length
-                  ? `${filteredProjects.length} matching project(s) found.`
-                  : "No matching project was found. Clear the search field to see the full studio board."}
+                  ? `${filteredProjects.length}개의 프로젝트를 찾았습니다.`
+                  : "일치하는 프로젝트가 없습니다. 검색어를 지우면 전체 스튜디오 보드를 볼 수 있습니다."}
               </Notice>
             ) : null}
 

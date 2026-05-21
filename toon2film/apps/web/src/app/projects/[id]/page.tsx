@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Captions, Clapperboard, FileText, Film, Loader2, ListChecks, UploadCloud, UserRound } from "lucide-react";
+import {
+  Captions,
+  Clapperboard,
+  FileText,
+  Film,
+  Loader2,
+  ListChecks,
+  MonitorPlay,
+  UploadCloud,
+  UserRound
+} from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -111,8 +121,8 @@ function statusLabel(status: PipelineState["status"] | undefined) {
     STORY_ANALYZED: "스토리 분석 완료",
     CHAR_DESIGNED: "캐릭터 설계 완료",
     STORYBOARD_READY: "콘티 생성 완료",
-    VIDEO_RENDER_READY: "영상 렌더 초안 준비",
-    EXPORT_READY: "자막 / 출력 초안 준비"
+    VIDEO_RENDER_READY: "영상 렌더 준비",
+    EXPORT_READY: "자막 / 출력 준비"
   }[status];
 }
 
@@ -156,7 +166,7 @@ export default function ProjectPage() {
       setMessage({
         tone: "warning",
         title: "실제 프로젝트 ID가 필요합니다.",
-        body: "샘플 프로젝트에서는 미리보기만 제공됩니다. 새 프로젝트를 만든 뒤 진입하면 API 단계가 실행됩니다."
+        body: "샘플 프로젝트에서는 미리보기만 제공합니다. 새 프로젝트를 만든 뒤 진입하면 API 단계가 실행됩니다."
       });
       return;
     }
@@ -284,14 +294,14 @@ export default function ProjectPage() {
       },
       {
         label: "영상 렌더",
-        icon: Film,
+        icon: MonitorPlay,
         status: pipeline?.render_jobs.length ? ("blocked" as const) : ("ready" as const),
         value: pipeline?.render_jobs.length
           ? `${pipeline.render_jobs.length}개 AI 영상 렌더 작업 준비`
-          : "콘티 생성 후 샷별 AI 영상 프롬프트를 준비합니다.",
+          : "콘티 생성 다음 단계의 AI 영상 프롬프트를 준비합니다.",
         action: (
           <Link href="/video-studio" className="text-xs font-bold text-primary">
-            영상 제작실로 이동
+            영상 제작으로 이동
           </Link>
         )
       },
@@ -336,7 +346,11 @@ export default function ProjectPage() {
             <p className="mt-3 text-xs text-muted-foreground">
               API 프로젝트: {isLoading ? "상태 확인 중..." : statusLabel(pipeline?.status)}
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">
+              샘플 프로젝트 미리보기입니다. 실제 파일 업로드 후 생성된 프로젝트에서는 API 실행 버튼이 활성화됩니다.
+            </p>
+          )}
         </div>
         <div className="grid gap-3">
           <div className={cn("poster-frame has-image hidden aspect-video lg:block", `poster-${mockProject.thumbnailTone}`)}>

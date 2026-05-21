@@ -87,7 +87,7 @@ export const projects: Project[] = [
 export const featuredStills: FeaturedStill[] = [
   {
     id: "manga-to-cinema",
-    title: "만화 원고에서 도시 시퀀스로",
+    title: "만화 원고에서 시네마 프레임으로",
     caption: "원작 페이지와 필름 프레임을 한 컷에 겹친 메인 비주얼",
     image: "/studio-assets/cinema-manga-hero.png",
     size: "wide"
@@ -95,7 +95,7 @@ export const featuredStills: FeaturedStill[] = [
   {
     id: "sunset-city",
     title: "석양의 히어로",
-    caption: "도시 스케일과 주인공의 고독한 실루엣",
+    caption: "도시 스카이라인과 주인공의 고독한 실루엣",
     image: "/studio-assets/cinema-city-boy.png",
     size: "standard"
   },
@@ -109,14 +109,14 @@ export const featuredStills: FeaturedStill[] = [
   {
     id: "blue-sky",
     title: "푸른 하늘의 대면",
-    caption: "청춘 드라마 톤의 와이드 샷",
+    caption: "청춘 드라마 씬의 와이드 컷",
     image: "/studio-assets/cinema-sky-duo.png",
     size: "wide"
   },
   {
     id: "golden-character",
     title: "골든 아워 캐릭터",
-    caption: "햇빛과 헤어 디테일을 살린 캐릭터 기준 컷",
+    caption: "빛과 헤어 디테일을 살린 캐릭터 기준 컷",
     image: "/studio-assets/cinema-blonde-portrait.png",
     size: "portrait"
   },

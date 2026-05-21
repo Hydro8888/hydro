@@ -3,12 +3,17 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
+  BookOpen,
+  Captions,
   CheckCircle2,
+  Clapperboard,
   FileArchive,
   FileImage,
   FileText,
   Loader2,
+  MonitorPlay,
   UploadCloud,
+  UserRound,
   XCircle
 } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
@@ -41,12 +46,29 @@ const fileTypes = [
   { label: "ZIP", icon: FileArchive }
 ];
 
+const pipelinePreview = [
+  { title: "원본 업로드", body: "만화 / JPG / PDF", icon: UploadCloud },
+  { title: "스토리 분석", body: "AI 스토리 생성", icon: BookOpen },
+  { title: "캐릭터 설계", body: "캐릭터 바이블", icon: UserRound },
+  { title: "콘티 생성", body: "샷 & 시퀀스 구성", icon: Clapperboard },
+  { title: "영상 렌더", body: "AI 영상 생성", icon: MonitorPlay },
+  { title: "자막 / 출력", body: "편집 & 내보내기", icon: Captions }
+];
+
 const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png", "zip"]);
 const maxFileBytes = 200 * 1024 * 1024;
 
+function createId(file: File) {
+  const randomPart =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  return `${file.name}-${file.size}-${file.lastModified}-${randomPart}`;
+}
+
 function makeUploadItem(file: File): UploadItem {
   return {
-    id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+    id: createId(file),
     file,
     status: "ready",
     progress: 0
@@ -64,6 +86,17 @@ function formatBytes(bytes: number) {
 
 function isAnalysisComplete(status: string) {
   return ["analyzed", "processed", "processed_without_ai"].includes(status);
+}
+
+function readableStatus(status?: string) {
+  if (!status) return "대기 중";
+  return {
+    analyzed: "AI 분석 완료",
+    processed: "처리 완료",
+    processed_without_ai: "AI 없이 저장 완료",
+    analysis_failed: "AI 분석 실패",
+    uploaded: "업로드 완료"
+  }[status] ?? status;
 }
 
 export default function SourceUploadPage() {
@@ -96,16 +129,27 @@ export default function SourceUploadPage() {
 
     for (const file of incoming) {
       const extension = extensionOf(file);
+      const duplicate = items.some(
+        (item) =>
+          item.file.name === file.name &&
+          item.file.size === file.size &&
+          item.file.lastModified === file.lastModified
+      );
+
+      if (duplicate) {
+        errors.push(`${file.name}: 이미 선택된 파일입니다.`);
+        continue;
+      }
       if (!allowedExtensions.has(extension)) {
-        errors.push(`${file.name}: 지원하지 않는 파일 형식입니다.`);
+        errors.push(`${file.name}: PDF, JPG, PNG, ZIP만 업로드할 수 있습니다.`);
         continue;
       }
       if (file.size <= 0) {
-        errors.push(`${file.name}: 빈 파일입니다.`);
+        errors.push(`${file.name}: 빈 파일은 업로드할 수 없습니다.`);
         continue;
       }
       if (file.size > maxFileBytes) {
-        errors.push(`${file.name}: 200MB를 초과했습니다.`);
+        errors.push(`${file.name}: 파일 크기가 200MB를 초과했습니다.`);
         continue;
       }
       valid.push(makeUploadItem(file));
@@ -117,7 +161,7 @@ export default function SourceUploadPage() {
     if (errors.length > 0) {
       setMessage({
         tone: "warning",
-        title: "일부 파일은 추가하지 못했습니다.",
+        title: "일부 파일을 추가하지 못했습니다.",
         body: errors.join(" ")
       });
     }
@@ -144,7 +188,7 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "error",
         title: "업로드할 파일을 선택해 주세요.",
-        body: "PDF, JPG, PNG, ZIP 원고 파일을 하나 이상 추가해야 합니다."
+        body: "PDF, JPG, PNG, ZIP 원본 파일을 하나 이상 추가해야 합니다."
       });
       return;
     }
@@ -162,7 +206,7 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "warning",
         title: "프로젝트 ID가 필요합니다.",
-        body: "실제 업로드는 /source/upload?projectId=<UUID> 형태로 진입했을 때 백엔드에 연결됩니다."
+        body: "실제 업로드는 새 프로젝트 생성 후 자동 이동된 업로드 화면에서 진행됩니다."
       });
       return;
     }
@@ -204,7 +248,7 @@ export default function SourceUploadPage() {
           analysisStatus: result.data.status,
           error:
             result.data.status === "analysis_failed"
-              ? "파일은 저장됐지만 AI 분석에 실패했습니다. API 키와 서버 로그를 확인해 주세요."
+              ? "파일은 저장되었지만 AI 분석에 실패했습니다. API 키 또는 서버 로그를 확인해 주세요."
               : undefined
         });
       } else {
@@ -219,12 +263,12 @@ export default function SourceUploadPage() {
         analyzedCount === items.length
           ? "업로드와 AI 분석이 완료되었습니다."
           : successCount > 0
-            ? "업로드는 완료됐지만 일부 분석을 확인해야 합니다."
+            ? "업로드는 완료되었지만 일부 분석 확인이 필요합니다."
             : "파일 업로드가 실패했습니다.",
       body:
         analyzedCount === items.length
           ? "스토리 분석, 캐릭터 바이블, 콘티, 영상 렌더 작업 초안, 자막/출력 초안이 프로젝트에 자동 저장되었습니다."
-          : `${items.length}개 중 ${successCount}개 파일이 저장됐고 ${analyzedCount}개 파일이 분석됐습니다.`
+          : `${items.length}개 중 ${successCount}개 파일이 저장되었고 ${analyzedCount}개 파일이 분석되었습니다.`
     });
   }
 
@@ -253,8 +297,7 @@ export default function SourceUploadPage() {
 
       {!projectId ? (
         <Notice tone="warning" title="프로젝트를 먼저 생성해 주세요.">
-          업로드는 프로젝트에 연결되어 저장됩니다. 새 프로젝트 화면에서 프로젝트를 만들면
-          이 업로드 화면으로 자동 이동합니다.{" "}
+          업로드 파일은 프로젝트에 연결되어 저장됩니다. 새 프로젝트 화면에서 프로젝트를 만들면 업로드 화면으로 자동 이동합니다.{" "}
           <Link href="/projects/new" className="font-bold text-primary underline underline-offset-4">
             새 프로젝트 만들기
           </Link>
@@ -303,7 +346,7 @@ export default function SourceUploadPage() {
           <section className="studio-panel overflow-hidden">
             <div className="flex flex-col gap-2 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">업로드 큐</h2>
+                <h2 className="text-lg font-semibold">업로드 목록</h2>
                 <p className="text-sm text-muted-foreground">
                   {summary.total}개 선택 / 성공 {summary.success} / 실패 {summary.error}
                 </p>
@@ -348,7 +391,7 @@ export default function SourceUploadPage() {
                           </div>
                           {item.analysisStatus ? (
                             <p className="mt-2 text-xs text-muted-foreground">
-                              분석 상태: {item.analysisStatus}
+                              분석 상태: {readableStatus(item.analysisStatus)}
                             </p>
                           ) : null}
                           {item.error ? <p className="mt-2 text-xs text-destructive">{item.error}</p> : null}
@@ -363,6 +406,26 @@ export default function SourceUploadPage() {
         </div>
 
         <aside className="space-y-4">
+          <section className="studio-panel p-5">
+            <h2 className="text-lg font-semibold">AI 제작 파이프라인</h2>
+            <div className="mt-4 grid gap-3">
+              {pipelinePreview.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.title} className="flex items-start gap-3 rounded-md border border-border/80 bg-background/30 p-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold">{index + 1}. {step.title}</div>
+                      <div className="text-xs text-muted-foreground">{step.body}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           <section className="studio-panel p-5">
             <h2 className="text-lg font-semibold">{t("source.accepted")}</h2>
             <div className="mt-4 grid gap-3">
@@ -395,13 +458,14 @@ export default function SourceUploadPage() {
               </label>
             </div>
           </section>
+
           <Button className="w-full" type="submit" disabled={isSubmitting || !projectId}>
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
               <UploadCloud className="h-4 w-4" aria-hidden="true" />
             )}
-            {isSubmitting ? "업로드 및 AI 분석 중..." : "업로드 후 AI 분석"}
+            {isSubmitting ? "업로드 및 AI 분석 중..." : "업로드 및 AI 분석"}
           </Button>
         </aside>
       </form>

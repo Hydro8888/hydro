@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   Bell,
   BookOpen,
@@ -19,7 +18,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   UserRound,
   WandSparkles
 } from "lucide-react";
@@ -237,7 +235,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 border-t border-border/60 px-4 py-2 sm:grid-cols-3 lg:hidden">
+          <div className="grid grid-cols-2 gap-2 border-t border-border/60 px-4 py-2 sm:grid-cols-3 lg:hidden">
             {navItems.slice(0, 6).map((item, index) => {
               const Icon = item.icon;
               const firstActiveIndex = navItems.findIndex((candidate) =>
@@ -255,7 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       : "border-border/70 bg-surface/50 text-muted-foreground"
                   )}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 truncate">{t(item.labelKey)}</span>
                 </Link>
               );

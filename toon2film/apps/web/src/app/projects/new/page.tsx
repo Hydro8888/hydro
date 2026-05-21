@@ -11,10 +11,10 @@ import { apiJson } from "@/lib/api-client";
 import type { TranslationKey } from "@/lib/i18n";
 
 const modes = [
-  "newProject.mode.quick",
-  "newProject.mode.expert",
-  "newProject.mode.director"
-] satisfies TranslationKey[];
+  ["quick", "newProject.mode.quick"],
+  ["expert", "newProject.mode.expert"],
+  ["director", "newProject.mode.director"]
+] satisfies Array<[string, TranslationKey]>;
 
 const productionTypes = [
   ["Trailer", "option.trailer"],
@@ -57,11 +57,11 @@ export default function NewProjectPage() {
       (key) => form.get(key) === "on"
     );
 
-    if (!projectName) {
+    if (projectName.length < 2) {
       setMessage({
         tone: "error",
-        title: "프로젝트명을 입력해주세요.",
-        body: "새 프로젝트를 만들려면 최소한 프로젝트명이 필요합니다."
+        title: "프로젝트명을 입력해 주세요.",
+        body: "프로젝트명은 최소 2자 이상 필요합니다."
       });
       return;
     }
@@ -70,7 +70,7 @@ export default function NewProjectPage() {
       setMessage({
         tone: "error",
         title: "권리 확인이 필요합니다.",
-        body: "원본 권리, 초상권, 상업적 이용 허가 항목을 모두 확인해야 제작을 시작할 수 있습니다."
+        body: "원본 권리, 초상권, 상업적 이용 허가 항목을 모두 확인해야 프로젝트를 시작할 수 있습니다."
       });
       return;
     }
@@ -109,8 +109,8 @@ export default function NewProjectPage() {
       window.localStorage.setItem("toon2film.projectDraft", JSON.stringify(draft));
       setMessage({
         tone: "warning",
-        title: "서버 저장소 확인이 필요합니다.",
-        body: `${result.error} 입력값은 이 브라우저에 임시 초안으로 보존했습니다. 서버 반영 후 같은 내용으로 다시 생성할 수 있습니다.`
+        title: "API 연결은 실패했지만 초안을 보존했습니다.",
+        body: `${result.error} 입력값은 브라우저의 로컬 초안으로 저장했습니다. 서버 설정이 정상화되면 같은 내용으로 다시 생성할 수 있습니다.`
       });
     }
 
@@ -148,7 +148,7 @@ export default function NewProjectPage() {
         <section className="studio-panel p-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t("newProject.projectName")}>
-              <TextInput name="projectName" placeholder="Muyang" required minLength={1} />
+              <TextInput name="projectName" placeholder="Muyang" required minLength={2} />
             </Field>
             <Field label={t("newProject.originalTitle")}>
               <TextInput name="originalTitle" placeholder="Line 9 Shaman" />
@@ -212,7 +212,7 @@ export default function NewProjectPage() {
             <div className="poster-frame poster-sunset mb-5 aspect-video" />
             <h2 className="text-lg font-semibold">{t("newProject.mode")}</h2>
             <div className="mt-4 grid gap-2">
-              {modes.map((modeKey, index) => (
+              {modes.map(([value, modeKey], index) => (
                 <label
                   key={modeKey}
                   className="flex cursor-pointer items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3 transition hover:border-primary/40 hover:bg-muted/70"
@@ -220,6 +220,7 @@ export default function NewProjectPage() {
                   <input
                     name="mode"
                     type="radio"
+                    value={value}
                     defaultChecked={index === 1}
                     className="h-4 w-4 accent-primary"
                   />
@@ -261,7 +262,7 @@ export default function NewProjectPage() {
             onClick={() =>
               setMessage({
                 tone: "success",
-                title: "소스 기반 초안이 준비되었습니다.",
+                title: "소스 기반 초안이 준비됩니다.",
                 body: "업로드 화면에서 원본을 추가하면 Story Architect 단계로 이어집니다."
               })
             }

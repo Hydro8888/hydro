@@ -7,13 +7,17 @@ const fallbackBaseUrl = `${fallbackBasePath}/api`;
 
 function friendlyApiError(status: number, message: string) {
   const normalized = message.trim();
+  const lowered = normalized.toLowerCase();
+
   if (
     status >= 500 ||
-    normalized.toLowerCase() === "internal server error" ||
-    normalized.toLowerCase().includes("failed to fetch")
+    lowered === "internal server error" ||
+    lowered.includes("failed to fetch") ||
+    lowered.includes("networkerror")
   ) {
-    return "서버 저장소 연결을 확인하는 중입니다. 배포 스크립트가 데이터베이스 설정과 마이그레이션을 완료했는지 확인한 뒤 다시 시도해 주세요.";
+    return "서버 연결을 확인하는 중입니다. 배포 스크립트가 데이터베이스 설정과 마이그레이션을 완료했는지 확인한 뒤 다시 시도해 주세요.";
   }
+
   return normalized || `API 요청에 실패했습니다. (${status})`;
 }
 

@@ -17,7 +17,7 @@ WITH_NGINX=0
 WITH_PM2_STARTUP=0
 SKIP_BUILD=0
 SKIP_NGINX_RELOAD=0
-RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-required}"
+RUN_DB_MIGRATIONS="${RUN_DB_MIGRATIONS:-auto}"
 AUTO_SETUP_LOCAL_POSTGRES="${AUTO_SETUP_LOCAL_POSTGRES:-1}"
 
 WATCH_PATHS_DEFAULT="contact matching hacker agentmarket fundmanager gonak jobworld"
@@ -48,7 +48,7 @@ Environment overrides:
   API_PORT=8600
   NGINX_SITE=/etc/nginx/sites-enabled/hydro
   CLEAN_STALE_TOON2FILM_WORKERS=1
-  RUN_DB_MIGRATIONS=required  # required | auto | 0
+  RUN_DB_MIGRATIONS=auto      # auto | required | 0
   AUTO_SETUP_LOCAL_POSTGRES=1 # create/repair local toon2film PostgreSQL role+db when DATABASE_URL is localhost
   WATCH_PATHS="contact matching hacker agentmarket fundmanager gonak jobworld"
 USAGE
@@ -376,25 +376,35 @@ SQL
 
 check_database_connection() {
   local db_url
+  local db_log="$BACKUP_ROOT/$TS/database-connection.log"
   db_url="$(database_url)"
   log "Check API database connection"
   if (
     cd "$APP_ROOT/apps/api"
     DATABASE_URL="$db_url" "$APP_ROOT/.venv/bin/python" - <<'PY'
+import os
 from sqlalchemy import create_engine, text
-from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+database_url = os.environ["DATABASE_URL"]
+engine = create_engine(database_url, pool_pre_ping=True)
 with engine.connect() as connection:
     connection.execute(text("select 1"))
 print("database ok")
 PY
-  ) >/dev/null 2>&1; then
+  ) > "$db_log" 2>&1; then
     ok "API database connection is healthy"
     return 0
   fi
 
-  die "API database connection failed. Check apps/api/.env DATABASE_URL or PostgreSQL credentials."
+  warn "API database connection failed. Details: $db_log"
+  sed -E 's#(postgresql(\\+psycopg)?://[^:/@]+:)[^@]+@#\\1***@#g' "$db_log" >&2 || true
+
+  if [[ "$RUN_DB_MIGRATIONS" == "required" || "$RUN_DB_MIGRATIONS" == "1" || "$RUN_DB_MIGRATIONS" == "true" ]]; then
+    die "API database connection failed. Check apps/api/.env DATABASE_URL or PostgreSQL credentials."
+  fi
+
+  warn "Continuing deployment because RUN_DB_MIGRATIONS=$RUN_DB_MIGRATIONS."
+  warn "Project CRUD/upload APIs may fail until apps/api/.env DATABASE_URL matches the server database."
 }
 
 run_db_migrations() {

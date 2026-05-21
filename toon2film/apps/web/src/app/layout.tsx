@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { CriticalStudioStyle } from "@/components/critical-studio-style";
 import { LanguageProvider } from "@/components/language-provider";
 import "./globals.css";
 
@@ -15,6 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
+      <head>
+        <CriticalStudioStyle />
+      </head>
       <body>
         <LanguageProvider>
           <AppShell>{children}</AppShell>

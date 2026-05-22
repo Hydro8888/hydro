@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Moonlit village street cinematic concept">
+  <defs>
+    <linearGradient id="n" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#071022"/><stop offset=".55" stop-color="#16345f"/><stop offset="1" stop-color="#050816"/></linearGradient>
+    <radialGradient id="moon" cx="66%" cy="18%" r="22%"><stop stop-color="#dbeafe"/><stop offset=".35" stop-color="#93c5fd" stop-opacity=".45"/><stop offset="1" stop-color="#93c5fd" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#n)"/>
+  <rect width="640" height="400" fill="url(#moon)"/>
+  <circle cx="422" cy="76" r="36" fill="#dbeafe" opacity=".92"/>
+  <g fill="#0b1120">
+    <path d="M0 270l108-78 106 78v130H0z"/><path d="M426 258l104-76 110 76v142H426z"/>
+    <path d="M92 205h118l-59-50zM420 194h140l-70-56z" fill="#111827"/>
+    <rect x="266" y="176" width="92" height="224"/>
+    <path d="M236 190h152l-76-68z" fill="#111827"/>
+  </g>
+  <g stroke="#f59e0b" stroke-width="5" opacity=".8">
+    <path d="M74 284h36M498 276h42M294 246h38"/>
+  </g>
+  <path d="M0 350c90-48 183-50 282-10 124-48 246-48 358 0v60H0z" fill="#020617" opacity=".75"/>
+  <g opacity=".8" fill="#bfdbfe">
+    <circle cx="92" cy="64" r="2"/><circle cx="152" cy="102" r="2"/><circle cx="236" cy="58" r="2"/><circle cx="528" cy="96" r="2"/><circle cx="578" cy="54" r="2"/>
+  </g>
+</svg>

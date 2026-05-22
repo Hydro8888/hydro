@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Two characters under blue summer sky">
+  <defs>
+    <linearGradient id="s" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#38bdf8"/><stop offset=".55" stop-color="#93c5fd"/><stop offset="1" stop-color="#dcfce7"/></linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#s)"/>
+  <g fill="#fff" opacity=".82">
+    <ellipse cx="130" cy="76" rx="115" ry="30"/><ellipse cx="242" cy="94" rx="90" ry="24"/><ellipse cx="502" cy="112" rx="132" ry="34"/>
+  </g>
+  <path d="M0 298c110-62 232-67 367-18 102-38 193-39 273 1v119H0z" fill="#84cc16" opacity=".44"/>
+  <path d="M0 340c110-38 222-36 336-8 114-42 216-42 304 2v66H0z" fill="#14532d" opacity=".45"/>
+  <g transform="translate(178 126)">
+    <path d="M56 74c-32 8-54 42-58 130h118c-5-85-28-122-60-130z" fill="#1e293b"/>
+    <ellipse cx="59" cy="44" rx="34" ry="39" fill="#f5d0b5"/>
+    <path d="M27 38c5-42 58-55 78-20 8 13 8 28 2 47-30-12-56-17-80-27z" fill="#111827"/>
+  </g>
+  <g transform="translate(392 104)">
+    <path d="M54 92c-36 7-58 45-61 138h126c-5-92-30-130-65-138z" fill="#334155"/>
+    <ellipse cx="58" cy="58" rx="38" ry="44" fill="#f6d5bd"/>
+    <path d="M23 50c6-50 68-65 92-22 9 17 9 35 1 56-34-15-64-21-93-34z" fill="#1f2937"/>
+  </g>
+</svg>

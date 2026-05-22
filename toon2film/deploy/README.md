@@ -91,3 +91,4 @@ curl -sI http://172.30.1.99/toon2film/api/health | head -3
 ```
 
 Do not commit real API keys. Put provider keys in the server-only `.env` file after deploy.
+`OPENAI_API_KEY` is required for every AI analysis step: comic upload analysis, story bible, character bible, storyboard, and video prompt generation.

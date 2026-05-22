@@ -281,6 +281,19 @@ EOF
   fi
 }
 
+check_openai_config() {
+  local env_file="$APP_ROOT/apps/api/.env"
+  local key=""
+  if [[ -f "$env_file" ]]; then
+    key="$(grep -E '^OPENAI_API_KEY=' "$env_file" | tail -n 1 | cut -d= -f2- || true)"
+  fi
+  if [[ -z "$key" ]]; then
+    warn "OPENAI_API_KEY is empty. Upload works, but AI analysis endpoints will return 503 until the key is set in apps/api/.env."
+  else
+    ok "OpenAI API key configured for AI analysis"
+  fi
+}
+
 build_app() {
   [[ "$SKIP_BUILD" -eq 0 ]] || { warn "Skipping build by request"; return 0; }
 
@@ -707,6 +720,7 @@ main() {
   ensure_port_free_or_owned "$API_PORT" "$API_PM2_NAME"
 
   write_api_env
+  check_openai_config
   build_app
   ensure_local_postgres_database
   check_database_connection

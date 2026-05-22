@@ -2,24 +2,28 @@ from __future__ import annotations
 
 import base64
 import io
-import json
 import uuid
 import zipfile
 from pathlib import Path
 from typing import Any
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import Character, Project, Scene, Shot, SourceFile, SourcePage, SourcePanel, StoryBible
+from app.services.openai_client import OpenAIAnalysisError, call_openai_json
 from app.services.production_pipeline import ProductionPipelineService
-from app.workers.source_tasks import normalize_local_url
 
 
 class ComicAnalysisError(RuntimeError):
     pass
+
+
+def normalize_local_url(file_url: str) -> Path:
+    if file_url.startswith("local://"):
+        return Path(file_url.removeprefix("local://"))
+    return Path(file_url)
 
 
 ANALYSIS_SCHEMA: dict[str, Any] = {
@@ -29,6 +33,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
     "properties": {
         "pages": {
             "type": "array",
+            "minItems": 1,
             "maxItems": 12,
             "items": {
                 "type": "object",
@@ -38,6 +43,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
                     "page_number": {"type": "integer"},
                     "panels": {
                         "type": "array",
+                        "minItems": 1,
                         "maxItems": 12,
                         "items": {
                             "type": "object",
@@ -99,6 +105,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
                 },
                 "scenes": {
                     "type": "array",
+                    "minItems": 1,
                     "maxItems": 8,
                     "items": {
                         "type": "object",
@@ -127,6 +134,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         },
         "characters": {
             "type": "array",
+            "minItems": 1,
             "maxItems": 8,
             "items": {
                 "type": "object",
@@ -151,6 +159,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         },
         "storyboard": {
             "type": "array",
+            "minItems": 1,
             "maxItems": 24,
             "items": {
                 "type": "object",
@@ -191,10 +200,7 @@ class ComicAnalyzerService:
         if not page_paths:
             raise ComicAnalysisError("No readable comic pages were found in the uploaded file.")
 
-        if not settings.openai_api_key:
-            analysis = self._fallback_analysis(source_file, project, page_paths)
-        else:
-            analysis = self._call_openai(project, source_file, page_paths)
+        analysis = self._call_openai(project, source_file, page_paths)
 
         self._persist_analysis(source_file, project, page_paths, analysis, db)
         return analysis
@@ -280,151 +286,24 @@ class ComicAnalyzerService:
             input_content.append({"type": "input_text", "text": f"Page {index}"})
             input_content.append({"type": "input_image", "image_url": self._image_data_url(path)})
 
-        payload: dict[str, Any] = {
-            "model": settings.openai_model,
-            "reasoning": {"effort": settings.openai_reasoning_effort},
-            "input": [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": (
-                                "You are Toon2Film's AI story architect, character director, "
-                                "OCR reviewer, and storyboard artist. You convert uploaded comics "
-                                "into production-ready structured data."
-                            ),
-                        }
-                    ],
-                },
-                {"role": "user", "content": input_content},
-            ],
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "toon2film_comic_analysis",
-                    "strict": True,
-                    "schema": ANALYSIS_SCHEMA,
-                }
-            },
-            "max_output_tokens": settings.openai_max_output_tokens,
-            "store": False,
-        }
-
         try:
-            response = httpx.post(
-                f"{settings.openai_base_url.rstrip('/')}/responses",
-                headers={
-                    "Authorization": f"Bearer {settings.openai_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=180,
+            return call_openai_json(
+                schema_name="toon2film_comic_analysis",
+                schema=ANALYSIS_SCHEMA,
+                system_prompt=(
+                    "You are Toon2Film's AI story architect, character director, "
+                    "OCR reviewer, and storyboard artist. You convert uploaded comics "
+                    "into production-ready structured data."
+                ),
+                user_content=input_content,
+                timeout_seconds=180,
             )
-        except httpx.HTTPError as exc:
-            raise ComicAnalysisError(f"OpenAI analysis request failed: {exc}") from exc
-        if response.status_code >= 400:
-            raise ComicAnalysisError(
-                f"OpenAI analysis failed ({response.status_code}): {response.text[:1200]}"
-            )
-
-        text = self._response_text(response.json())
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ComicAnalysisError("OpenAI returned non-JSON analysis output.") from exc
+        except OpenAIAnalysisError as exc:
+            raise ComicAnalysisError(str(exc)) from exc
 
     def _image_data_url(self, path: Path) -> str:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:image/jpeg;base64,{encoded}"
-
-    def _response_text(self, payload: dict[str, Any]) -> str:
-        if isinstance(payload.get("output_text"), str):
-            return payload["output_text"]
-
-        chunks: list[str] = []
-        for item in payload.get("output", []):
-            for content in item.get("content", []):
-                if content.get("type") in {"output_text", "text"} and content.get("text"):
-                    chunks.append(content["text"])
-        if chunks:
-            return "\n".join(chunks)
-        raise ComicAnalysisError("OpenAI response did not contain output text.")
-
-    def _fallback_analysis(
-        self, source_file: SourceFile, project: Project, page_paths: list[Path]
-    ) -> dict[str, Any]:
-        return {
-            "pages": [
-                {
-                    "page_number": index,
-                    "panels": [
-                        {
-                            "panel_number": 1,
-                            "bbox": {"x": 0, "y": 0, "width": 1, "height": 1},
-                            "ocr_text": "",
-                            "visual_description": (
-                                "Uploaded comic page awaiting OpenAI visual analysis. "
-                                f"Source file: {source_file.original_filename}."
-                            ),
-                            "detected_characters": ["Lead Character"],
-                            "emotion": "unknown",
-                            "scene_hint": "Opening source beat",
-                        }
-                    ],
-                }
-                for index, _ in enumerate(page_paths, start=1)
-            ],
-            "story_analysis": {
-                "logline": f"A {project.style} adaptation created from uploaded comic source pages.",
-                "synopsis": (
-                    "The project contains uploaded comic pages. Set OPENAI_API_KEY to enable "
-                    "full multimodal OCR, story analysis, character extraction, and storyboard planning."
-                ),
-                "theme": "Cinematic transformation from static comic panels.",
-                "three_act": {
-                    "act_1": "Introduce the source world and lead character.",
-                    "act_2": "Escalate conflict through selected comic panels.",
-                    "act_3": "Resolve with a strong cinematic hook.",
-                },
-                "scenes": [
-                    {
-                        "scene_id": 1,
-                        "title": "Opening Source Beat",
-                        "summary": "First uploaded pages define the cinematic opening.",
-                        "location": "Source location",
-                        "time": "day",
-                        "emotion": "curiosity",
-                        "duration_seconds": 12,
-                    }
-                ],
-            },
-            "characters": [
-                {
-                    "name": "Lead Character",
-                    "role": "protagonist",
-                    "appearance_description": "Main recurring figure from the uploaded comic pages.",
-                    "personality": "Goal-driven and emotionally readable.",
-                    "costume": "Consistent costume inferred from the source artwork.",
-                    "reference_image_prompt": (
-                        f"Lead Character, {project.style}, consistent cinematic character design"
-                    ),
-                }
-            ],
-            "storyboard": [
-                {
-                    "scene_id": 1,
-                    "shot_number": 1,
-                    "visual_prompt": "Establish the uploaded comic world as a cinematic opening image.",
-                    "camera_angle": "Wide shot",
-                    "camera_movement": "slow push in",
-                    "lens": "24mm cinematic lens",
-                    "lighting": "motivated atmospheric light",
-                    "dialogue_or_action": "The world is introduced through the source panels.",
-                    "duration_seconds": 5,
-                }
-            ],
-        }
 
     def _persist_analysis(
         self,
@@ -473,7 +352,7 @@ class ComicAnalyzerService:
                 )
 
         source_file.page_count = len(page_by_number) or len(page_paths)
-        source_file.status = "analyzed" if settings.openai_api_key else "processed_without_ai"
+        source_file.status = "analyzed"
 
         story_payload = analysis.get("story_analysis") or {}
         story_bible = self._latest_story_bible(project.id, db)
@@ -507,7 +386,10 @@ class ComicAnalyzerService:
         db.add_all([project, source_file])
         db.commit()
         if self._project_shots(project.id, db):
-            ProductionPipelineService().ensure_post_story_pipeline(project, db)
+            try:
+                ProductionPipelineService().ensure_post_story_pipeline(project, db)
+            except OpenAIAnalysisError as exc:
+                raise ComicAnalysisError(str(exc)) from exc
 
     def _latest_story_bible(self, project_id: uuid.UUID, db: Session) -> StoryBible | None:
         return db.scalars(
@@ -523,17 +405,7 @@ class ComicAnalyzerService:
         self, project: Project, scene_payloads: list[dict[str, Any]], db: Session
     ) -> list[Scene]:
         if not scene_payloads:
-            scene_payloads = [
-                {
-                    "scene_id": 1,
-                    "title": "Opening Scene",
-                    "summary": "The uploaded comic source defines the opening cinematic beat.",
-                    "location": "Source location",
-                    "time": "day",
-                    "emotion": "curiosity",
-                    "duration_seconds": 10,
-                }
-            ]
+            raise ComicAnalysisError("OpenAI analysis did not return any scenes.")
         existing = {
             scene.scene_number: scene
             for scene in db.scalars(

@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import Project, Prompt, Shot
 from app.schemas import PromptRead
+from app.services.openai_client import OpenAIAnalysisError
 from app.services.prompt_generator import SeedancePromptGenerator
 
 router = APIRouter()
@@ -27,7 +28,10 @@ def generate_prompt(shot_id: uuid.UUID, db: Session = Depends(get_db)) -> Prompt
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    result = SeedancePromptGenerator().generate(project=project, shot=shot)
+    try:
+        result = SeedancePromptGenerator().generate(project=project, shot=shot)
+    except OpenAIAnalysisError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     prompt = Prompt(
         project_id=shot.project_id,
         shot_id=shot.id,

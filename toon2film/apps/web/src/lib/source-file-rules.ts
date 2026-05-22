@@ -63,8 +63,7 @@ export function readableSourceStatus(status?: string) {
     {
       analyzing: "AI 분석 중",
       analyzed: "AI 분석 완료",
-      processed: "처리 완료",
-      processed_without_ai: "AI 없이 저장 완료",
+      processed: "AI 분석 필요",
       analysis_failed: "AI 분석 실패",
       uploaded: "업로드 완료"
     }[status] ?? status
@@ -72,5 +71,5 @@ export function readableSourceStatus(status?: string) {
 }
 
 export function isSourceAnalysisComplete(status: string) {
-  return ["analyzed", "processed", "processed_without_ai"].includes(status);
+  return status === "analyzed";
 }

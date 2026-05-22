@@ -27,10 +27,15 @@ from app.schemas import (
     StorySceneRead,
     StoryboardShotRead,
 )
+from app.services.openai_client import OpenAIAnalysisError
 from app.services.production_pipeline import ProductionPipelineService
 from app.services.story_architect import StoryArchitectService
 
 router = APIRouter()
+
+
+def _ai_http_error(exc: OpenAIAnalysisError) -> HTTPException:
+    return HTTPException(status_code=503, detail=str(exc))
 
 
 def _get_project_or_404(project_id: uuid.UUID, db: Session) -> Project:
@@ -58,6 +63,18 @@ def _panels(project_id: uuid.UUID, db: Session) -> list[SourcePanel]:
             .order_by(SourcePanel.created_at)
         ).all()
     )
+
+
+def _require_ai_analyzed_panels(project_id: uuid.UUID, db: Session) -> list[SourcePanel]:
+    source_files = _source_files(project_id, db)
+    panels = _panels(project_id, db)
+    has_analyzed_source = any(source.status == "analyzed" for source in source_files)
+    if not has_analyzed_source or not panels:
+        raise HTTPException(
+            status_code=400,
+            detail="Upload a comic source file and complete AI comic analysis before this step.",
+        )
+    return panels
 
 
 def _story_bible(project_id: uuid.UUID, db: Session) -> StoryBible | None:
@@ -275,37 +292,31 @@ def _ensure_story_scenes(project: Project, story_bible: StoryBible, db: Session)
     if existing:
         return existing
 
-    act_notes = story_bible.three_act_json or {}
-    scene_payloads = [
-        {
-            "scene_number": 1,
-            "title": "Opening Image",
-            "location": "Primary source location",
-            "time_of_day": "day",
-            "summary": act_notes.get("act_1") or "Introduce the protagonist and source world.",
-            "emotion": "curiosity",
-            "duration_seconds": max(10, project.target_duration // 4),
-        },
-        {
-            "scene_number": 2,
-            "title": "Conflict Turn",
-            "location": "Story pressure point",
-            "time_of_day": "night",
-            "summary": act_notes.get("act_2") or "Escalate the conflict through a cinematic reversal.",
-            "emotion": "tension",
-            "duration_seconds": max(10, project.target_duration // 3),
-        },
-        {
-            "scene_number": 3,
-            "title": "Final Hook",
-            "location": "Signature visual",
-            "time_of_day": "golden hour",
-            "summary": act_notes.get("act_3") or "Close with a strong trailer image.",
-            "emotion": "anticipation",
-            "duration_seconds": max(8, project.target_duration // 5),
-        },
+    try:
+        scene_payloads = StoryArchitectService().build_scenes(
+            project=project,
+            story_bible=story_bible,
+            panels=_require_ai_analyzed_panels(project.id, db),
+        )
+    except OpenAIAnalysisError as exc:
+        raise _ai_http_error(exc) from exc
+
+    scenes = [
+        Scene(
+            project_id=project.id,
+            scene_number=int(payload.get("scene_id") or index),
+            title=payload.get("title") or f"Scene {index}",
+            location=payload.get("location") or "",
+            time_of_day=payload.get("time") or "",
+            summary=payload.get("summary") or "",
+            emotion=payload.get("emotion") or "",
+            duration_seconds=int(payload.get("duration_seconds") or 8),
+            source_panel_ids=[],
+        )
+        for index, payload in enumerate(scene_payloads, start=1)
     ]
-    scenes = [Scene(project_id=project.id, **payload) for payload in scene_payloads]
+    if not scenes:
+        raise HTTPException(status_code=502, detail="AI did not return any scenes")
     db.add_all(scenes)
     db.flush()
     return scenes
@@ -387,7 +398,13 @@ def generate_story_bible(project_id: uuid.UUID, db: Session = Depends(get_db)) -
     project = _get_project_or_404(project_id, db)
     existing = _story_bible(project_id, db)
     if existing is None:
-        result = StoryArchitectService().build_story_bible(project=project, panels=_panels(project_id, db))
+        try:
+            result = StoryArchitectService().build_story_bible(
+                project=project,
+                panels=_require_ai_analyzed_panels(project_id, db),
+            )
+        except OpenAIAnalysisError as exc:
+            raise _ai_http_error(exc) from exc
         existing = StoryBible(project_id=project_id, **result)
         db.add(existing)
         db.flush()
@@ -418,32 +435,34 @@ def generate_characters(
     if existing:
         return [_character_read(character) for character in existing]
 
-    panels = _panels(project_id, db)
-    detected_names: list[str] = []
-    for panel in panels:
-        for name in panel.detected_characters or []:
-            if name and name not in detected_names:
-                detected_names.append(name)
+    story_bible = _story_bible(project_id, db)
+    if story_bible is None:
+        raise HTTPException(status_code=400, detail="Generate story analysis before characters")
+    panels = _require_ai_analyzed_panels(project_id, db)
+    try:
+        character_payloads = StoryArchitectService().build_characters(
+            project=project,
+            story_bible=story_bible,
+            panels=panels,
+        )
+    except OpenAIAnalysisError as exc:
+        raise _ai_http_error(exc) from exc
 
-    names = detected_names[:3] or ["Lead Character", "Supporting Character"]
     characters = [
         Character(
             project_id=project_id,
-            name=name,
-            role="protagonist" if index == 0 else "supporting",
-            visual_description=(
-                f"Recurring {project.style} character inferred from uploaded toon panels."
-            ),
-            personality=(
-                "Goal-driven, emotionally readable, designed for consistent cinematic staging."
-            ),
-            prompt_description=(
-                f"{name}, consistent live-action character design, {project.style}, "
-                "clear facial features, production-ready costume, cinematic lighting"
-            ),
+            name=payload.get("name") or f"Character {index}",
+            role=payload.get("role") or ("protagonist" if index == 1 else "supporting"),
+            visual_description=payload.get("appearance_description") or "",
+            personality=payload.get("personality") or "",
+            costume=payload.get("costume") or "",
+            voice_style=payload.get("voice_style") or "",
+            prompt_description=payload.get("reference_image_prompt") or "",
         )
-        for index, name in enumerate(names)
+        for index, payload in enumerate(character_payloads[:8], start=1)
     ]
+    if not characters:
+        raise HTTPException(status_code=502, detail="AI did not return any characters")
     db.add_all(characters)
     project.status = "CHAR_DESIGNED"
     db.add(project)
@@ -474,37 +493,37 @@ def generate_scenes(project_id: uuid.UUID, db: Session = Depends(get_db)) -> lis
     return [_scene_read(scene) for scene in scenes]
 
 
-def _create_shots_for_scene(scene: Scene) -> list[Shot]:
-    shot_templates = [
-        {
-            "shot_number": 1,
-            "shot_type": "Wide shot",
-            "camera_movement": "slow establishing push",
-            "lens": "24mm cinematic lens",
-            "lighting": "environmental light with strong atmosphere",
-            "action_description": f"Establish {scene.location or 'the scene'}: {scene.summary or scene.title}",
-            "duration_seconds": 5,
-        },
-        {
-            "shot_number": 2,
-            "shot_type": "Medium shot",
-            "camera_movement": "controlled slider move",
-            "lens": "35mm cinematic lens",
-            "lighting": "soft key light, motivated contrast",
-            "action_description": f"Character action beat for {scene.title}.",
-            "duration_seconds": 6,
-        },
-        {
-            "shot_number": 3,
-            "shot_type": "Close-up",
-            "camera_movement": "subtle push-in",
-            "lens": "50mm shallow depth of field",
-            "lighting": "expressive highlight on the face or key object",
-            "action_description": f"Emotional reaction: {scene.emotion or 'cinematic tension'}.",
-            "duration_seconds": 4,
-        },
-    ]
-    return [Shot(project_id=scene.project_id, scene_id=scene.id, **template) for template in shot_templates]
+def _shots_from_ai_payloads(
+    project: Project,
+    scenes: list[Scene],
+    storyboard_payloads: list[dict],
+) -> list[Shot]:
+    scene_map = {scene.scene_number: scene for scene in scenes}
+    shots: list[Shot] = []
+    for index, payload in enumerate(storyboard_payloads, start=1):
+        scene = scene_map.get(int(payload.get("scene_id") or 0)) or (scenes[0] if scenes else None)
+        if scene is None:
+            continue
+        visual_prompt = payload.get("visual_prompt") or ""
+        action = payload.get("dialogue_or_action") or ""
+        action_description = (
+            f"{visual_prompt}\nAction/Dialog: {action}" if visual_prompt and action else visual_prompt or action
+        )
+        shots.append(
+            Shot(
+                project_id=project.id,
+                scene_id=scene.id,
+                shot_number=int(payload.get("shot_number") or index),
+                shot_type=payload.get("camera_angle") or "Medium shot",
+                camera_movement=payload.get("camera_movement") or "",
+                lens=payload.get("lens") or "",
+                lighting=payload.get("lighting") or "",
+                action_description=action_description,
+                duration_seconds=int(payload.get("duration_seconds") or 5),
+                status="ready",
+            )
+        )
+    return shots
 
 
 @router.post("/scenes/{scene_id}/generate-shots", response_model=list[StoryboardShotRead])
@@ -519,7 +538,23 @@ def generate_shots(scene_id: uuid.UUID, db: Session = Depends(get_db)) -> list[S
     if existing:
         return [_shot_read(shot) for shot in existing]
 
-    shots = _create_shots_for_scene(scene)
+    project = _get_project_or_404(scene.project_id, db)
+    story_bible = _story_bible(project.id, db)
+    try:
+        payloads = StoryArchitectService().build_storyboard(
+            project=project,
+            scenes=[scene],
+            characters=_characters(project.id, db),
+            story_bible=story_bible,
+            panels=_require_ai_analyzed_panels(project.id, db),
+            max_shots=3,
+        )
+    except OpenAIAnalysisError as exc:
+        raise _ai_http_error(exc) from exc
+
+    shots = _shots_from_ai_payloads(project, [scene], payloads)
+    if not shots:
+        raise HTTPException(status_code=502, detail="AI did not return any shots")
     db.add_all(shots)
     db.commit()
     for shot in shots:
@@ -541,19 +576,36 @@ def generate_storyboard(
 
     existing = _shots(project_id, db)
     if existing:
-        ProductionPipelineService().ensure_post_story_pipeline(project, db)
+        try:
+            ProductionPipelineService().ensure_post_story_pipeline(project, db)
+        except OpenAIAnalysisError as exc:
+            raise _ai_http_error(exc) from exc
         return [_shot_read(shot) for shot in existing]
 
-    shots: list[Shot] = []
-    for scene in scenes:
-        shots.extend(_create_shots_for_scene(scene))
+    try:
+        payloads = StoryArchitectService().build_storyboard(
+            project=project,
+            scenes=scenes,
+            characters=_characters(project_id, db),
+            story_bible=_story_bible(project_id, db),
+            panels=_require_ai_analyzed_panels(project_id, db),
+        )
+    except OpenAIAnalysisError as exc:
+        raise _ai_http_error(exc) from exc
+
+    shots = _shots_from_ai_payloads(project, scenes, payloads)
+    if not shots:
+        raise HTTPException(status_code=502, detail="AI did not return any storyboard shots")
     db.add_all(shots)
     project.status = "STORYBOARD_READY"
     db.add(project)
     db.commit()
     for shot in shots:
         db.refresh(shot)
-    ProductionPipelineService().ensure_post_story_pipeline(project, db)
+    try:
+        ProductionPipelineService().ensure_post_story_pipeline(project, db)
+    except OpenAIAnalysisError as exc:
+        raise _ai_http_error(exc) from exc
     return [_shot_read(shot) for shot in shots]
 
 

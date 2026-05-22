@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
+  ArrowRight,
   BookOpen,
   Captions,
   CheckCircle2,
@@ -14,6 +16,7 @@ import {
   MonitorPlay,
   UploadCloud,
   UserRound,
+  WandSparkles,
   XCircle
 } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
@@ -47,6 +50,8 @@ type SourceFileResponse = {
   status: string;
 };
 
+type FlowStep = "upload" | "uploaded" | "story" | "characters" | "storyboard";
+
 const fileTypes = [
   { label: "PDF", icon: FileText },
   { label: "JPG / PNG", icon: FileImage },
@@ -73,11 +78,14 @@ function makeUploadItem(file: File): UploadItem {
 
 export default function SourceUploadPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [projectId, setProjectId] = useState("");
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+  const [flowStep, setFlowStep] = useState<FlowStep>("upload");
   const [message, setMessage] = useState<{
     tone: "success" | "warning" | "error";
     title: string;
@@ -89,6 +97,13 @@ export default function SourceUploadPage() {
     const error = items.filter((item) => item.status === "error").length;
     return { total: items.length, success, error };
   }, [items]);
+
+  const canRunNextPipelineStep =
+    Boolean(projectId) &&
+    !isSubmitting &&
+    !isPipelineRunning &&
+    summary.success > 0 &&
+    flowStep !== "upload";
 
   useEffect(() => {
     setProjectId(new URLSearchParams(window.location.search).get("projectId") || "");
@@ -157,6 +172,7 @@ export default function SourceUploadPage() {
     }
 
     setIsSubmitting(true);
+    setFlowStep("upload");
     setMessage(null);
     let successCount = 0;
     let analyzedCount = 0;
@@ -202,6 +218,7 @@ export default function SourceUploadPage() {
     }
 
     setIsSubmitting(false);
+    if (successCount > 0) setFlowStep("uploaded");
     setMessage({
       tone: analyzedCount === items.length ? "success" : successCount > 0 ? "warning" : "error",
       title:
@@ -214,6 +231,77 @@ export default function SourceUploadPage() {
         analyzedCount === items.length
           ? "스토리 분석, 캐릭터 바이블, 콘티, 영상 렌더 작업 초안, 자막/출력 초안이 프로젝트에 자동 저장되었습니다."
           : `${items.length}개 중 ${successCount}개 파일이 저장되고 ${analyzedCount}개 파일이 분석되었습니다.`
+    });
+  }
+
+  function nextPipelineButtonLabel() {
+    if (flowStep === "uploaded") return "스토리 분석 시작";
+    if (flowStep === "story") return "캐릭터 설계 시작";
+    if (flowStep === "characters") return "콘티 생성 시작";
+    if (flowStep === "storyboard") return "프로젝트 상세로 이동";
+    return "업로드 먼저 진행";
+  }
+
+  async function runNextPipelineStep() {
+    if (!projectId) {
+      setMessage({
+        tone: "error",
+        title: "프로젝트 ID가 필요합니다.",
+        body: "프로젝트에 연결된 업로드만 AI 제작 파이프라인으로 이어갈 수 있습니다."
+      });
+      return;
+    }
+
+    if (flowStep === "storyboard") {
+      router.push(`/projects/${projectId}`);
+      return;
+    }
+
+    const action =
+      flowStep === "uploaded"
+        ? {
+            endpoint: `/projects/${projectId}/generate-story-bible`,
+            next: "story" as const,
+            title: "스토리 분석이 완료되었습니다.",
+            body: "AI가 업로드된 만화 원본을 바탕으로 로그라인, 시놉시스, 씬 분할을 만들었습니다."
+          }
+        : flowStep === "story"
+          ? {
+              endpoint: `/projects/${projectId}/generate-characters`,
+              next: "characters" as const,
+              title: "캐릭터 설계가 완료되었습니다.",
+              body: "주요 캐릭터의 역할, 외형, 성격, 영상 생성 기준 프롬프트를 만들었습니다."
+            }
+          : flowStep === "characters"
+            ? {
+                endpoint: `/projects/${projectId}/generate-storyboard`,
+                next: "storyboard" as const,
+                title: "콘티 생성이 완료되었습니다.",
+                body: "씬별 샷, 카메라, 렌즈, 조명 기준이 생성되었습니다. 상세 화면에서 영상 렌더로 이어갈 수 있습니다."
+              }
+            : null;
+
+    if (!action) return;
+
+    setIsPipelineRunning(true);
+    setMessage(null);
+    const result = await apiJson<unknown>(action.endpoint, { method: "POST" });
+    setIsPipelineRunning(false);
+
+    if (!result.ok) {
+      setMessage({
+        tone: "error",
+        title: `${nextPipelineButtonLabel()}에 실패했습니다.`,
+        body: result.error
+      });
+      return;
+    }
+
+    setFlowStep(action.next);
+    setMessage({
+      tone: "success",
+      title: action.title,
+      body: action.body
     });
   }
 
@@ -414,6 +502,25 @@ export default function SourceUploadPage() {
             )}
             {isSubmitting ? "업로드 및 AI 분석 중..." : "업로드 및 AI 분석"}
           </Button>
+          {flowStep !== "upload" ? (
+            <Button
+              className="w-full"
+              type="button"
+              variant={flowStep === "storyboard" ? "secondary" : "primary"}
+              disabled={!canRunNextPipelineStep}
+              data-testid="source-next-pipeline-step"
+              onClick={runNextPipelineStep}
+            >
+              {isPipelineRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : flowStep === "storyboard" ? (
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <WandSparkles className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isPipelineRunning ? "AI가 다음 단계를 작성 중..." : nextPipelineButtonLabel()}
+            </Button>
+          ) : null}
         </aside>
       </form>
     </div>

@@ -8,6 +8,7 @@
     "dev:web": "npm --workspace @toon2film/web run dev",
     "build:web": "npm --workspace @toon2film/web run build",
     "typecheck:web": "npm --workspace @toon2film/web run typecheck",
+    "qa:web": "node scripts/qa-static.mjs",
     "smoke:web": "node scripts/smoke-routes.mjs"
   }
 }

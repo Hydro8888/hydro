@@ -1,24 +1,22 @@
 "use client";
 
-import { useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  BookOpen,
   Check,
   CheckCircle2,
-  Clapperboard,
   FileArchive,
   FileImage,
   FileText,
   Loader2,
   ShieldCheck,
   UploadCloud,
-  UserRound,
   WandSparkles,
   X
 } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
+import { PipelineMonitor, type MonitorStep } from "@/components/pipeline-monitor";
 import { Button } from "@/components/ui/button";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
@@ -91,12 +89,12 @@ const projectLanguages = [
 ] satisfies Array<[string, TranslationKey]>;
 
 const pipelinePreview = [
-  { id: "upload", label: "원본 업로드", description: "만화 / JPG / PDF", icon: UploadCloud },
-  { id: "story", label: "스토리 분석", description: "AI 스토리 생성", icon: BookOpen },
-  { id: "characters", label: "캐릭터 설계", description: "캐릭터 바이블", icon: UserRound },
-  { id: "storyboard", label: "콘티 생성", description: "샷 & 시퀀스 구성", icon: Clapperboard },
-  { id: "render", label: "영상 렌더", description: "AI 영상 생성", icon: FileText },
-  { id: "export", label: "자막 / 출력", description: "편집 & 내보내기", icon: CheckCircle2 }
+  { id: "upload", label: "원본 업로드", description: "만화 / JPG / PDF" },
+  { id: "story", label: "스토리 분석", description: "AI 스토리 생성" },
+  { id: "characters", label: "캐릭터 설계", description: "캐릭터 바이블" },
+  { id: "storyboard", label: "콘티 생성", description: "샷 & 시퀀스 구성" },
+  { id: "render", label: "영상 렌더", description: "AI 영상 생성" },
+  { id: "export", label: "자막 / 출력", description: "편집 & 내보내기" }
 ] as const;
 
 const flowOrder: FlowStep[] = ["editing", "uploading", "uploaded", "story", "characters", "storyboard"];
@@ -403,6 +401,76 @@ export default function NewProjectPage() {
     applyUploadSummary(uploadSummary);
   }
 
+  const monitorSteps = useMemo<MonitorStep[]>(() => {
+    const selectedCount = sourceFiles.length;
+    const analyzedCount = sourceFiles.filter((item) =>
+      item.analysisStatus ? isSourceAnalysisComplete(item.analysisStatus) : false
+    ).length;
+    const failedCount = sourceFiles.filter(
+      (item) => item.status === "error" || item.analysisStatus === "analysis_failed"
+    ).length;
+    const isRunning = (stepId: string) =>
+      isPipelineRunning &&
+      ((stepId === "story" && flowStep === "uploaded") ||
+        (stepId === "characters" && flowStep === "story") ||
+        (stepId === "storyboard" && flowStep === "characters"));
+    const stepRank = flowRank(flowStep);
+
+    function statusFor(stepId: (typeof pipelinePreview)[number]["id"], index: number) {
+      if (stepId === "upload") {
+        if (flowStep === "uploading") return "processing" as const;
+        if (stepRank >= flowRank("uploaded")) return "done" as const;
+        return selectedCount > 0 ? ("review" as const) : ("ready" as const);
+      }
+
+      if (isRunning(stepId)) return "processing" as const;
+      if (stepId === "story") {
+        if (stepRank >= flowRank("story")) return "done" as const;
+        return flowStep === "uploaded" ? ("review" as const) : ("ready" as const);
+      }
+      if (stepId === "characters") {
+        if (stepRank >= flowRank("characters")) return "done" as const;
+        return flowStep === "story" ? ("review" as const) : ("ready" as const);
+      }
+      if (stepId === "storyboard") {
+        if (stepRank >= flowRank("storyboard")) return "done" as const;
+        return flowStep === "characters" ? ("review" as const) : ("ready" as const);
+      }
+      if (stepId === "render") {
+        return flowStep === "storyboard" ? ("review" as const) : ("ready" as const);
+      }
+      if (stepId === "export") return "ready" as const;
+      return index === 0 ? ("review" as const) : ("ready" as const);
+    }
+
+    return pipelinePreview.map((step, index) => {
+      const uploadDetail =
+        step.id === "upload"
+          ? selectedCount > 0
+            ? `${selectedCount}개 선택 / ${analyzedCount}개 AI 분석 완료${failedCount ? ` / ${failedCount}개 확인 필요` : ""}`
+            : "프로젝트 생성 전 원본 파일을 먼저 선택하세요."
+          : undefined;
+      const detail =
+        uploadDetail ??
+        (isRunning(step.id)
+          ? "AI API가 이 단계를 작성 중입니다."
+          : step.id === "story" && flowStep === "uploaded"
+            ? "원본 업로드가 끝나면 스토리 분석을 시작할 수 있습니다."
+            : step.id === "render" && flowStep === "storyboard"
+              ? "상세 화면에서 영상 생성 단계로 이어집니다."
+              : undefined);
+
+      return {
+        id: step.id,
+        title: step.label,
+        subtitle: step.description,
+        status: statusFor(step.id, index),
+        count: step.id === "upload" && selectedCount > 0 ? selectedCount : index + 1,
+        detail
+      };
+    });
+  }, [flowStep, isPipelineRunning, sourceFiles]);
+
   return (
     <div className="space-y-6">
       <div className="studio-panel-hot grid gap-5 overflow-hidden p-5 md:grid-cols-[1fr_300px] md:items-center">
@@ -624,47 +692,13 @@ export default function NewProjectPage() {
             </div>
           </section>
 
-          <section className="studio-panel p-5">
-            <h2 className="text-lg font-semibold">제작 파이프라인</h2>
-            <div className="mt-4 grid gap-2">
-              {pipelinePreview.map((step, index) => (
-                <div
-                  key={step.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md border p-3 transition",
-                    (index === 0 && flowRank(flowStep) >= flowRank("uploaded")) ||
-                      (index === 1 && flowRank(flowStep) >= flowRank("story")) ||
-                      (index === 2 && flowRank(flowStep) >= flowRank("characters")) ||
-                      (index === 3 && flowRank(flowStep) >= flowRank("storyboard"))
-                      ? "border-success/35 bg-success/10"
-                      : (index === 0 && ["editing", "uploading"].includes(flowStep)) ||
-                          (index === 1 && flowStep === "uploaded") ||
-                          (index === 2 && flowStep === "story") ||
-                          (index === 3 && flowStep === "characters") ||
-                          (index === 4 && flowStep === "storyboard")
-                        ? "border-primary/45 bg-primary/10"
-                        : "border-border/80 bg-background/30"
-                  )}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
-                    {(index === 0 && flowRank(flowStep) >= flowRank("uploaded")) ||
-                    (index === 1 && flowRank(flowStep) >= flowRank("story")) ||
-                    (index === 2 && flowRank(flowStep) >= flowRank("characters")) ||
-                    (index === 3 && flowRank(flowStep) >= flowRank("storyboard")) ? (
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      index + 1
-                    )}
-                  </span>
-                  <step.icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{step.label}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{step.description}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <PipelineMonitor
+            compact
+            title="진행 모니터"
+            subtitle="새 프로젝트 생성 후 AI가 이어서 작성할 단계를 실시간으로 확인합니다."
+            steps={monitorSteps}
+            isLoading={isSubmitting || isPipelineRunning}
+          />
 
           <section className="studio-panel p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold">

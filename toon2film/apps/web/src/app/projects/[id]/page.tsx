@@ -15,11 +15,12 @@ import {
   UserRound
 } from "lucide-react";
 import { useI18n } from "@/components/language-provider";
+import { PipelineMonitor, type MonitorStep } from "@/components/pipeline-monitor";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { apiJson } from "@/lib/api-client";
-import { projects, shots as mockShots } from "@/lib/mock-data";
+import { pipelineSteps, projects, shots as mockShots } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import type { PipelineStatus } from "@/lib/types";
 
@@ -206,6 +207,25 @@ export default function ProjectPage() {
 
   const title = pipeline?.project_name ?? mockProject.title;
   const projectStatus = pipeline ? statusMap[pipeline.status] : mockProject.status;
+  const monitorSteps = useMemo<MonitorStep[]>(
+    () =>
+      pipeline?.steps.map((step) => ({
+        id: step.id,
+        title: step.title,
+        subtitle: step.subtitle,
+        status: step.status,
+        count: step.count || undefined
+      })) ??
+      pipelineSteps.map((step) => ({
+        id: step.id,
+        title: t(step.titleKey),
+        subtitle: t(step.subtitleKey),
+        status: step.status,
+        count: step.count
+      })),
+    [pipeline, t]
+  );
+  const monitorProgress = pipeline ? progressByStatus[pipeline.status] : mockProject.progress;
   const storyboardRows = pipeline?.storyboard.length
     ? pipeline.storyboard.map((shot, index) => ({
         id: shot.shot_id,
@@ -337,9 +357,7 @@ export default function ProjectPage() {
           <div className="mt-4 h-2 max-w-md overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(271_91%_65%))]"
-              style={{
-                width: `${pipeline ? progressByStatus[pipeline.status] : mockProject.progress}%`
-              }}
+              style={{ width: `${monitorProgress}%` }}
             />
           </div>
           {isApiProject ? (
@@ -389,6 +407,18 @@ export default function ProjectPage() {
           {message.body}
         </Notice>
       ) : null}
+
+      <PipelineMonitor
+        title="제작 진행 모니터"
+        subtitle={
+          isApiProject
+            ? `서버 파이프라인 상태: ${isLoading ? "확인 중..." : statusLabel(pipeline?.status)}`
+            : "샘플 프로젝트의 제작 흐름입니다. 실제 프로젝트는 업로드 이후 서버 상태와 동기화됩니다."
+        }
+        steps={monitorSteps}
+        progress={monitorProgress}
+        isLoading={isLoading || Boolean(runningAction)}
+      />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {productionDocs.map((doc) => {

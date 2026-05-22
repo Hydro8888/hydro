@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
-  Bot,
   CheckCircle2,
   Clapperboard,
   Clock3,
@@ -19,10 +18,9 @@ import {
   PlayCircle,
   Plus,
   ShieldCheck,
-  Sparkles,
-  UploadCloud,
-  WandSparkles
+  Sparkles
 } from "lucide-react";
+import { PipelineMonitor } from "@/components/pipeline-monitor";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -39,7 +37,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { PipelineStatus } from "@/lib/types";
 
-const pipelineIcons = [UploadCloud, Bot, BookOpen, Clapperboard, MonitorPlay, Film];
 const quickIcons = [KeyRound, BookOpen, Sparkles, MessageSquare];
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/toon2film";
 
@@ -152,37 +149,17 @@ export default function DashboardPage() {
             </Notice>
           ) : null}
 
-          <section className="studio-panel p-4 sm:p-5">
-            <h2 className="text-lg font-bold">{t("studio.pipelineTitle")}</h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {pipelineSteps.map((step, index) => {
-                const Icon = pipelineIcons[index] ?? WandSparkles;
-                return (
-                  <div
-                    key={step.id}
-                    className={cn(
-                      "relative min-h-[118px] rounded-lg border p-4",
-                      statusTone[step.status],
-                      index < pipelineSteps.length - 1 && "film-arrow"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-md border border-current/25 bg-background/35">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                      {step.count ? <span className="text-xs font-black">{step.count}</span> : null}
-                    </div>
-                    <h3 className="mt-4 break-keep text-sm font-black text-foreground">
-                      {t(step.titleKey)}
-                    </h3>
-                    <p className="mt-1 break-keep text-xs leading-5 text-muted-foreground">
-                      {t(step.subtitleKey)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+          <PipelineMonitor
+            title={t("studio.pipelineTitle")}
+            subtitle="원본 업로드부터 자막/출력까지 현재 제작 흐름을 한눈에 확인합니다."
+            steps={pipelineSteps.map((step) => ({
+              id: step.id,
+              title: t(step.titleKey),
+              subtitle: t(step.subtitleKey),
+              status: step.status,
+              count: step.count
+            }))}
+          />
 
           <section className="studio-panel overflow-hidden p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

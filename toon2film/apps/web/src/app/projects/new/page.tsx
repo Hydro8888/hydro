@@ -1,14 +1,59 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ShieldCheck, WandSparkles } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  FileArchive,
+  FileImage,
+  FileText,
+  Loader2,
+  ShieldCheck,
+  UploadCloud,
+  WandSparkles,
+  X
+} from "lucide-react";
 import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Field, SelectInput, TextInput } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { apiJson } from "@/lib/api-client";
 import type { TranslationKey } from "@/lib/i18n";
+import {
+  createSourceFileId,
+  isSourceAnalysisComplete,
+  readableSourceStatus,
+  sourceFileSizeLabel,
+  validateSourceFiles
+} from "@/lib/source-file-rules";
+import { cn } from "@/lib/utils";
+
+type Message = {
+  tone: "success" | "warning" | "error";
+  title: string;
+  body: string;
+};
+
+type SelectedSourceFile = {
+  id: string;
+  file: File;
+  status: "ready" | "uploading" | "success" | "error";
+  progress: number;
+  error?: string;
+  analysisStatus?: string;
+};
+
+type ProjectCreateResponse = {
+  id: string;
+};
+
+type SourceFileResponse = {
+  id: string;
+  original_filename: string;
+  page_count: number | null;
+  status: string;
+};
 
 const modes = [
   ["quick", "newProject.mode.quick"],
@@ -39,15 +84,109 @@ const projectLanguages = [
   ["Chinese", "option.chinese"]
 ] satisfies Array<[string, TranslationKey]>;
 
+const pipelinePreview = [
+  "원본 업로드",
+  "스토리 분석",
+  "캐릭터 설계",
+  "콘티 생성",
+  "영상 렌더",
+  "자막 / 출력"
+];
+
+function toUploadItem(file: File): SelectedSourceFile {
+  return {
+    id: createSourceFileId(file),
+    file,
+    status: "ready",
+    progress: 0
+  };
+}
+
 export default function NewProjectPage() {
   const { t } = useI18n();
   const router = useRouter();
-  const [message, setMessage] = useState<{
-    tone: "success" | "warning" | "error";
-    title: string;
-    body: string;
-  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sourceFiles, setSourceFiles] = useState<SelectedSourceFile[]>([]);
+
+  function appendFiles(fileList: FileList | File[]) {
+    const incoming = Array.from(fileList);
+    const { accepted, errors } = validateSourceFiles(
+      incoming,
+      sourceFiles.map((item) => item.file)
+    );
+
+    if (accepted.length > 0) {
+      setSourceFiles((current) => [...current, ...accepted.map(toUploadItem)]);
+    }
+
+    if (errors.length > 0) {
+      setMessage({
+        tone: "warning",
+        title: "일부 파일을 추가하지 못했습니다.",
+        body: errors.join(" ")
+      });
+    }
+  }
+
+  function removeFile(id: string) {
+    setSourceFiles((current) => current.filter((item) => item.id !== id));
+  }
+
+  function updateFile(id: string, patch: Partial<SelectedSourceFile>) {
+    setSourceFiles((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  async function uploadSelectedFiles(projectId: string) {
+    let savedCount = 0;
+    let analyzedCount = 0;
+    const errors: string[] = [];
+
+    for (const item of sourceFiles) {
+      updateFile(item.id, {
+        status: "uploading",
+        progress: 45,
+        error: undefined,
+        analysisStatus: "analyzing"
+      });
+
+      const uploadPayload = new FormData();
+      uploadPayload.set("rights_confirmed", "true");
+      uploadPayload.set("auto_analyze", "true");
+      uploadPayload.set("file", item.file);
+
+      const uploadResult = await apiJson<SourceFileResponse>(`/projects/${projectId}/upload`, {
+        method: "POST",
+        body: uploadPayload
+      });
+
+      if (uploadResult.ok) {
+        savedCount += 1;
+        if (isSourceAnalysisComplete(uploadResult.data.status)) analyzedCount += 1;
+        updateFile(item.id, {
+          status: uploadResult.data.status === "analysis_failed" ? "error" : "success",
+          progress: 100,
+          analysisStatus: uploadResult.data.status,
+          error:
+            uploadResult.data.status === "analysis_failed"
+              ? "파일은 저장됐지만 AI 분석이 실패했습니다. API 키와 서버 로그를 확인해 주세요."
+              : undefined
+        });
+      } else {
+        errors.push(`${item.file.name}: ${uploadResult.error}`);
+        updateFile(item.id, {
+          status: "error",
+          progress: 100,
+          error: uploadResult.error,
+          analysisStatus: "upload_failed"
+        });
+      }
+    }
+
+    return { savedCount, analyzedCount, errors };
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,6 +205,15 @@ export default function NewProjectPage() {
       return;
     }
 
+    if (sourceFiles.length === 0) {
+      setMessage({
+        tone: "error",
+        title: "만화 원본 파일을 선택해 주세요.",
+        body: "새 프로젝트를 만들 때 PDF, JPG, PNG, ZIP 원본을 하나 이상 함께 업로드해야 합니다."
+      });
+      return;
+    }
+
     if (!rights) {
       setMessage({
         tone: "error",
@@ -79,7 +227,7 @@ export default function NewProjectPage() {
     setMessage(null);
 
     const duration = Number(String(form.get("targetLength") || "60 sec").replace(/\D/g, "")) || 60;
-    const result = await apiJson<{ id: string }>("/projects", {
+    const result = await apiJson<ProjectCreateResponse>("/projects", {
       method: "POST",
       body: JSON.stringify({
         title: projectName,
@@ -93,28 +241,47 @@ export default function NewProjectPage() {
       })
     });
 
-    if (result.ok) {
-      setMessage({
-        tone: "success",
-        title: "프로젝트가 생성되었습니다.",
-        body: "원본 업로드 화면으로 이동합니다."
-      });
-      router.push(`/source/upload?projectId=${result.data.id}`);
-    } else {
+    if (!result.ok) {
       const draft = {
         title: projectName,
         originalTitle: String(form.get("originalTitle") || "").trim(),
+        files: sourceFiles.map((item) => item.file.name),
         savedAt: new Date().toISOString()
       };
       window.localStorage.setItem("toon2film.projectDraft", JSON.stringify(draft));
       setMessage({
         tone: "warning",
         title: "API 연결은 실패했지만 초안을 보존했습니다.",
-        body: `${result.error} 입력값은 브라우저의 로컬 초안으로 저장했습니다. 서버 설정이 정상화되면 같은 내용으로 다시 생성할 수 있습니다.`
+        body: `${result.error} 입력값과 파일명은 브라우저의 로컬 초안으로 저장했습니다. 서버 설정이 정상화되면 같은 내용으로 다시 생성할 수 있습니다.`
       });
+      setIsSubmitting(false);
+      return;
     }
 
+    const uploadSummary = await uploadSelectedFiles(result.data.id);
     setIsSubmitting(false);
+
+    if (uploadSummary.savedCount === sourceFiles.length && uploadSummary.errors.length === 0) {
+      setMessage({
+        tone: uploadSummary.analyzedCount === sourceFiles.length ? "success" : "warning",
+        title:
+          uploadSummary.analyzedCount === sourceFiles.length
+            ? "프로젝트 생성과 AI 분석이 완료되었습니다."
+            : "프로젝트와 원본 파일이 저장되었습니다.",
+        body:
+          uploadSummary.analyzedCount === sourceFiles.length
+            ? "스토리 분석, 캐릭터 바이블, 콘티 생성, 영상 렌더 준비 단계가 프로젝트에 반영되었습니다."
+            : "일부 AI 분석은 대기 중이거나 실패했습니다. 프로젝트 상세 화면에서 다시 실행할 수 있습니다."
+      });
+      router.push(`/projects/${result.data.id}`);
+      return;
+    }
+
+    setMessage({
+      tone: "warning",
+      title: "프로젝트는 생성됐지만 일부 업로드 확인이 필요합니다.",
+      body: `${sourceFiles.length}개 중 ${uploadSummary.savedCount}개 파일을 저장했습니다. ${uploadSummary.errors.join(" ")}`
+    });
   }
 
   return (
@@ -126,7 +293,7 @@ export default function NewProjectPage() {
           </div>
           <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("newProject.title")}</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-            {t("newProject.subtitle")}
+            프로젝트 정보와 만화 원본을 한 번에 등록하면 AI가 스토리 분석부터 콘티 생성까지 바로 이어갑니다.
           </p>
         </div>
         <div className="manga-board hidden h-36 rounded-lg border border-primary/20 p-3 md:block">
@@ -145,67 +312,167 @@ export default function NewProjectPage() {
       ) : null}
 
       <form className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
-        <section className="studio-panel p-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label={t("newProject.projectName")}>
-              <TextInput name="projectName" placeholder="Muyang" required minLength={2} />
-            </Field>
-            <Field label={t("newProject.originalTitle")}>
-              <TextInput name="originalTitle" placeholder="Line 9 Shaman" />
-            </Field>
-            <Field label={t("newProject.productionType")}>
-              <SelectInput name="productionType" defaultValue="Trailer">
-                {productionTypes.map(([value, labelKey]) => (
-                  <option key={value} value={value}>
-                    {t(labelKey)}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field label={t("newProject.targetLength")}>
-              <SelectInput name="targetLength" defaultValue="60 sec">
-                <option>30 sec</option>
-                <option>60 sec</option>
-                <option>3 min</option>
-                <option>5 min</option>
-                <option>10 min</option>
-              </SelectInput>
-            </Field>
-            <Field label={t("newProject.style")}>
-              <SelectInput name="style" defaultValue="Korean thriller">
-                {styles.map(([value, labelKey]) => (
-                  <option key={value} value={value}>
-                    {t(labelKey)}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field label={t("newProject.language")}>
-              <SelectInput name="language" defaultValue="Korean">
-                {projectLanguages.map(([value, labelKey]) => (
-                  <option key={value} value={value}>
-                    {t(labelKey)}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field label={t("newProject.aspectRatio")}>
-              <SelectInput name="aspectRatio" defaultValue="16:9">
-                <option>16:9</option>
-                <option>9:16</option>
-                <option>1:1</option>
-              </SelectInput>
-            </Field>
-            <Field label={t("newProject.ratingGuardrail")}>
-              <SelectInput name="ratingGuardrail" defaultValue="15+">
-                <option value="All ages">{t("option.allAges")}</option>
-                <option>12+</option>
-                <option>15+</option>
-                <option value="No adult content">{t("option.noAdultContent")}</option>
-              </SelectInput>
-            </Field>
-          </div>
-        </section>
+        <div className="space-y-5">
+          <section className="studio-panel p-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={t("newProject.projectName")}>
+                <TextInput name="projectName" placeholder="Muyang" required minLength={2} />
+              </Field>
+              <Field label={t("newProject.originalTitle")}>
+                <TextInput name="originalTitle" placeholder="Line 9 Shaman" />
+              </Field>
+              <Field label={t("newProject.productionType")}>
+                <SelectInput name="productionType" defaultValue="Trailer">
+                  {productionTypes.map(([value, labelKey]) => (
+                    <option key={value} value={value}>
+                      {t(labelKey)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label={t("newProject.targetLength")}>
+                <SelectInput name="targetLength" defaultValue="60 sec">
+                  <option>30 sec</option>
+                  <option>60 sec</option>
+                  <option>3 min</option>
+                  <option>5 min</option>
+                  <option>10 min</option>
+                </SelectInput>
+              </Field>
+              <Field label={t("newProject.style")}>
+                <SelectInput name="style" defaultValue="Korean thriller">
+                  {styles.map(([value, labelKey]) => (
+                    <option key={value} value={value}>
+                      {t(labelKey)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label={t("newProject.language")}>
+                <SelectInput name="language" defaultValue="Korean">
+                  {projectLanguages.map(([value, labelKey]) => (
+                    <option key={value} value={value}>
+                      {t(labelKey)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label={t("newProject.aspectRatio")}>
+                <SelectInput name="aspectRatio" defaultValue="16:9">
+                  <option>16:9</option>
+                  <option>9:16</option>
+                  <option>1:1</option>
+                </SelectInput>
+              </Field>
+              <Field label={t("newProject.ratingGuardrail")}>
+                <SelectInput name="ratingGuardrail" defaultValue="15+">
+                  <option value="All ages">{t("option.allAges")}</option>
+                  <option>12+</option>
+                  <option>15+</option>
+                  <option value="No adult content">{t("option.noAdultContent")}</option>
+                </SelectInput>
+              </Field>
+            </div>
+          </section>
+
+          <section className="studio-panel p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-black">만화 원본 업로드</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  PDF, JPG, PNG, ZIP 파일을 프로젝트 생성과 동시에 업로드합니다.
+                </p>
+              </div>
+              <span className="status-pill border-primary/35 bg-primary/10 text-primary">
+                필수 단계
+              </span>
+            </div>
+
+            <div
+              className={cn(
+                "mt-4 rounded-xl border border-dashed border-border/80 bg-background/30 p-6 text-center transition",
+                isDragging && "border-primary bg-primary/10"
+              )}
+              onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(event: DragEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                setIsDragging(false);
+                appendFiles(event.dataTransfer.files);
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                className="sr-only"
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.zip,image/jpeg,image/png,application/pdf,application/zip"
+                onChange={(event) => {
+                  if (event.target.files) appendFiles(event.target.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg border border-primary/40 bg-primary/10">
+                <UploadCloud className="h-7 w-7 text-primary" aria-hidden="true" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold">파일을 끌어오거나 선택하세요</h3>
+              <p className="mt-2 text-sm text-muted-foreground">최대 200MB, PDF/JPG/PNG/ZIP 지원</p>
+              <Button className="mt-5" type="button" onClick={() => fileInputRef.current?.click()}>
+                파일 선택
+              </Button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {sourceFiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/80 p-4 text-sm text-muted-foreground">
+                  아직 선택된 만화 원본이 없습니다.
+                </div>
+              ) : (
+                sourceFiles.map((item) => {
+                  const Icon =
+                    item.status === "success" ? CheckCircle2 : item.file.name.toLowerCase().endsWith(".zip") ? FileArchive : item.file.type.startsWith("image/") ? FileImage : FileText;
+                  return (
+                    <div key={item.id} className="rounded-lg border border-border/80 bg-background/35 p-4">
+                      <div className="flex items-start gap-3">
+                        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="truncate text-sm font-semibold">{item.file.name}</p>
+                            <span className="text-xs text-muted-foreground">{sourceFileSizeLabel(item.file.size)}</span>
+                          </div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--primary)),hsl(var(--warning)))] transition-all"
+                              style={{ width: `${item.progress}%` }}
+                            />
+                          </div>
+                          {item.analysisStatus ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              상태: {readableSourceStatus(item.analysisStatus)}
+                            </p>
+                          ) : null}
+                          {item.error ? <p className="mt-2 text-xs text-destructive">{item.error}</p> : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
+                          disabled={isSubmitting}
+                          onClick={() => removeFile(item.id)}
+                          aria-label={`${item.file.name} 제거`}
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </div>
 
         <aside className="space-y-4">
           <section className="studio-panel-hot overflow-hidden p-5">
@@ -226,6 +493,20 @@ export default function NewProjectPage() {
                   />
                   <span className="font-medium">{t(modeKey)}</span>
                 </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="studio-panel p-5">
+            <h2 className="text-lg font-semibold">제작 파이프라인</h2>
+            <div className="mt-4 grid gap-2">
+              {pipelinePreview.map((step, index) => (
+                <div key={step} className="flex items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
+                    {index + 1}
+                  </span>
+                  <span className="text-sm font-semibold">{step}</span>
+                </div>
               ))}
             </div>
           </section>
@@ -252,8 +533,12 @@ export default function NewProjectPage() {
           </section>
 
           <Button className="w-full" disabled={isSubmitting} type="submit">
-            <Check className="h-4 w-4" aria-hidden="true" />
-            {isSubmitting ? "생성 중..." : t("newProject.create")}
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Check className="h-4 w-4" aria-hidden="true" />
+            )}
+            {isSubmitting ? "프로젝트 생성 및 업로드 중..." : "프로젝트 만들고 업로드"}
           </Button>
           <Button
             className="w-full"
@@ -263,7 +548,7 @@ export default function NewProjectPage() {
               setMessage({
                 tone: "success",
                 title: "소스 기반 초안이 준비됩니다.",
-                body: "업로드 화면에서 원본을 추가하면 Story Architect 단계로 이어집니다."
+                body: "이 화면에서 원본을 추가하면 Story Architect 단계까지 한 번에 이어집니다."
               })
             }
           >

@@ -20,6 +20,13 @@ import { useI18n } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { apiJson } from "@/lib/api-client";
+import {
+  createSourceFileId,
+  isSourceAnalysisComplete,
+  readableSourceStatus,
+  sourceFileSizeLabel,
+  validateSourceFiles
+} from "@/lib/source-file-rules";
 import { cn } from "@/lib/utils";
 
 type UploadStatus = "ready" | "uploading" | "success" | "error";
@@ -55,48 +62,13 @@ const pipelinePreview = [
   { title: "자막 / 출력", body: "편집 & 내보내기", icon: Captions }
 ];
 
-const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png", "zip"]);
-const maxFileBytes = 200 * 1024 * 1024;
-
-function createId(file: File) {
-  const randomPart =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-  return `${file.name}-${file.size}-${file.lastModified}-${randomPart}`;
-}
-
 function makeUploadItem(file: File): UploadItem {
   return {
-    id: createId(file),
+    id: createSourceFileId(file),
     file,
     status: "ready",
     progress: 0
   };
-}
-
-function extensionOf(file: File) {
-  return file.name.split(".").pop()?.toLowerCase() || "";
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function isAnalysisComplete(status: string) {
-  return ["analyzed", "processed", "processed_without_ai"].includes(status);
-}
-
-function readableStatus(status?: string) {
-  if (!status) return "대기 중";
-  return {
-    analyzed: "AI 분석 완료",
-    processed: "처리 완료",
-    processed_without_ai: "AI 없이 저장 완료",
-    analysis_failed: "AI 분석 실패",
-    uploaded: "업로드 완료"
-  }[status] ?? status;
 }
 
 export default function SourceUploadPage() {
@@ -123,40 +95,13 @@ export default function SourceUploadPage() {
   }, []);
 
   function appendFiles(fileList: FileList | File[]) {
-    const incoming = Array.from(fileList);
-    const valid: UploadItem[] = [];
-    const errors: string[] = [];
+    const { accepted, errors } = validateSourceFiles(
+      Array.from(fileList),
+      items.map((item) => item.file)
+    );
 
-    for (const file of incoming) {
-      const extension = extensionOf(file);
-      const duplicate = items.some(
-        (item) =>
-          item.file.name === file.name &&
-          item.file.size === file.size &&
-          item.file.lastModified === file.lastModified
-      );
-
-      if (duplicate) {
-        errors.push(`${file.name}: 이미 선택된 파일입니다.`);
-        continue;
-      }
-      if (!allowedExtensions.has(extension)) {
-        errors.push(`${file.name}: PDF, JPG, PNG, ZIP만 업로드할 수 있습니다.`);
-        continue;
-      }
-      if (file.size <= 0) {
-        errors.push(`${file.name}: 빈 파일은 업로드할 수 없습니다.`);
-        continue;
-      }
-      if (file.size > maxFileBytes) {
-        errors.push(`${file.name}: 파일 크기가 200MB를 초과했습니다.`);
-        continue;
-      }
-      valid.push(makeUploadItem(file));
-    }
-
-    if (valid.length > 0) {
-      setItems((current) => [...current, ...valid]);
+    if (accepted.length > 0) {
+      setItems((current) => [...current, ...accepted.map(makeUploadItem)]);
     }
     if (errors.length > 0) {
       setMessage({
@@ -206,7 +151,7 @@ export default function SourceUploadPage() {
       setMessage({
         tone: "warning",
         title: "프로젝트 ID가 필요합니다.",
-        body: "실제 업로드는 새 프로젝트 생성 후 자동 이동된 업로드 화면에서 진행됩니다."
+        body: "새 프로젝트 화면에서 프로젝트를 만들면 이 업로드 화면으로 자동 연결됩니다."
       });
       return;
     }
@@ -219,7 +164,7 @@ export default function SourceUploadPage() {
     for (const item of items) {
       if (item.status === "success") {
         successCount += 1;
-        if (item.analysisStatus && isAnalysisComplete(item.analysisStatus)) analyzedCount += 1;
+        if (item.analysisStatus && isSourceAnalysisComplete(item.analysisStatus)) analyzedCount += 1;
         continue;
       }
 
@@ -227,7 +172,7 @@ export default function SourceUploadPage() {
         status: "uploading",
         progress: 45,
         error: undefined,
-        analysisStatus: "AI 분석 중"
+        analysisStatus: "analyzing"
       });
       const uploadPayload = new FormData();
       uploadPayload.set("rights_confirmed", "true");
@@ -241,14 +186,14 @@ export default function SourceUploadPage() {
 
       if (result.ok) {
         successCount += 1;
-        if (isAnalysisComplete(result.data.status)) analyzedCount += 1;
+        if (isSourceAnalysisComplete(result.data.status)) analyzedCount += 1;
         updateItem(item.id, {
           status: result.data.status === "analysis_failed" ? "error" : "success",
           progress: 100,
           analysisStatus: result.data.status,
           error:
             result.data.status === "analysis_failed"
-              ? "파일은 저장되었지만 AI 분석에 실패했습니다. API 키 또는 서버 로그를 확인해 주세요."
+              ? "파일은 저장됐지만 AI 분석이 실패했습니다. API 키와 서버 로그를 확인해 주세요."
               : undefined
         });
       } else {
@@ -263,12 +208,12 @@ export default function SourceUploadPage() {
         analyzedCount === items.length
           ? "업로드와 AI 분석이 완료되었습니다."
           : successCount > 0
-            ? "업로드는 완료되었지만 일부 분석 확인이 필요합니다."
+            ? "업로드는 완료됐지만 일부 분석 확인이 필요합니다."
             : "파일 업로드가 실패했습니다.",
       body:
         analyzedCount === items.length
           ? "스토리 분석, 캐릭터 바이블, 콘티, 영상 렌더 작업 초안, 자막/출력 초안이 프로젝트에 자동 저장되었습니다."
-          : `${items.length}개 중 ${successCount}개 파일이 저장되었고 ${analyzedCount}개 파일이 분석되었습니다.`
+          : `${items.length}개 중 ${successCount}개 파일이 저장되고 ${analyzedCount}개 파일이 분석되었습니다.`
     });
   }
 
@@ -281,7 +226,7 @@ export default function SourceUploadPage() {
           </div>
           <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{t("source.title")}</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-            {t("source.subtitle")}
+            만화 원본을 업로드하면 AI가 스토리 분석, 캐릭터 설계, 콘티 생성, 영상 렌더 준비까지 이어갑니다.
           </p>
         </div>
         <div className="film-strip hidden h-36 rounded-lg border border-border/80 p-4 md:block">
@@ -323,7 +268,7 @@ export default function SourceUploadPage() {
               <UploadCloud className="h-8 w-8 text-primary" aria-hidden="true" />
             </div>
             <h2 className="relative mt-5 text-xl font-semibold">{t("source.dropFiles")}</h2>
-            <p className="relative mt-2 text-sm text-muted-foreground">{t("source.supported")}</p>
+            <p className="relative mt-2 text-sm text-muted-foreground">최대 200MB, PDF/JPG/PNG/ZIP 지원</p>
             <input
               ref={fileInputRef}
               className="sr-only"
@@ -381,7 +326,7 @@ export default function SourceUploadPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                             <p className="truncate text-sm font-semibold">{item.file.name}</p>
-                            <span className="text-xs text-muted-foreground">{formatBytes(item.file.size)}</span>
+                            <span className="text-xs text-muted-foreground">{sourceFileSizeLabel(item.file.size)}</span>
                           </div>
                           <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                             <div
@@ -391,7 +336,7 @@ export default function SourceUploadPage() {
                           </div>
                           {item.analysisStatus ? (
                             <p className="mt-2 text-xs text-muted-foreground">
-                              분석 상태: {readableStatus(item.analysisStatus)}
+                              분석 상태: {readableSourceStatus(item.analysisStatus)}
                             </p>
                           ) : null}
                           {item.error ? <p className="mt-2 text-xs text-destructive">{item.error}</p> : null}
@@ -417,7 +362,9 @@ export default function SourceUploadPage() {
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
-                      <div className="text-sm font-bold">{index + 1}. {step.title}</div>
+                      <div className="text-sm font-bold">
+                        {index + 1}. {step.title}
+                      </div>
                       <div className="text-xs text-muted-foreground">{step.body}</div>
                     </div>
                   </div>

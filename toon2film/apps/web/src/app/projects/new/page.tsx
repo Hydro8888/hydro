@@ -115,7 +115,9 @@ function toUploadItem(file: File): SelectedSourceFile {
 export default function NewProjectPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingPipelineAfterUploadRef = useRef<"story" | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
@@ -212,8 +214,27 @@ export default function NewProjectPage() {
     return { savedCount, analyzedCount, errors };
   }
 
-  function applyUploadSummary(uploadSummary: { savedCount: number; analyzedCount: number; errors: string[] }) {
+  function applyUploadSummary(
+    uploadSummary: { savedCount: number; analyzedCount: number; errors: string[] },
+    projectIdForAutoRun = createdProjectId
+  ) {
     setIsSubmitting(false);
+
+    if (uploadSummary.savedCount > 0 && pendingPipelineAfterUploadRef.current === "story") {
+      pendingPipelineAfterUploadRef.current = null;
+      setFlowStep("uploaded");
+      setMessage({
+        tone: "success",
+        title: "원본 업로드가 완료되어 스토리 분석을 시작합니다.",
+        body: "선택한 파일을 서버에 저장했습니다. 이제 AI가 로그라인, 시놉시스, 장면 구성을 작성합니다."
+      });
+      void runNextPipelineStep(projectIdForAutoRun, "uploaded");
+      return;
+    }
+
+    if (uploadSummary.savedCount === 0) {
+      pendingPipelineAfterUploadRef.current = null;
+    }
 
     if (uploadSummary.savedCount === sourceFiles.length && uploadSummary.errors.length === 0) {
       setFlowStep("uploaded");
@@ -255,8 +276,8 @@ export default function NewProjectPage() {
     return "다음 단계 시작";
   }
 
-  async function runNextPipelineStep() {
-    if (!createdProjectId) {
+  async function runNextPipelineStep(projectIdOverride = createdProjectId, flowStepOverride = flowStep) {
+    if (!projectIdOverride) {
       setMessage({
         tone: "error",
         title: "먼저 프로젝트와 원본을 업로드해 주세요.",
@@ -265,29 +286,29 @@ export default function NewProjectPage() {
       return;
     }
 
-    if (flowStep === "storyboard") {
-      router.push(`/projects/${createdProjectId}`);
+    if (flowStepOverride === "storyboard") {
+      router.push(`/projects/${projectIdOverride}`);
       return;
     }
 
     const action =
-      flowStep === "uploaded"
+      flowStepOverride === "uploaded"
         ? {
-            endpoint: `/projects/${createdProjectId}/generate-story-bible`,
+            endpoint: `/projects/${projectIdOverride}/generate-story-bible`,
             next: "story" as const,
             title: "스토리 분석이 완료되었습니다.",
             body: "업로드된 만화 원본을 바탕으로 로그라인, 시놉시스, 장면 구성을 만들었습니다. 이제 캐릭터 바이블을 생성할 수 있습니다."
           }
-        : flowStep === "story"
+        : flowStepOverride === "story"
           ? {
-              endpoint: `/projects/${createdProjectId}/generate-characters`,
+              endpoint: `/projects/${projectIdOverride}/generate-characters`,
               next: "characters" as const,
               title: "캐릭터 설계가 완료되었습니다.",
               body: "주요 인물의 역할, 외형, 성격, 영상 생성용 기준 프롬프트를 준비했습니다. 이제 콘티와 샷 구성을 생성할 수 있습니다."
             }
-          : flowStep === "characters"
+          : flowStepOverride === "characters"
             ? {
-                endpoint: `/projects/${createdProjectId}/generate-storyboard`,
+                endpoint: `/projects/${projectIdOverride}/generate-storyboard`,
                 next: "storyboard" as const,
                 title: "콘티 생성이 완료되었습니다.",
                 body: "장면별 샷, 카메라, 렌즈, 조명 기준이 생성되었습니다. 프로젝트 상세에서 영상 렌더 단계로 이어갈 수 있습니다."
@@ -327,6 +348,7 @@ export default function NewProjectPage() {
     );
 
     if (projectName.length < 2) {
+      pendingPipelineAfterUploadRef.current = null;
       setMessage({
         tone: "error",
         title: "프로젝트명을 입력해 주세요.",
@@ -336,6 +358,7 @@ export default function NewProjectPage() {
     }
 
     if (sourceFiles.length === 0) {
+      pendingPipelineAfterUploadRef.current = null;
       setMessage({
         tone: "error",
         title: "만화 원본 파일을 선택해 주세요.",
@@ -345,6 +368,7 @@ export default function NewProjectPage() {
     }
 
     if (!rights) {
+      pendingPipelineAfterUploadRef.current = null;
       setMessage({
         tone: "error",
         title: "권리 확인이 필요합니다.",
@@ -359,7 +383,7 @@ export default function NewProjectPage() {
 
     if (createdProjectId) {
       const uploadSummary = await uploadSelectedFiles(createdProjectId);
-      applyUploadSummary(uploadSummary);
+      applyUploadSummary(uploadSummary, createdProjectId);
       return;
     }
 
@@ -379,6 +403,7 @@ export default function NewProjectPage() {
     });
 
     if (!result.ok) {
+      pendingPipelineAfterUploadRef.current = null;
       const draft = {
         title: projectName,
         originalTitle: String(form.get("originalTitle") || "").trim(),
@@ -396,9 +421,10 @@ export default function NewProjectPage() {
       return;
     }
 
-    setCreatedProjectId(result.data.id);
-    const uploadSummary = await uploadSelectedFiles(result.data.id);
-    applyUploadSummary(uploadSummary);
+    const projectId = result.data.id;
+    setCreatedProjectId(projectId);
+    const uploadSummary = await uploadSelectedFiles(projectId);
+    applyUploadSummary(uploadSummary, projectId);
   }
 
   const monitorSteps = useMemo<MonitorStep[]>(() => {
@@ -426,6 +452,7 @@ export default function NewProjectPage() {
       if (isRunning(stepId)) return "processing" as const;
       if (stepId === "story") {
         if (stepRank >= flowRank("story")) return "done" as const;
+        if (!createdProjectId && selectedCount > 0 && flowStep === "editing") return "review" as const;
         return flowStep === "uploaded" ? ("review" as const) : ("ready" as const);
       }
       if (stepId === "characters") {
@@ -457,6 +484,8 @@ export default function NewProjectPage() {
           ? "AI API가 이 단계를 작성 중입니다."
           : step.id === "story" && flowStep === "uploaded"
             ? "원본 업로드가 끝나면 스토리 분석을 시작할 수 있습니다."
+            : step.id === "story" && !createdProjectId && selectedCount > 0
+              ? "클릭하면 프로젝트 생성과 업로드를 먼저 실행한 뒤 스토리 분석을 자동으로 시작합니다."
             : step.id === "render" && flowStep === "storyboard"
               ? "상세 화면에서 영상 생성 단계로 이어집니다."
               : undefined);
@@ -467,6 +496,8 @@ export default function NewProjectPage() {
             : "아직 원본 파일이 없습니다."
           : step.id === "story" && stepRank >= flowRank("story")
             ? "로그라인, 시놉시스, 씬 분할 생성 완료"
+            : step.id === "story" && !createdProjectId && selectedCount > 0
+              ? "파일 선택됨. 클릭하면 업로드 후 AI 스토리 분석을 시작합니다."
             : step.id === "characters" && stepRank >= flowRank("characters")
               ? "캐릭터 바이블 생성 완료"
               : step.id === "storyboard" && stepRank >= flowRank("storyboard")
@@ -486,6 +517,8 @@ export default function NewProjectPage() {
           : step.id === "story"
             ? flowStep === "uploaded"
               ? "클릭해 스토리 분석"
+              : !createdProjectId && selectedCount > 0
+                ? "업로드 후 스토리 분석"
               : stepRank >= flowRank("story")
                 ? "스토리 결과 확인"
                 : "원본 업로드 필요"
@@ -540,6 +573,17 @@ export default function NewProjectPage() {
     }
 
     if (!createdProjectId) {
+      if (step.id === "story" && sourceFiles.length > 0) {
+        pendingPipelineAfterUploadRef.current = "story";
+        setMessage({
+          tone: "success",
+          title: "업로드 후 스토리 분석까지 자동 진행합니다.",
+          body: "프로젝트 생성, 원본 업로드, AI 원본 분석을 먼저 실행한 뒤 스토리 분석을 이어서 시작합니다."
+        });
+        formRef.current?.requestSubmit();
+        return;
+      }
+
       setMessage({
         tone: "warning",
         title: "먼저 프로젝트를 만들고 원본을 업로드해 주세요.",
@@ -637,7 +681,7 @@ export default function NewProjectPage() {
         </Notice>
       ) : null}
 
-      <form className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
+      <form ref={formRef} className="grid gap-6 xl:grid-cols-[1fr_360px]" noValidate onSubmit={handleSubmit}>
         <div className="space-y-5">
           <section className="studio-panel p-5">
             <div className="grid gap-4 md:grid-cols-2">
@@ -886,7 +930,7 @@ export default function NewProjectPage() {
               variant={flowStep === "storyboard" ? "secondary" : "primary"}
               disabled={isPipelineRunning || isSubmitting}
               data-testid="next-pipeline-step"
-              onClick={runNextPipelineStep}
+              onClick={() => void runNextPipelineStep()}
             >
               {isPipelineRunning ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

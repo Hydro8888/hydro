@@ -146,6 +146,8 @@ assertContains(path.join(appRoot, "projects", "new", "page.tsx"), [
   'data-testid="source-file-input"',
   'data-testid="source-dropzone"',
   'data-testid="next-pipeline-step"',
+  "pendingPipelineAfterUploadRef",
+  "업로드 후 스토리 분석",
   "rightsSource",
   "rightsLikeness",
   "rightsCommercial",

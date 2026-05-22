@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +20,10 @@ export type MonitorStep = {
   status: PipelineStatus;
   count?: number | string;
   detail?: string;
+  result?: string;
+  actionLabel?: string;
+  disabled?: boolean;
+  href?: string;
 };
 
 type PipelineMonitorProps = {
@@ -30,6 +35,7 @@ type PipelineMonitorProps = {
   compact?: boolean;
   isLoading?: boolean;
   className?: string;
+  onStepClick?: (step: MonitorStep) => void;
 };
 
 const stepTone: Record<PipelineStatus, string> = {
@@ -78,7 +84,8 @@ export function PipelineMonitor({
   currentLabel,
   compact = false,
   isLoading = false,
-  className
+  className,
+  onStepClick
 }: PipelineMonitorProps) {
   const safeProgress = Math.max(0, Math.min(100, progress ?? computeProgress(steps)));
   const currentStep = pickCurrentStep(steps);
@@ -138,15 +145,17 @@ export function PipelineMonitor({
       >
         {steps.map((step, index) => {
           const Icon = stepIcon[step.status];
-          return (
-            <article
-              key={step.id}
-              className={cn(
-                "relative rounded-lg border p-3 transition",
-                stepTone[step.status],
-                !compact && index < steps.length - 1 && "film-arrow"
-              )}
-            >
+          const isActionable = Boolean(step.href || onStepClick);
+          const cardClassName = cn(
+            "relative rounded-lg border p-3 text-left transition",
+            stepTone[step.status],
+            !compact && index < steps.length - 1 && "film-arrow",
+            isActionable &&
+              "group cursor-pointer hover:-translate-y-0.5 hover:border-primary/60 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70",
+            step.disabled && "cursor-not-allowed opacity-65 hover:translate-y-0"
+          );
+          const cardContent = (
+            <>
               <div className="flex items-start justify-between gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-current/25 bg-background/35">
                   {step.status === "processing" ? (
@@ -163,11 +172,50 @@ export function PipelineMonitor({
               {step.subtitle ? (
                 <p className="mt-1 break-keep text-xs leading-5 text-muted-foreground">{step.subtitle}</p>
               ) : null}
+              {step.result ? (
+                <div className="mt-3 rounded-md border border-success/20 bg-success/10 px-2 py-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-success">결과</p>
+                  <p className="mt-0.5 break-keep text-[11px] leading-5 text-foreground/85">{step.result}</p>
+                </div>
+              ) : null}
               {step.detail ? (
                 <p className="mt-3 rounded-md border border-current/15 bg-background/25 px-2 py-1 text-[11px] leading-5">
                   {step.detail}
                 </p>
               ) : null}
+              {isActionable ? (
+                <span className="mt-3 inline-flex min-h-7 items-center rounded-md border border-current/20 bg-background/25 px-2 text-[11px] font-bold text-foreground transition group-hover:border-primary/40 group-hover:text-primary">
+                  {step.disabled ? "진행 중" : step.actionLabel ?? "단계 열기"}
+                </span>
+              ) : null}
+            </>
+          );
+
+          if (step.href && !step.disabled) {
+            return (
+              <Link key={step.id} href={step.href} className={cardClassName}>
+                {cardContent}
+              </Link>
+            );
+          }
+
+          if (onStepClick) {
+            return (
+              <button
+                key={step.id}
+                type="button"
+                className={cardClassName}
+                disabled={step.disabled}
+                onClick={() => onStepClick(step)}
+              >
+                {cardContent}
+              </button>
+            );
+          }
+
+          return (
+            <article key={step.id} className={cardClassName}>
+              {cardContent}
             </article>
           );
         })}

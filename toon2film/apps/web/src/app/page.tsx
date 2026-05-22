@@ -48,6 +48,33 @@ const statusTone: Record<PipelineStatus, string> = {
   done: "border-success/40 bg-success/10 text-success"
 };
 
+const pipelineRouteById: Record<string, string> = {
+  upload: "/projects/new",
+  story: "/projects/new",
+  character: "/projects/muyang-trailer",
+  shots: "/projects/muyang-trailer",
+  render: "/video-studio",
+  export: "/export"
+};
+
+const pipelineResultById: Record<string, string> = {
+  upload: "샘플 원본 2개가 분석 대기열에 있습니다.",
+  story: "로그라인, 시놉시스, 씬 분할을 확인할 수 있습니다.",
+  character: "주요 캐릭터 2명의 바이블이 준비되었습니다.",
+  shots: "콘티와 샷 리스트가 제작 화면에 연결됩니다.",
+  render: "렌더링 큐 3건을 영상 제작 화면에서 추적합니다.",
+  export: "선택된 컷은 자막과 출력 단계로 이어집니다."
+};
+
+const pipelineActionById: Record<string, string> = {
+  upload: "새 프로젝트에서 업로드",
+  story: "스토리 분석 시작",
+  character: "결과 확인",
+  shots: "콘티 확인",
+  render: "렌더링 큐 열기",
+  export: "출력 센터 열기"
+};
+
 function assetPath(path: string) {
   return `${basePath}${path}`;
 }
@@ -157,7 +184,10 @@ export default function DashboardPage() {
               title: t(step.titleKey),
               subtitle: t(step.subtitleKey),
               status: step.status,
-              count: step.count
+              count: step.count,
+              href: pipelineRouteById[step.id],
+              result: pipelineResultById[step.id],
+              actionLabel: pipelineActionById[step.id]
             }))}
           />
 

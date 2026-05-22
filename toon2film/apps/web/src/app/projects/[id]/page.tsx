@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Captions,
   Clapperboard,
@@ -129,6 +129,7 @@ function statusLabel(status: PipelineState["status"] | undefined) {
 
 export default function ProjectPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const isApiProject = uuidPattern.test(id);
@@ -205,6 +206,142 @@ export default function ProjectPage() {
     });
   }
 
+  function monitorStepResult(stepId: string) {
+    if (!pipeline) {
+      return stepId === "upload"
+        ? "샘플 원본과 제작 문서가 준비된 미리보기입니다."
+        : "실제 프로젝트에서는 AI 실행 결과가 여기에 표시됩니다.";
+    }
+
+    if (stepId === "upload") {
+      return pipeline.raw_files.length
+        ? `${pipeline.raw_files.length}개 원본 파일 연결 완료`
+        : "아직 업로드된 원본이 없습니다.";
+    }
+    if (stepId === "story") {
+      return pipeline.story_analysis
+        ? `${pipeline.story_analysis.scenes.length}개 씬 분석 완료 / ${pipeline.story_analysis.logline || "로그라인 생성"}`
+        : "스토리 분석 전입니다.";
+    }
+    if (stepId === "character" || stepId === "characters") {
+      return pipeline.character_bible.length
+        ? `${pipeline.character_bible.length}명 캐릭터 설계 완료`
+        : "캐릭터 바이블 생성 전입니다.";
+    }
+    if (stepId === "storyboard" || stepId === "shots") {
+      return pipeline.storyboard.length
+        ? `${pipeline.storyboard.length}개 콘티 샷 생성 완료`
+        : "콘티와 샷 구성 생성 전입니다.";
+    }
+    if (stepId === "render") {
+      return pipeline.render_jobs.length
+        ? `${pipeline.render_jobs.length}개 영상 렌더 작업 연결`
+        : "콘티 생성 후 영상 렌더 단계로 이동할 수 있습니다.";
+    }
+    if (stepId === "export") {
+      return pipeline.exports.length || pipeline.subtitle_tracks
+        ? `자막 ${pipeline.subtitle_tracks}개 / 출력 ${pipeline.exports.length}개 준비`
+        : "렌더 이후 자막과 출력 결과가 표시됩니다.";
+    }
+    return "단계 결과 대기 중입니다.";
+  }
+
+  function monitorStepActionLabel(stepId: string) {
+    if (stepId === "upload") return "업로드/소스 관리";
+    if (stepId === "story") return pipeline?.story_analysis ? "스토리 결과 보기" : "스토리 분석 실행";
+    if (stepId === "character" || stepId === "characters") {
+      return pipeline?.character_bible.length ? "캐릭터 결과 보기" : "캐릭터 설계 실행";
+    }
+    if (stepId === "storyboard" || stepId === "shots") {
+      return pipeline?.storyboard.length ? "샷 목록 보기" : "콘티 생성 실행";
+    }
+    if (stepId === "render") return "영상 제작 화면으로";
+    if (stepId === "export") return "출력 센터로";
+    return "단계 열기";
+  }
+
+  async function handleMonitorStepClick(step: MonitorStep) {
+    if (isLoading || runningAction) return;
+
+    if (step.id === "upload") {
+      router.push(`/source/upload?projectId=${id}`);
+      return;
+    }
+
+    if (!isApiProject) {
+      setMessage({
+        tone: "warning",
+        title: "샘플 프로젝트입니다.",
+        body: "새 프로젝트에서 원본을 업로드해 생성된 실제 프로젝트 화면에서는 이 카드 클릭으로 AI 단계를 바로 실행할 수 있습니다."
+      });
+      return;
+    }
+
+    if (step.id === "story") {
+      if (pipeline?.story_analysis) {
+        setMessage({
+          tone: "success",
+          title: "스토리 분석 결과",
+          body: `${pipeline.story_analysis.scenes.length}개 씬과 시놉시스가 생성되어 있습니다. 아래 스토리 분석 결과 패널에서 내용을 확인할 수 있습니다.`
+        });
+        return;
+      }
+      await runPipelineAction("story");
+      return;
+    }
+
+    if (step.id === "character" || step.id === "characters") {
+      if (!pipeline?.story_analysis) {
+        setMessage({
+          tone: "warning",
+          title: "스토리 분석이 먼저 필요합니다.",
+          body: "캐릭터 설계는 스토리 분석 결과를 기반으로 주요 인물과 성격, 외형 프롬프트를 만듭니다."
+        });
+        return;
+      }
+      if (pipeline.character_bible.length) {
+        setMessage({
+          tone: "success",
+          title: "캐릭터 설계 결과",
+          body: `${pipeline.character_bible.length}명 캐릭터 바이블이 준비되어 있습니다.`
+        });
+        return;
+      }
+      await runPipelineAction("characters");
+      return;
+    }
+
+    if (step.id === "storyboard" || step.id === "shots") {
+      if (!pipeline?.character_bible.length) {
+        setMessage({
+          tone: "warning",
+          title: "캐릭터 설계가 먼저 필요합니다.",
+          body: "콘티 생성은 캐릭터 바이블과 씬 정보를 함께 사용해 샷과 카메라 연출을 만듭니다."
+        });
+        return;
+      }
+      if (pipeline.storyboard.length) {
+        setMessage({
+          tone: "success",
+          title: "콘티 생성 결과",
+          body: `${pipeline.storyboard.length}개 콘티 샷이 생성되어 아래 샷 리스트에서 확인할 수 있습니다.`
+        });
+        return;
+      }
+      await runPipelineAction("storyboard");
+      return;
+    }
+
+    if (step.id === "render") {
+      router.push("/video-studio");
+      return;
+    }
+
+    if (step.id === "export") {
+      router.push("/export");
+    }
+  }
+
   const title = pipeline?.project_name ?? mockProject.title;
   const projectStatus = pipeline ? statusMap[pipeline.status] : mockProject.status;
   const monitorSteps = useMemo<MonitorStep[]>(
@@ -214,16 +351,22 @@ export default function ProjectPage() {
         title: step.title,
         subtitle: step.subtitle,
         status: step.status,
-        count: step.count || undefined
+        count: step.count || undefined,
+        result: monitorStepResult(step.id),
+        actionLabel: monitorStepActionLabel(step.id),
+        disabled: isLoading || Boolean(runningAction)
       })) ??
       pipelineSteps.map((step) => ({
         id: step.id,
         title: t(step.titleKey),
         subtitle: t(step.subtitleKey),
         status: step.status,
-        count: step.count
+        count: step.count,
+        result: monitorStepResult(step.id),
+        actionLabel: monitorStepActionLabel(step.id),
+        disabled: isLoading || Boolean(runningAction)
       })),
-    [pipeline, t]
+    [isLoading, pipeline, runningAction, t]
   );
   const monitorProgress = pipeline ? progressByStatus[pipeline.status] : mockProject.progress;
   const storyboardRows = pipeline?.storyboard.length
@@ -418,6 +561,7 @@ export default function ProjectPage() {
         steps={monitorSteps}
         progress={monitorProgress}
         isLoading={isLoading || Boolean(runningAction)}
+        onStepClick={handleMonitorStepClick}
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -444,6 +444,7 @@ export default function NewProjectPage() {
     }
 
     return pipelinePreview.map((step, index) => {
+      const status = statusFor(step.id, index);
       const uploadDetail =
         step.id === "upload"
           ? selectedCount > 0
@@ -459,17 +460,155 @@ export default function NewProjectPage() {
             : step.id === "render" && flowStep === "storyboard"
               ? "상세 화면에서 영상 생성 단계로 이어집니다."
               : undefined);
+      const result =
+        step.id === "upload"
+          ? selectedCount > 0
+            ? `${selectedCount}개 파일 준비, ${analyzedCount}개 AI 원본 분석 완료`
+            : "아직 원본 파일이 없습니다."
+          : step.id === "story" && stepRank >= flowRank("story")
+            ? "로그라인, 시놉시스, 씬 분할 생성 완료"
+            : step.id === "characters" && stepRank >= flowRank("characters")
+              ? "캐릭터 바이블 생성 완료"
+              : step.id === "storyboard" && stepRank >= flowRank("storyboard")
+                ? "콘티와 샷 구성 생성 완료"
+                : step.id === "render" && flowStep === "storyboard"
+                  ? "프로젝트 상세에서 영상 렌더 단계 진행 가능"
+                  : step.id === "export" && flowStep === "storyboard"
+                    ? "렌더 이후 자막/출력 단계로 연결"
+                    : "이전 단계 완료 후 결과가 표시됩니다.";
+      const actionLabel =
+        step.id === "upload"
+          ? selectedCount > 0
+            ? createdProjectId
+              ? "업로드 결과 보기"
+              : "파일 추가/확인"
+            : "파일 선택"
+          : step.id === "story"
+            ? flowStep === "uploaded"
+              ? "클릭해 스토리 분석"
+              : stepRank >= flowRank("story")
+                ? "스토리 결과 확인"
+                : "원본 업로드 필요"
+            : step.id === "characters"
+              ? flowStep === "story"
+                ? "클릭해 캐릭터 설계"
+                : stepRank >= flowRank("characters")
+                  ? "캐릭터 결과 확인"
+                  : "스토리 분석 필요"
+              : step.id === "storyboard"
+                ? flowStep === "characters"
+                  ? "클릭해 콘티 생성"
+                  : stepRank >= flowRank("storyboard")
+                    ? "프로젝트 상세 보기"
+                    : "캐릭터 설계 필요"
+                : step.id === "render"
+                  ? flowStep === "storyboard"
+                    ? "렌더 단계로 이동"
+                    : "콘티 생성 필요"
+                  : flowStep === "storyboard"
+                    ? "출력 단계로 이동"
+                    : "렌더 이후 진행";
 
       return {
         id: step.id,
         title: step.label,
         subtitle: step.description,
-        status: statusFor(step.id, index),
+        status,
         count: step.id === "upload" && selectedCount > 0 ? selectedCount : index + 1,
-        detail
+        detail,
+        result,
+        actionLabel,
+        disabled: isSubmitting || isPipelineRunning
       };
     });
-  }, [flowStep, isPipelineRunning, sourceFiles]);
+  }, [createdProjectId, flowStep, isPipelineRunning, isSubmitting, sourceFiles]);
+
+  async function handleMonitorStepClick(step: MonitorStep) {
+    if (isSubmitting || isPipelineRunning) return;
+
+    if (step.id === "upload") {
+      if (!createdProjectId || canRetryUpload) {
+        fileInputRef.current?.click();
+        return;
+      }
+      setMessage({
+        tone: "success",
+        title: "원본 업로드 결과",
+        body: step.result ?? "업로드된 원본 상태를 확인했습니다."
+      });
+      return;
+    }
+
+    if (!createdProjectId) {
+      setMessage({
+        tone: "warning",
+        title: "먼저 프로젝트를 만들고 원본을 업로드해 주세요.",
+        body: "프로젝트 생성과 만화 원본 업로드가 끝나야 AI 단계별 실행을 시작할 수 있습니다."
+      });
+      return;
+    }
+
+    if (step.id === "story") {
+      if (flowStep === "uploaded") {
+        await runNextPipelineStep();
+        return;
+      }
+      setMessage({
+        tone: flowRank(flowStep) >= flowRank("story") ? "success" : "warning",
+        title: flowRank(flowStep) >= flowRank("story") ? "스토리 분석 결과" : "원본 업로드가 먼저 필요합니다.",
+        body:
+          flowRank(flowStep) >= flowRank("story")
+            ? "로그라인, 시놉시스, 씬 분할이 생성되어 다음 단계로 이어질 수 있습니다."
+            : "파일 업로드와 AI 원본 분석을 완료한 뒤 스토리 분석을 실행해 주세요."
+      });
+      return;
+    }
+
+    if (step.id === "characters") {
+      if (flowStep === "story") {
+        await runNextPipelineStep();
+        return;
+      }
+      setMessage({
+        tone: flowRank(flowStep) >= flowRank("characters") ? "success" : "warning",
+        title: flowRank(flowStep) >= flowRank("characters") ? "캐릭터 설계 결과" : "스토리 분석이 먼저 필요합니다.",
+        body:
+          flowRank(flowStep) >= flowRank("characters")
+            ? "캐릭터 바이블이 생성되어 콘티 생성 단계로 이어질 수 있습니다."
+            : "스토리 분석 결과가 있어야 주요 인물과 캐릭터 바이블을 만들 수 있습니다."
+      });
+      return;
+    }
+
+    if (step.id === "storyboard") {
+      if (flowStep === "characters") {
+        await runNextPipelineStep();
+        return;
+      }
+      if (flowStep === "storyboard") {
+        router.push(`/projects/${createdProjectId}`);
+        return;
+      }
+      setMessage({
+        tone: "warning",
+        title: "캐릭터 설계가 먼저 필요합니다.",
+        body: "캐릭터 바이블이 있어야 씬별 샷, 카메라, 콘티 구성을 안정적으로 만들 수 있습니다."
+      });
+      return;
+    }
+
+    if (step.id === "render" || step.id === "export") {
+      if (flowStep === "storyboard") {
+        router.push(`/projects/${createdProjectId}`);
+        return;
+      }
+      setMessage({
+        tone: "warning",
+        title: "콘티 생성 후 이동할 수 있습니다.",
+        body: "원본 업로드, 스토리 분석, 캐릭터 설계, 콘티 생성까지 완료하면 상세 화면에서 영상 렌더와 출력 단계로 이어집니다."
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -698,6 +837,7 @@ export default function NewProjectPage() {
             subtitle="새 프로젝트 생성 후 AI가 이어서 작성할 단계를 실시간으로 확인합니다."
             steps={monitorSteps}
             isLoading={isSubmitting || isPipelineRunning}
+            onStepClick={handleMonitorStepClick}
           />
 
           <section className="studio-panel p-5">

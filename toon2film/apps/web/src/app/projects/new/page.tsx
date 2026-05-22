@@ -3,14 +3,18 @@
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowRight,
+  BookOpen,
   Check,
   CheckCircle2,
+  Clapperboard,
   FileArchive,
   FileImage,
   FileText,
   Loader2,
   ShieldCheck,
   UploadCloud,
+  UserRound,
   WandSparkles,
   X
 } from "lucide-react";
@@ -55,6 +59,8 @@ type SourceFileResponse = {
   status: string;
 };
 
+type FlowStep = "editing" | "uploading" | "uploaded" | "story" | "characters" | "storyboard";
+
 const modes = [
   ["quick", "newProject.mode.quick"],
   ["expert", "newProject.mode.expert"],
@@ -85,13 +91,19 @@ const projectLanguages = [
 ] satisfies Array<[string, TranslationKey]>;
 
 const pipelinePreview = [
-  "원본 업로드",
-  "스토리 분석",
-  "캐릭터 설계",
-  "콘티 생성",
-  "영상 렌더",
-  "자막 / 출력"
-];
+  { id: "upload", label: "원본 업로드", description: "만화 / JPG / PDF", icon: UploadCloud },
+  { id: "story", label: "스토리 분석", description: "AI 스토리 생성", icon: BookOpen },
+  { id: "characters", label: "캐릭터 설계", description: "캐릭터 바이블", icon: UserRound },
+  { id: "storyboard", label: "콘티 생성", description: "샷 & 시퀀스 구성", icon: Clapperboard },
+  { id: "render", label: "영상 렌더", description: "AI 영상 생성", icon: FileText },
+  { id: "export", label: "자막 / 출력", description: "편집 & 내보내기", icon: CheckCircle2 }
+] as const;
+
+const flowOrder: FlowStep[] = ["editing", "uploading", "uploaded", "story", "characters", "storyboard"];
+
+function flowRank(step: FlowStep) {
+  return flowOrder.indexOf(step);
+}
 
 function toUploadItem(file: File): SelectedSourceFile {
   return {
@@ -108,10 +120,24 @@ export default function NewProjectPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [sourceFiles, setSourceFiles] = useState<SelectedSourceFile[]>([]);
+  const [createdProjectId, setCreatedProjectId] = useState("");
+  const [flowStep, setFlowStep] = useState<FlowStep>("editing");
+  const canRetryUpload = Boolean(createdProjectId) && flowStep === "editing";
+  const canContinuePipeline = Boolean(createdProjectId) && !["editing", "uploading"].includes(flowStep);
 
   function appendFiles(fileList: FileList | File[]) {
+    if (createdProjectId && !canRetryUpload) {
+      setMessage({
+        tone: "warning",
+        title: "프로젝트가 이미 생성되었습니다.",
+        body: "추가 원본은 프로젝트 상세 화면의 소스 관리에서 업로드해 주세요."
+      });
+      return;
+    }
+
     const incoming = Array.from(fileList);
     const { accepted, errors } = validateSourceFiles(
       incoming,
@@ -188,6 +214,112 @@ export default function NewProjectPage() {
     return { savedCount, analyzedCount, errors };
   }
 
+  function applyUploadSummary(uploadSummary: { savedCount: number; analyzedCount: number; errors: string[] }) {
+    setIsSubmitting(false);
+
+    if (uploadSummary.savedCount === sourceFiles.length && uploadSummary.errors.length === 0) {
+      setFlowStep("uploaded");
+      setMessage({
+        tone: "success",
+        title:
+          uploadSummary.analyzedCount === sourceFiles.length
+            ? "프로젝트 생성과 원본 분석 준비가 완료되었습니다."
+            : "프로젝트와 원본 파일이 저장되었습니다.",
+        body:
+          uploadSummary.analyzedCount === sourceFiles.length
+            ? "파일 업로드와 원본 분석이 끝났습니다. 아래의 스토리 분석 시작 버튼으로 다음 단계를 진행하세요."
+            : "파일 업로드가 끝났습니다. 이제 스토리 분석 시작 버튼으로 다음 단계를 진행하세요."
+      });
+      return;
+    }
+
+    if (uploadSummary.savedCount > 0) {
+      setFlowStep("uploaded");
+    } else {
+      setFlowStep("editing");
+    }
+
+    setMessage({
+      tone: "warning",
+      title: "프로젝트는 생성됐지만 일부 업로드 확인이 필요합니다.",
+      body:
+        uploadSummary.savedCount > 0
+          ? `${sourceFiles.length}개 중 ${uploadSummary.savedCount}개 파일을 저장했습니다. 저장된 원본으로 스토리 분석을 이어갈 수 있습니다. ${uploadSummary.errors.join(" ")}`
+          : `${sourceFiles.length}개 중 저장된 파일이 없습니다. 업로드 오류를 확인한 뒤 다시 시도해 주세요. ${uploadSummary.errors.join(" ")}`
+    });
+  }
+
+  function nextPipelineButtonLabel() {
+    if (flowStep === "uploaded") return "스토리 분석 시작";
+    if (flowStep === "story") return "캐릭터 설계 시작";
+    if (flowStep === "characters") return "콘티 생성 시작";
+    if (flowStep === "storyboard") return "프로젝트 상세로 이동";
+    return "다음 단계 시작";
+  }
+
+  async function runNextPipelineStep() {
+    if (!createdProjectId) {
+      setMessage({
+        tone: "error",
+        title: "먼저 프로젝트와 원본을 업로드해 주세요.",
+        body: "프로젝트 생성과 파일 업로드가 끝나야 스토리 분석을 시작할 수 있습니다."
+      });
+      return;
+    }
+
+    if (flowStep === "storyboard") {
+      router.push(`/projects/${createdProjectId}`);
+      return;
+    }
+
+    const action =
+      flowStep === "uploaded"
+        ? {
+            endpoint: `/projects/${createdProjectId}/generate-story-bible`,
+            next: "story" as const,
+            title: "스토리 분석이 완료되었습니다.",
+            body: "업로드된 만화 원본을 바탕으로 로그라인, 시놉시스, 장면 구성을 만들었습니다. 이제 캐릭터 바이블을 생성할 수 있습니다."
+          }
+        : flowStep === "story"
+          ? {
+              endpoint: `/projects/${createdProjectId}/generate-characters`,
+              next: "characters" as const,
+              title: "캐릭터 설계가 완료되었습니다.",
+              body: "주요 인물의 역할, 외형, 성격, 영상 생성용 기준 프롬프트를 준비했습니다. 이제 콘티와 샷 구성을 생성할 수 있습니다."
+            }
+          : flowStep === "characters"
+            ? {
+                endpoint: `/projects/${createdProjectId}/generate-storyboard`,
+                next: "storyboard" as const,
+                title: "콘티 생성이 완료되었습니다.",
+                body: "장면별 샷, 카메라, 렌즈, 조명 기준이 생성되었습니다. 프로젝트 상세에서 영상 렌더 단계로 이어갈 수 있습니다."
+              }
+            : null;
+
+    if (!action) return;
+
+    setIsPipelineRunning(true);
+    setMessage(null);
+    const result = await apiJson<unknown>(action.endpoint, { method: "POST" });
+    setIsPipelineRunning(false);
+
+    if (!result.ok) {
+      setMessage({
+        tone: "error",
+        title: `${nextPipelineButtonLabel()}에 실패했습니다.`,
+        body: result.error
+      });
+      return;
+    }
+
+    setFlowStep(action.next);
+    setMessage({
+      tone: "success",
+      title: action.title,
+      body: action.body
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -224,7 +356,14 @@ export default function NewProjectPage() {
     }
 
     setIsSubmitting(true);
+    setFlowStep("uploading");
     setMessage(null);
+
+    if (createdProjectId) {
+      const uploadSummary = await uploadSelectedFiles(createdProjectId);
+      applyUploadSummary(uploadSummary);
+      return;
+    }
 
     const duration = Number(String(form.get("targetLength") || "60 sec").replace(/\D/g, "")) || 60;
     const result = await apiJson<ProjectCreateResponse>("/projects", {
@@ -255,33 +394,13 @@ export default function NewProjectPage() {
         body: `${result.error} 입력값과 파일명은 브라우저의 로컬 초안으로 저장했습니다. 서버 설정이 정상화되면 같은 내용으로 다시 생성할 수 있습니다.`
       });
       setIsSubmitting(false);
+      setFlowStep("editing");
       return;
     }
 
+    setCreatedProjectId(result.data.id);
     const uploadSummary = await uploadSelectedFiles(result.data.id);
-    setIsSubmitting(false);
-
-    if (uploadSummary.savedCount === sourceFiles.length && uploadSummary.errors.length === 0) {
-      setMessage({
-        tone: uploadSummary.analyzedCount === sourceFiles.length ? "success" : "warning",
-        title:
-          uploadSummary.analyzedCount === sourceFiles.length
-            ? "프로젝트 생성과 AI 분석이 완료되었습니다."
-            : "프로젝트와 원본 파일이 저장되었습니다.",
-        body:
-          uploadSummary.analyzedCount === sourceFiles.length
-            ? "스토리 분석, 캐릭터 바이블, 콘티 생성, 영상 렌더 준비 단계가 프로젝트에 반영되었습니다."
-            : "일부 AI 분석은 대기 중이거나 실패했습니다. 프로젝트 상세 화면에서 다시 실행할 수 있습니다."
-      });
-      router.push(`/projects/${result.data.id}`);
-      return;
-    }
-
-    setMessage({
-      tone: "warning",
-      title: "프로젝트는 생성됐지만 일부 업로드 확인이 필요합니다.",
-      body: `${sourceFiles.length}개 중 ${uploadSummary.savedCount}개 파일을 저장했습니다. ${uploadSummary.errors.join(" ")}`
-    });
+    applyUploadSummary(uploadSummary);
   }
 
   return (
@@ -393,6 +512,7 @@ export default function NewProjectPage() {
                 "mt-4 rounded-xl border border-dashed border-border/80 bg-background/30 p-6 text-center transition",
                 isDragging && "border-primary bg-primary/10"
               )}
+              data-testid="source-dropzone"
               onDragOver={(event: DragEvent<HTMLDivElement>) => {
                 event.preventDefault();
                 setIsDragging(true);
@@ -409,6 +529,8 @@ export default function NewProjectPage() {
                 className="sr-only"
                 type="file"
                 multiple
+                data-testid="source-file-input"
+                disabled={Boolean(createdProjectId) && !canRetryUpload}
                 accept=".pdf,.jpg,.jpeg,.png,.zip,image/jpeg,image/png,application/pdf,application/zip"
                 onChange={(event) => {
                   if (event.target.files) appendFiles(event.target.files);
@@ -420,8 +542,13 @@ export default function NewProjectPage() {
               </div>
               <h3 className="mt-4 text-lg font-bold">파일을 끌어오거나 선택하세요</h3>
               <p className="mt-2 text-sm text-muted-foreground">최대 200MB, PDF/JPG/PNG/ZIP 지원</p>
-              <Button className="mt-5" type="button" onClick={() => fileInputRef.current?.click()}>
-                파일 선택
+              <Button
+                className="mt-5"
+                type="button"
+                disabled={Boolean(createdProjectId) && !canRetryUpload}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {createdProjectId && !canRetryUpload ? "업로드 완료" : "파일 선택"}
               </Button>
             </div>
 
@@ -459,7 +586,7 @@ export default function NewProjectPage() {
                         <button
                           type="button"
                           className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || (Boolean(createdProjectId) && !canRetryUpload)}
                           onClick={() => removeFile(item.id)}
                           aria-label={`${item.file.name} 제거`}
                         >
@@ -501,11 +628,39 @@ export default function NewProjectPage() {
             <h2 className="text-lg font-semibold">제작 파이프라인</h2>
             <div className="mt-4 grid gap-2">
               {pipelinePreview.map((step, index) => (
-                <div key={step} className="flex items-center gap-3 rounded-md border border-border/80 bg-background/30 p-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
-                    {index + 1}
+                <div
+                  key={step.id}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md border p-3 transition",
+                    (index === 0 && flowRank(flowStep) >= flowRank("uploaded")) ||
+                      (index === 1 && flowRank(flowStep) >= flowRank("story")) ||
+                      (index === 2 && flowRank(flowStep) >= flowRank("characters")) ||
+                      (index === 3 && flowRank(flowStep) >= flowRank("storyboard"))
+                      ? "border-success/35 bg-success/10"
+                      : (index === 0 && ["editing", "uploading"].includes(flowStep)) ||
+                          (index === 1 && flowStep === "uploaded") ||
+                          (index === 2 && flowStep === "story") ||
+                          (index === 3 && flowStep === "characters") ||
+                          (index === 4 && flowStep === "storyboard")
+                        ? "border-primary/45 bg-primary/10"
+                        : "border-border/80 bg-background/30"
+                  )}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-black text-primary">
+                    {(index === 0 && flowRank(flowStep) >= flowRank("uploaded")) ||
+                    (index === 1 && flowRank(flowStep) >= flowRank("story")) ||
+                    (index === 2 && flowRank(flowStep) >= flowRank("characters")) ||
+                    (index === 3 && flowRank(flowStep) >= flowRank("storyboard")) ? (
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      index + 1
+                    )}
                   </span>
-                  <span className="text-sm font-semibold">{step}</span>
+                  <step.icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{step.label}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{step.description}</span>
+                  </span>
                 </div>
               ))}
             </div>
@@ -532,18 +687,48 @@ export default function NewProjectPage() {
             </div>
           </section>
 
-          <Button className="w-full" disabled={isSubmitting} type="submit">
+          <Button
+            className="w-full"
+            disabled={isSubmitting || (Boolean(createdProjectId) && !canRetryUpload)}
+            type="submit"
+          >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
               <Check className="h-4 w-4" aria-hidden="true" />
             )}
-            {isSubmitting ? "프로젝트 생성 및 업로드 중..." : "프로젝트 만들고 업로드"}
+            {isSubmitting
+              ? "프로젝트 생성 및 업로드 중..."
+              : canRetryUpload
+                ? "업로드 다시 시도"
+                : createdProjectId
+                ? "프로젝트 생성 완료"
+                : "프로젝트 만들고 업로드"}
           </Button>
+          {canContinuePipeline ? (
+            <Button
+              className="w-full"
+              type="button"
+              variant={flowStep === "storyboard" ? "secondary" : "primary"}
+              disabled={isPipelineRunning || isSubmitting}
+              data-testid="next-pipeline-step"
+              onClick={runNextPipelineStep}
+            >
+              {isPipelineRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : flowStep === "storyboard" ? (
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <WandSparkles className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isPipelineRunning ? "AI가 다음 단계를 작성 중..." : nextPipelineButtonLabel()}
+            </Button>
+          ) : null}
           <Button
             className="w-full"
             type="button"
             variant="secondary"
+            disabled={Boolean(createdProjectId)}
             onClick={() =>
               setMessage({
                 tone: "success",

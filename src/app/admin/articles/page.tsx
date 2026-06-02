@@ -43,12 +43,25 @@ export default function AdminArticlesPage() {
   }
 
   async function toggleActive(id: number, isActive: boolean) {
-    await fetch(`/livenews/api/articles/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !isActive }),
-    });
-    loadArticles();
+    // Optimistic update for instant feedback
+    setArticles((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: !isActive } : a))
+    );
+    try {
+      const res = await fetch(`/livenews/api/articles/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      loadArticles();
+    } catch {
+      // Roll back optimistic change and notify
+      setArticles((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, isActive } : a))
+      );
+      alert('상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
   }
 
   return (

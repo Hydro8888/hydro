@@ -172,7 +172,7 @@ function SearchPage() {
             <div className="flex justify-center gap-2 mt-8">
               {page > 1 && (
                 <Link
-                  href={`/search?q=${q}&page=${page - 1}${country ? `&country=${country}` : ''}${category ? `&category=${category}` : ''}`}
+                  href={`/search?q=${encodeURIComponent(q)}&page=${page - 1}${country ? `&country=${country}` : ''}${category ? `&category=${category}` : ''}`}
                   className="px-4 py-2 border border-border rounded-card text-text-secondary hover:border-accent hover:text-accent transition-colors"
                 >
                   이전
@@ -183,7 +183,7 @@ function SearchPage() {
               </span>
               {page < totalPages && (
                 <Link
-                  href={`/search?q=${q}&page=${page + 1}${country ? `&country=${country}` : ''}${category ? `&category=${category}` : ''}`}
+                  href={`/search?q=${encodeURIComponent(q)}&page=${page + 1}${country ? `&country=${country}` : ''}${category ? `&category=${category}` : ''}`}
                   className="px-4 py-2 border border-border rounded-card text-text-secondary hover:border-accent hover:text-accent transition-colors"
                 >
                   다음

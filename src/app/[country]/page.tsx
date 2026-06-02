@@ -65,12 +65,13 @@ export default async function CountryPage({
       {subcategories.length > 0 && (
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
           {subcategories.map((sub) => (
-            <span
+            <Link
               key={sub.slug}
-              className="px-3.5 py-1.5 rounded-pill text-body-md border border-border text-text-secondary hover:border-accent hover:text-accent cursor-pointer whitespace-nowrap transition-colors"
+              href={`/category/${sub.slug}`}
+              className="px-3.5 py-1.5 rounded-pill text-body-md border border-border text-text-secondary hover:border-accent hover:text-accent whitespace-nowrap transition-colors"
             >
               {sub.label}
-            </span>
+            </Link>
           ))}
         </div>
       )}

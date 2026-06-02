@@ -76,7 +76,7 @@ function FooterStats() {
     let cancelled = false;
     async function fetchStats() {
       try {
-        const res = await fetch('/api/admin/stats');
+        const res = await fetch('/livenews/api/admin/stats');
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
         if (!cancelled) {

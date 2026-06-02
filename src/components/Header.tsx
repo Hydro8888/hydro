@@ -51,7 +51,7 @@ function LiveStats() {
     let cancelled = false;
     async function fetchStats() {
       try {
-        const res = await fetch('/api/admin/stats', { next: { revalidate: 120 } } as RequestInit);
+        const res = await fetch('/livenews/api/admin/stats', { next: { revalidate: 120 } } as RequestInit);
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
         if (!cancelled) {

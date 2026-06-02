@@ -13,7 +13,7 @@ interface Source {
   crawlInterval: number;
   isEnabled: boolean;
   createdAt: string;
-  _count?: { articles: number };
+  articleCount?: number;
 }
 
 export default function AdminSourcesPage() {
@@ -42,33 +42,57 @@ export default function AdminSourcesPage() {
     }
   }
 
+  const [saving, setSaving] = useState(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const method = editSource ? 'PUT' : 'POST';
     const body = editSource ? { ...form, id: editSource.id } : form;
 
-    await fetch('/livenews/api/admin/sources', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    setShowForm(false);
-    setEditSource(null);
-    setForm({
-      sourceName: '', sourceType: 'RSS', country: 'global', language: 'en',
-      baseUrl: '', feedUrl: '', crawlInterval: 180, isEnabled: true,
-    });
-    loadSources();
+    setSaving(true);
+    try {
+      const res = await fetch('/livenews/api/admin/sources', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setShowForm(false);
+      setEditSource(null);
+      setForm({
+        sourceName: '', sourceType: 'RSS', country: 'global', language: 'en',
+        baseUrl: '', feedUrl: '', crawlInterval: 180, isEnabled: true,
+      });
+      loadSources();
+    } catch (err) {
+      alert(`소스 저장에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleSource(id: number, isEnabled: boolean) {
-    await fetch('/livenews/api/admin/sources', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, isEnabled: !isEnabled }),
-    });
-    loadSources();
+    // Optimistic update
+    setSources((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, isEnabled: !isEnabled } : s))
+    );
+    try {
+      const res = await fetch('/livenews/api/admin/sources', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isEnabled: !isEnabled }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      loadSources();
+    } catch {
+      setSources((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, isEnabled } : s))
+      );
+      alert('소스 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
   }
 
   function startEdit(source: Source) {
@@ -144,8 +168,8 @@ export default function AdminSourcesPage() {
             </div>
           </div>
           <div className="mt-4 flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90">
-              {editSource ? '수정' : '추가'}
+            <button type="submit" disabled={saving} className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50">
+              {saving ? '저장 중...' : editSource ? '수정' : '추가'}
             </button>
             <button type="button" onClick={() => { setShowForm(false); setEditSource(null); }} className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated">
               취소
@@ -175,7 +199,7 @@ export default function AdminSourcesPage() {
                 <td className="px-4 py-3 hidden sm:table-cell"><span className="px-2 py-0.5 bg-surface-elevated rounded text-xs text-text-secondary">{source.sourceType}</span></td>
                 <td className="px-4 py-3 text-text-secondary">{source.country}</td>
                 <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{source.language}</td>
-                <td className="px-4 py-3 text-text">{source._count?.articles || 0}</td>
+                <td className="px-4 py-3 text-text">{(source.articleCount ?? 0).toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => toggleSource(source.id, source.isEnabled)}

@@ -25,22 +25,47 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [collecting, setCollecting] = useState(false);
 
+  const [loadError, setLoadError] = useState(false);
+
   useEffect(() => {
     fetch('/livenews/api/admin/stats')
-      .then((r) => r.json())
-      .then(setStats)
-      .catch((err) => console.error('[AdminDashboard] Failed to load stats:', err));
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        // Guard against error payloads ({ error: ... }) that lack stats fields
+        if (data && typeof data.totalArticles === 'number') {
+          setStats(data);
+        } else {
+          throw new Error('Malformed stats response');
+        }
+      })
+      .catch((err) => {
+        console.error('[AdminDashboard] Failed to load stats:', err);
+        setLoadError(true);
+      });
   }, []);
 
   async function triggerCollection() {
     setCollecting(true);
     try {
-      await fetch('/livenews/api/collect', { method: 'POST' });
+      const res = await fetch('/livenews/api/collect', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       alert('수집이 시작되었습니다');
     } catch {
-      alert('수집 시작 실패');
+      alert('수집 시작에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setCollecting(false);
     }
-    setCollecting(false);
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-center py-20 text-accent-red">
+        통계를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.
+      </div>
+    );
   }
 
   if (!stats) {

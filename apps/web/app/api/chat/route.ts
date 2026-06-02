@@ -52,9 +52,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // Auto-create conversation if none provided
+  // If a conversation is referenced, it must exist and belong to the caller.
+  // Otherwise auto-create a new one owned by the caller.
   let convId = conversationId;
-  if (!convId) {
+  if (convId) {
+    const existing = memoryStore.getConversation(convId);
+    if (!existing) {
+      return Response.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    if (existing.userId !== userId) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  } else {
     const now = new Date().toISOString();
     const conv = memoryStore.createConversation({
       id: crypto.randomUUID(),

@@ -43,10 +43,22 @@ export function Sidebar() {
 
   useEffect(() => {
     if (!sidebarOpen) return;
+    let cancelled = false;
     fetch(apiUrl('/api/conversations'))
-      .then((r) => r.json())
-      .then((d) => setConversations(d.conversations ?? []))
-      .catch((err) => console.error('[sidebar] Failed to load conversations:', err));
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        if (!cancelled) setConversations(d.conversations ?? []);
+      })
+      .catch((err) => {
+        console.error('[sidebar] Failed to load conversations:', err);
+        if (!cancelled) setConversations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [sidebarOpen]);
 
   if (!sidebarOpen) return null;

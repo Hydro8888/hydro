@@ -69,6 +69,8 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="메시지를 입력하세요... (Shift+Enter: 줄바꿈)"
             rows={1}
+            maxLength={100000}
+            aria-label="메시지 입력"
             className="flex-1 bg-transparent resize-none outline-none text-sm min-h-[40px] max-h-[200px] pt-2"
           />
 

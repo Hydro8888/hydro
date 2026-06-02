@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 const faqs = [
   {
     q: 'AI Portal Pro는 무엇인가요?',
-    a: 'GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro, Grok 등 전세계 TOP 10 프리미엄 AI 모델을 하나의 통합 대시보드에서 사용할 수 있는 플랫폼입니다. 각 AI의 강점을 비교하고, 팀과 공유하며, 비용을 효율적으로 관리할 수 있습니다.',
+    a: 'GPT-5.5, Claude Opus 4.8, Gemini 3.5 Flash, Grok 4.3 등 전세계 TOP 10 프리미엄 AI 모델을 하나의 통합 대시보드에서 사용할 수 있는 플랫폼입니다. 각 AI의 강점을 비교하고, 팀과 공유하며, 비용을 효율적으로 관리할 수 있습니다.',
   },
   {
     q: '무료로 사용할 수 있나요?',
@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: '어떤 AI 모델을 사용할 수 있나요?',
-    a: 'OpenAI GPT-5.4, Anthropic Claude Opus 4.6, Google Gemini 3.1 Pro, xAI Grok 4, Meta Llama 3.1, Cohere, Mistral, Amazon Nova, AI21, Perplexity 등 9개 제공사의 최신 모델을 지원합니다.',
+    a: 'OpenAI GPT-5.5, Anthropic Claude Opus 4.8, Google Gemini 3.5 Flash, xAI Grok 4.3, Meta Llama 4 Maverick, Cohere Command A+, Mistral Medium 3.5, AI21 Jamba, Perplexity Sonar 등 최신 모델을 지원합니다.',
   },
   {
     q: '내 데이터는 안전한가요?',

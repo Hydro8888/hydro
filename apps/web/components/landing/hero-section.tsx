@@ -28,7 +28,7 @@ export function HeroSection() {
 
         {/* Subtitle */}
         <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro, Grok 등 전세계 TOP 10 프리미엄 AI를
+          GPT-5.5, Claude Opus 4.8, Gemini 3.5 Flash, Grok 4.3 등 전세계 TOP 10 프리미엄 AI를
           하나의 인터페이스에서 자유롭게 비교하고 사용하세요.
         </p>
 

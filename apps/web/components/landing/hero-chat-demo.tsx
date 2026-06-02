@@ -11,32 +11,32 @@ type ModelResponse = {
   words: string[];
 };
 
-const QUESTION = 'GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro의 차이점을 알려줘';
+const QUESTION = 'GPT-5.5, Claude Opus 4.8, Gemini 3.5 Flash의 차이점을 알려줘';
 
 const MODELS: ModelResponse[] = [
   {
     id: 'openai',
-    label: 'GPT-5.4',
+    label: 'GPT-5.5',
     dotColor: 'bg-provider-openai',
     badgeBg: 'bg-emerald-50 dark:bg-emerald-950/40',
     badgeText: 'text-emerald-700 dark:text-emerald-300',
-    words: 'GPT-5.4는 복잡한 추론과 코드 생성에서 뛰어난 성능을 보입니다.'.split(' '),
+    words: 'GPT-5.5는 복잡한 추론과 코드 생성에서 뛰어난 성능을 보입니다.'.split(' '),
   },
   {
     id: 'anthropic',
-    label: 'Claude Opus 4.6',
+    label: 'Claude Opus 4.8',
     dotColor: 'bg-provider-anthropic',
     badgeBg: 'bg-orange-50 dark:bg-orange-950/40',
     badgeText: 'text-orange-700 dark:text-orange-300',
-    words: 'Claude Opus 4.6은 긴 문서 분석과 자연스러운 글쓰기에 강점이 있습니다.'.split(' '),
+    words: 'Claude Opus 4.8은 긴 문서 분석과 자연스러운 글쓰기에 강점이 있습니다.'.split(' '),
   },
   {
     id: 'google',
-    label: 'Gemini 3.1 Pro',
+    label: 'Gemini 3.5 Flash',
     dotColor: 'bg-provider-google',
     badgeBg: 'bg-blue-50 dark:bg-blue-950/40',
     badgeText: 'text-blue-700 dark:text-blue-300',
-    words: 'Gemini 3.1 Pro는 이미지와 영상을 포함한 멀티모달 처리에 탁월합니다.'.split(' '),
+    words: 'Gemini 3.5 Flash는 이미지와 영상을 포함한 멀티모달 처리에 탁월합니다.'.split(' '),
   },
 ];
 

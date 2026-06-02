@@ -48,14 +48,14 @@ function createProviders() {
   });
 
   const modelMap: Record<string, () => LanguageModel> = {
-    'openai/gpt-5.4': () => openai('gpt-5.4'),
-    'anthropic/claude-opus-4.6': () => anthropic('claude-opus-4-6'),
-    'google/gemini-3.1-pro': () => google('gemini-3.1-pro'),
-    'xai/grok-4': () => xai('grok-4'),
-    'meta/llama-3.1-405b': () => together('meta-llama/Llama-3.1-405B-Instruct-Turbo'),
-    'cohere/command-r-plus': () => cohere('command-r-plus'),
-    'mistral/mistral-large': () => mistral('mistral-large-latest'),
-    'ai21/jamba-large': () => ai21('jamba-1.5-large'),
+    'openai/gpt-5.5': () => openai('gpt-5.5'),
+    'anthropic/claude-opus-4.8': () => anthropic('claude-opus-4-8'),
+    'google/gemini-3.5-flash': () => google('gemini-3.5-flash'),
+    'xai/grok-4.3': () => xai('grok-4.3'),
+    'meta/llama-4-maverick': () => together('meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8'),
+    'cohere/command-a-plus': () => cohere('command-a-plus-05-2026'),
+    'mistral/mistral-medium-3.5': () => mistral('mistral-medium-latest'),
+    'ai21/jamba-large': () => ai21('jamba-large'),
     'perplexity/sonar-pro': () => perplexity('sonar-pro'),
   };
 

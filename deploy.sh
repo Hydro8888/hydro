@@ -1,0 +1,283 @@
+#!/bin/bash
+set -e
+
+#=============================================================================
+# AI Portal Pro - 서버 로컬 배포 스크립트
+# 서버에서 직접 실행: sudo bash deploy.sh
+# 접속: http://free.ai.kr/
+# 포트: 3010 (PM2 관리)
+#=============================================================================
+
+SERVER_IP="211.198.54.207"
+DEPLOY_DIR="/home/ubuntu/freeai"
+APP_PORT="3010"
+APP_NAME="freeai"
+BRANCH="claude/ai-portal-dev-plan-yI3Gd"
+REPO_SSH="git@github.com:Hydro8888/hydro.git"
+REAL_USER="${SUDO_USER:-$(whoami)}"
+REAL_HOME=$(eval echo "~${REAL_USER}")
+NGINX_CONTAINER="jobworld-nginx"
+
+# xAI API Key (환경 변수에서 가져오거나 실행 시 입력)
+if [ -z "${XAI_API_KEY}" ]; then
+  read -p "xAI API Key를 입력하세요: " XAI_API_KEY
+fi
+if [ -z "${XAI_API_KEY}" ]; then
+  echo "오류: XAI_API_KEY가 설정되지 않았습니다."
+  echo "사용법: XAI_API_KEY=your-key-here sudo bash deploy.sh"
+  exit 1
+fi
+
+echo "============================================"
+echo "  AI Portal Pro 로컬 배포 시작"
+echo "  도메인: free.ai.kr"
+echo "  포트: ${APP_PORT}"
+echo "============================================"
+
+echo ""
+echo "=== [1/9] Node.js / pnpm / PM2 확인 ==="
+if ! command -v node &> /dev/null; then
+  echo "Node.js 설치 중..."
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y nodejs
+fi
+echo "Node: $(node -v)"
+
+if ! command -v pnpm &> /dev/null; then
+  echo "pnpm 설치 중..."
+  npm install -g pnpm@9
+fi
+echo "pnpm: $(pnpm -v)"
+
+if ! command -v pm2 &> /dev/null; then
+  echo "PM2 설치 중..."
+  npm install -g pm2
+fi
+echo "PM2: $(pm2 -v)"
+
+echo ""
+echo "=== [2/9] 소스 코드 클론/업데이트 ==="
+# sudo 실행 시 원래 사용자의 SSH 키를 사용
+# SSH 키 자동 탐색 (id_ed25519 우선, 없으면 id_rsa)
+if [ -f "${REAL_HOME}/.ssh/id_ed25519" ]; then
+  SSH_KEY="${REAL_HOME}/.ssh/id_ed25519"
+elif [ -f "${REAL_HOME}/.ssh/id_rsa" ]; then
+  SSH_KEY="${REAL_HOME}/.ssh/id_rsa"
+else
+  echo "오류: SSH 키를 찾을 수 없습니다 (${REAL_HOME}/.ssh/)"
+  exit 1
+fi
+GIT_SSH_CMD="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no"
+if [ -d "${DEPLOY_DIR}/.git" ]; then
+  echo "기존 디렉토리 존재 - git pull..."
+  cd ${DEPLOY_DIR}
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git fetch origin
+  git checkout ${BRANCH}
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git pull origin ${BRANCH}
+else
+  echo "새로 클론..."
+  GIT_SSH_COMMAND="${GIT_SSH_CMD}" git clone ${REPO_SSH} ${DEPLOY_DIR}
+  cd ${DEPLOY_DIR}
+  git checkout ${BRANCH}
+fi
+
+echo ""
+echo "=== [3/9] .env 파일 생성 ==="
+cat > ${DEPLOY_DIR}/apps/web/.env.local << EOF
+# AI Portal Pro - Production Environment
+NODE_ENV=production
+
+# xAI (Grok) - 활성 모델
+XAI_API_KEY=${XAI_API_KEY}
+
+# 나머지 키는 비워둠 (해당 모델 비활성)
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GOOGLE_GENERATIVE_AI_API_KEY=
+TOGETHER_API_KEY=
+COHERE_API_KEY=
+MISTRAL_API_KEY=
+AI21_API_KEY=
+PERPLEXITY_API_KEY=
+
+# Clerk (비활성 - 인증 없이 운영)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+# Stripe (비활성)
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+EOF
+echo ".env.local 생성 완료"
+
+echo ""
+echo "=== [4/9] 의존성 설치 ==="
+cd ${DEPLOY_DIR}
+pnpm install --no-frozen-lockfile
+
+echo ""
+echo "=== [5/9] 프로덕션 빌드 ==="
+cd ${DEPLOY_DIR}
+
+# 오래된 빌드 캐시 완전 삭제 (standalone 잔여물 + turbo 캐시)
+echo "오래된 빌드 캐시 삭제..."
+rm -rf ${DEPLOY_DIR}/apps/web/.next ${DEPLOY_DIR}/.turbo ${DEPLOY_DIR}/apps/web/.turbo ${DEPLOY_DIR}/node_modules/.cache
+
+pnpm build
+
+# 빌드 결과 확인
+CSS_COUNT=$(find ${DEPLOY_DIR}/apps/web/.next/static -name '*.css' 2>/dev/null | wc -l)
+JS_COUNT=$(find ${DEPLOY_DIR}/apps/web/.next/static -name '*.js' 2>/dev/null | wc -l)
+echo "✓ 빌드 완료 (CSS: ${CSS_COUNT}개, JS: ${JS_COUNT}개)"
+
+echo ""
+echo "=== [6/9] PM2 프로세스 시작/재시작 ==="
+cd ${DEPLOY_DIR}
+
+# 기존 프로세스가 있으면 삭제 후 새로 시작 (설정 변경 반영)
+if pm2 describe ${APP_NAME} > /dev/null 2>&1; then
+  echo "기존 프로세스 삭제..."
+  pm2 delete ${APP_NAME}
+fi
+echo "프로세스 시작..."
+pm2 start ecosystem.config.cjs
+pm2 save
+
+echo ""
+echo "=== [7/9] 앱 시작 대기 (5초) ==="
+sleep 5
+
+# 앱 상태 확인
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/ | grep -q "200\|301\|302\|304"; then
+  echo "✓ 앱이 포트 ${APP_PORT}에서 정상 실행 중!"
+else
+  echo "경고: 앱 응답 확인 실패. PM2 로그 확인: pm2 logs ${APP_NAME}"
+fi
+
+echo ""
+echo "=== [8/9] iptables 방화벽 규칙 추가 ==="
+# Docker에서 호스트 포트 접근 허용
+if ! iptables -C DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
+  iptables -I DOCKER-USER -p tcp -s 172.17.0.0/16 --dport ${APP_PORT} -j ACCEPT
+  echo "iptables 규칙 추가: 172.17.0.0/16 → ${APP_PORT}"
+else
+  echo "iptables 규칙 이미 존재: 172.17.0.0/16 → ${APP_PORT}"
+fi
+
+if ! iptables -C DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT 2>/dev/null; then
+  iptables -I DOCKER-USER -p tcp -s 172.18.0.0/16 --dport ${APP_PORT} -j ACCEPT
+  echo "iptables 규칙 추가: 172.18.0.0/16 → ${APP_PORT}"
+else
+  echo "iptables 규칙 이미 존재: 172.18.0.0/16 → ${APP_PORT}"
+fi
+
+echo ""
+echo "=== [9/9] Docker nginx 설정 업데이트 ==="
+
+# free.ai.kr 전용 nginx 서버 블록 생성
+echo "free.ai.kr 전용 nginx 서버 블록 생성..."
+
+cat > /tmp/freeai.conf << NGINX_CONF
+server {
+    listen 80;
+    server_name free.ai.kr;
+
+    location / {
+        proxy_pass http://172.17.0.1:${APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    location /_next/static/ {
+        proxy_pass http://172.17.0.1:${APP_PORT}/_next/static/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+NGINX_CONF
+
+docker cp /tmp/freeai.conf ${NGINX_CONTAINER}:/etc/nginx/conf.d/freeai.conf
+
+# nginx.conf에 conf.d include가 있는지 확인 — 없으면 추가
+if ! docker exec ${NGINX_CONTAINER} grep -q "include /etc/nginx/conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
+  echo "nginx.conf에 conf.d include가 없습니다. 추가합니다..."
+  # 볼륨 마운트: docker cp, sed -i, 호스트→컨테이너 파이프 모두 실패 가능
+  # 해결: 컨테이너 내부에서 sed → /tmp → cat > 로 직접 덮어쓰기
+  docker exec ${NGINX_CONTAINER} sh -c "
+    sed '/include.*mime\.types/a\\    include /etc/nginx/conf.d/*.conf;' /etc/nginx/nginx.conf > /tmp/nginx_modified.conf && \
+    cat /tmp/nginx_modified.conf > /etc/nginx/nginx.conf && \
+    rm -f /tmp/nginx_modified.conf
+  "
+  if docker exec ${NGINX_CONTAINER} grep -q "include /etc/nginx/conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
+    echo "✓ conf.d include 추가 완료"
+  else
+    echo "✗ conf.d include 추가 실패"
+  fi
+else
+  echo "✓ conf.d include 이미 존재"
+fi
+
+# nginx 설정 테스트 및 리로드
+if docker exec ${NGINX_CONTAINER} nginx -t 2>&1; then
+  docker exec ${NGINX_CONTAINER} nginx -s reload
+  echo "✓ nginx 설정 업데이트 및 리로드 완료!"
+else
+  echo "경고: nginx 설정 오류! 수동으로 확인하세요."
+  echo "  docker exec ${NGINX_CONTAINER} nginx -t"
+fi
+
+# freeai.conf가 실제로 로드되었는지 확인
+if docker exec ${NGINX_CONTAINER} nginx -T 2>/dev/null | grep -q "server_name free.ai.kr"; then
+  echo "✓ free.ai.kr 서버 블록 로드 확인!"
+else
+  echo "✗ free.ai.kr 서버 블록이 로드되지 않았습니다"
+fi
+
+rm -f /tmp/freeai.conf
+
+echo ""
+echo "============================================"
+echo "  배포 완료!"
+echo "============================================"
+
+echo ""
+echo "=== 배포 진단 ==="
+echo ""
+echo "[1] PM2 상태:"
+pm2 status
+echo ""
+echo "[2] 앱 HTTP 응답:"
+APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/ 2>/dev/null || echo "연결실패")
+echo "  http://localhost:${APP_PORT}/ → ${APP_STATUS}"
+echo ""
+echo "[3] CSS 파일 서빙 확인:"
+CSS_FILE=$(find ${DEPLOY_DIR}/apps/web/.next/static/css -name '*.css' 2>/dev/null | head -1)
+if [ -n "${CSS_FILE}" ]; then
+  CSS_NAME=$(basename "${CSS_FILE}")
+  CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${APP_PORT}/_next/static/css/${CSS_NAME}" 2>/dev/null || echo "연결실패")
+  echo "  /_next/static/css/${CSS_NAME} → ${CSS_STATUS}"
+  if [ "${CSS_STATUS}" = "200" ]; then
+    echo "  ✓ CSS 정상 서빙 확인!"
+  else
+    echo "  ✗ CSS 서빙 실패 — PM2 로그 확인: pm2 logs ${APP_NAME}"
+  fi
+else
+  echo "  ✗ 빌드된 CSS 파일을 찾을 수 없음"
+fi
+echo ""
+echo "[4] nginx 서버 블록 확인:"
+docker exec ${NGINX_CONTAINER} nginx -T 2>/dev/null | grep -A2 "server_name free" || echo "  nginx에서 free.ai.kr 서버 블록을 찾을 수 없음"
+echo ""
+echo "  PM2 로그:    pm2 logs ${APP_NAME}"
+echo "  로컬 접속:   http://localhost:${APP_PORT}/"
+echo "  외부 접속:   http://free.ai.kr/"

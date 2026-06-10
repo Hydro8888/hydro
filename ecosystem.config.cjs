@@ -1,0 +1,20 @@
+module.exports = {
+  apps: [
+    {
+      name: 'freeai',
+      cwd: '/home/ubuntu/freeai/apps/web',
+      script: 'pnpm',
+      args: 'start',
+      interpreter: 'none',
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3010,
+      },
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '512M',
+    },
+  ],
+};

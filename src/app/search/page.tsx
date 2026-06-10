@@ -40,22 +40,35 @@ function SearchPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const page = parseInt(pageParam);
 
   useEffect(() => {
     if (!q) return;
     const controller = new AbortController();
     setLoading(true);
+    setError(false);
     const params = new URLSearchParams({ q, page: pageParam });
     if (country) params.set('country', country);
     if (category) params.set('category', category);
 
     fetch(`/livenews/api/search?${params}`, { signal: controller.signal })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         setArticles(data.articles || []);
         setTotal(data.total || 0);
         setTotalPages(data.totalPages || 0);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.error('[search] fetch failed:', err);
+        setError(true);
+        setArticles([]);
+        setTotal(0);
+        setTotalPages(0);
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
@@ -140,7 +153,18 @@ function SearchPage() {
         </div>
       )}
 
-      {loading ? (
+      {error ? (
+        <div className="text-center py-20">
+          <p className="text-headline-sm text-accent-red">검색 중 오류가 발생했습니다</p>
+          <p className="text-body-md text-text-muted mt-2">잠시 후 다시 시도해주세요</p>
+          <button
+            onClick={() => { setError(false); setLoading(true); router.refresh(); }}
+            className="mt-4 px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      ) : loading ? (
         <div className="text-center py-20 text-text-muted">
           <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto mb-4"></div>
           검색 중...

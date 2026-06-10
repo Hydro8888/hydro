@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Only protect /admin routes (accounting for basePath /livenews)
   const pathname = request.nextUrl.pathname;
+  const method = request.method;
 
-  // Check for Basic Auth
+  // GET requests to /api/admin/stats are public — consumed by Header/Footer
+  // on every page load. All other /admin and /api/admin mutating requests
+  // require Basic Auth.
+  const isPublicRead =
+    method === 'GET' && pathname === '/api/admin/stats';
+
+  if (isPublicRead) {
+    return NextResponse.next();
+  }
+
+  // /api/admin/* mutating (POST/PUT/PATCH/DELETE) + ALL /api/collect,
+  // /api/articles/[id] PATCH — require auth.
+  // The matcher below ensures we only run for the relevant paths.
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !isValidAuth(authHeader)) {
+    // API routes get JSON 401; page routes get browser Basic Auth challenge
+    const isApi = pathname.startsWith('/api/');
+    if (isApi) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
     return new NextResponse('Authentication required', {
       status: 401,
       headers: { 'WWW-Authenticate': 'Basic realm="Admin"' },
@@ -25,5 +45,19 @@ function isValidAuth(header: string): boolean {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: [
+    // Admin pages (including /admin itself)
+    '/admin',
+    '/admin/:path*',
+    // Admin API mutating endpoints
+    '/api/admin/sources',
+    '/api/admin/clear-cache',
+    '/api/admin/fix-content',
+    '/api/admin/fix-images',
+    '/api/admin/fix-translations',
+    '/api/admin/stats',
+    // Public API mutating endpoints that must be protected
+    '/api/collect',
+    '/api/articles/:path*',
+  ],
 };

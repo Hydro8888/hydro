@@ -79,25 +79,19 @@ export default async function HomePage() {
               <div className="lg:col-span-2 flex flex-col gap-5">
                 <NewsCardLarge article={hero} />
 
-                {/* Breaking + Latest news list — fills the gap below hero */}
+                {/* Latest headlines below hero — deduplicated against hero/sub-hero.
+                    Breaking news already appears in the ticker so we don't repeat it here. */}
                 {(() => {
-                  const heroIds = new Set([hero.id, ...subHeroes.map(a => a.id)]);
-                  const breakingIds = new Set(breaking.map(a => a.id));
-                  const fillArticles = articles
-                    .filter(a => !heroIds.has(a.id) && !breakingIds.has(a.id))
-                    .slice(0, Math.max(0, 8 - breaking.length));
-                  const listItems = [...breaking, ...fillArticles].slice(0, 8);
-                  const hasExtraFill = fillArticles.length > 0;
+                  const usedIds = new Set([hero.id, ...subHeroes.map(a => a.id)]);
+                  const listItems = articles
+                    .filter(a => !usedIds.has(a.id))
+                    .slice(0, 8);
 
                   if (listItems.length === 0) return null;
                   return (
                     <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
-                      <h3 className="text-headline-sm text-text mb-3 flex items-center gap-2">
-                        <span className="relative flex h-2 w-2">
-                          <span className="absolute inline-flex h-full w-full rounded-full bg-accent-red animate-pulse-dot opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-red" />
-                        </span>
-                        {hasExtraFill ? '속보 · 최신' : '속보'}
+                      <h3 className="text-headline-sm text-text mb-3">
+                        최신 뉴스
                       </h3>
                       <div className="space-y-0">
                         {listItems.map((article, idx) => (
@@ -129,7 +123,7 @@ export default async function HomePage() {
               카테고리별 뉴스
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {categorySections.map(({ slug, label, featured, secondary }) => {
                 const style = getCategoryStyle(slug);
                 return (
@@ -137,7 +131,6 @@ export default async function HomePage() {
                     key={slug}
                     className="bg-surface-card rounded-card border border-border-muted p-4"
                   >
-                    {/* Category heading */}
                     <Link
                       href={`/category/${slug}`}
                       className={cn(
@@ -161,14 +154,12 @@ export default async function HomePage() {
                       </svg>
                     </Link>
 
-                    {/* Featured article — compact card with image */}
                     {featured && (
                       <div className="mb-3">
                         <NewsCard article={featured as any} />
                       </div>
                     )}
 
-                    {/* Secondary articles — compact list */}
                     {secondary.length > 0 && (
                       <div className="mt-1">
                         {secondary.map((article, idx) => (
@@ -183,15 +174,14 @@ export default async function HomePage() {
                   </div>
                 );
               })}
-
-              {/* Trending Keywords sidebar + Ad */}
-              <div className="flex flex-col gap-5">
-                <TrendingKeywords keywords={trendingKw} />
-                <div className="hidden lg:block">
-                  <AdSlot size="sidebar" />
-                </div>
-              </div>
             </div>
+
+            {/* Trending Keywords — full-width below categories */}
+            {trendingKw.length > 0 && (
+              <div className="mt-5 max-w-md">
+                <TrendingKeywords keywords={trendingKw} />
+              </div>
+            )}
           </section>
         )}
 

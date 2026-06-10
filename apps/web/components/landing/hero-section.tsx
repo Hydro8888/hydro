@@ -20,7 +20,7 @@ export function HeroSection() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight text-gray-900 dark:text-white leading-[1.05] mb-6">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight text-gray-900 dark:text-white leading-[1.1] md:leading-[1.05] mb-6">
           하나의 대시보드로
           <br />
           <span className="text-primary-600 dark:text-primary-400">세계 최고 AI</span>를 만나세요

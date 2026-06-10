@@ -145,10 +145,10 @@ export function HeroChatDemo() {
         </div>
 
         {/* Chat body */}
-        <div className="p-5 sm:p-6 space-y-4 bg-gray-25 dark:bg-gray-950/60 min-h-[420px]">
+        <div className="p-4 sm:p-6 space-y-4 bg-gray-25 dark:bg-gray-950/60 min-h-[340px] sm:min-h-[420px]">
           {qVisible && (
             <div className="flex justify-end animate-slide-up">
-              <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-primary-600 text-white px-4 py-2.5 text-sm shadow-xs">
+              <div className="max-w-[90%] sm:max-w-[80%] rounded-2xl rounded-br-sm bg-primary-600 text-white px-4 py-2.5 text-sm shadow-xs">
                 {QUESTION}
               </div>
             </div>
@@ -169,7 +169,7 @@ export function HeroChatDemo() {
                     {m.label}
                   </span>
                 </div>
-                <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 shadow-xs">
+                <div className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-sm border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 shadow-xs">
                   {state === 0 ? (
                     <div className="flex items-center gap-1 py-1">
                       <span className="typing-dot w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500" />

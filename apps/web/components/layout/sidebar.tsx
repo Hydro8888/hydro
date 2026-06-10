@@ -88,14 +88,15 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                 isActive
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white font-semibold'
+                  : 'font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
               )}
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className={cn('w-4 h-4', isActive && 'text-primary-600 dark:text-primary-400')} />
               {item.label}
             </Link>
           );
@@ -114,9 +115,16 @@ export function Sidebar() {
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               대화가 없습니다
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              위 &ldquo;새 대화&rdquo;를 눌러 시작하세요
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              첫 대화를 시작해보세요
             </p>
+            <Link
+              href="/chat"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-xs font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              새 대화 시작
+            </Link>
           </div>
         ) : (
           <div className="space-y-0.5 pb-4">

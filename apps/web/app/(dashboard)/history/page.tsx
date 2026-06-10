@@ -48,7 +48,7 @@ export default function HistoryPage() {
   const [search, setSearch] = useState('');
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
 
   useEffect(() => {
     fetch(apiUrl('/api/conversations'))
@@ -75,12 +75,18 @@ export default function HistoryPage() {
     : null;
 
   async function handleDelete(id: string) {
+    const target = conversations.find((c) => c.id === id);
+    const name = target ? `"${target.title}"` : '이 대화';
+    if (!window.confirm(`${name}를 삭제하시겠습니까?\n삭제된 대화는 복구할 수 없습니다.`)) {
+      return;
+    }
     // 낙관적 업데이트 + 실패 시 롤백
     const previous = conversations;
     setConversations((prev) => prev.filter((c) => c.id !== id));
     try {
       const res = await fetch(apiUrl(`/api/conversations/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toastSuccess('대화가 삭제되었습니다.');
     } catch (err) {
       console.error('[history] Delete failed:', err);
       setConversations(previous); // 롤백
@@ -129,8 +135,14 @@ export default function HistoryPage() {
       <SearchBar value={search} onChange={setSearch} />
 
       {loading ? (
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center text-sm text-gray-500">
-          불러오는 중...
+        <div
+          className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3"
+          role="status"
+          aria-label="대화 목록 불러오는 중"
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+          ))}
         </div>
       ) : conversations.length === 0 ? (
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-16 text-center">
@@ -153,12 +165,17 @@ export default function HistoryPage() {
             검색 결과가 없습니다
           </div>
         ) : (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-            <ConversationList
-              conversations={filtered}
-              onDelete={handleDelete}
-              onPin={handlePin}
-            />
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 px-1">
+              검색 결과 {filtered.length}개
+            </p>
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+              <ConversationList
+                conversations={filtered}
+                onDelete={handleDelete}
+                onPin={handlePin}
+              />
+            </div>
           </div>
         )
       ) : (

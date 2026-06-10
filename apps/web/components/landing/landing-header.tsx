@@ -58,7 +58,7 @@ export function LandingHeader() {
             로그인
           </Button>
           <Button href="/chat" variant="primary" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
-            무료 시작
+            무료로 시작하기
           </Button>
         </div>
 
@@ -88,7 +88,7 @@ export function LandingHeader() {
           ))}
           <div className="pt-3 flex flex-col gap-2 border-t border-gray-100 dark:border-gray-800">
             <Button href="/sign-in" variant="secondary" size="md" className="w-full">로그인</Button>
-            <Button href="/chat" variant="primary" size="md" className="w-full">무료 시작</Button>
+            <Button href="/chat" variant="primary" size="md" className="w-full">무료로 시작하기</Button>
           </div>
         </div>
       )}

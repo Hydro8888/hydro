@@ -10,7 +10,7 @@ export function ModelShowcase() {
     <Section
       id="models"
       variant="white"
-      eyebrow="Models"
+      eyebrow="모델"
       title="세계 최고의 AI, 한자리에"
       subtitle="9개 프리미엄 AI 제공사의 최신 모델을 만나보세요"
       containerSize="lg"

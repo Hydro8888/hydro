@@ -12,7 +12,7 @@ export function LogoCloud() {
         <p className="text-center text-sm font-semibold text-gray-500 dark:text-gray-400 mb-10">
           세계 최고의 AI 모델들이 하나의 플랫폼에 모였습니다
         </p>
-        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-8 items-center justify-items-center">
+        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-4 sm:gap-6 md:gap-8 items-center justify-items-center">
           {providers.map((p) => (
             <div
               key={p.provider}
@@ -27,7 +27,7 @@ export function LogoCloud() {
                   style={{ backgroundColor: p.color }}
                 />
               </div>
-              <span className="text-sm font-semibold capitalize">{p.provider}</span>
+              <span className="text-xs sm:text-sm font-semibold capitalize">{p.provider}</span>
             </div>
           ))}
         </div>

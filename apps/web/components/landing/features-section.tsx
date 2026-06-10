@@ -39,7 +39,7 @@ export function FeaturesSection() {
     <Section
       id="features"
       variant="white"
-      eyebrow="Features"
+      eyebrow="기능"
       title="하나의 플랫폼, 무한한 가능성"
       subtitle="복잡한 AI 구독을 통합하고 팀의 생산성을 높이는 모든 기능"
     >
@@ -58,7 +58,7 @@ export function FeaturesSection() {
               <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
                 {feature.title}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 {feature.description}
               </p>
             </div>

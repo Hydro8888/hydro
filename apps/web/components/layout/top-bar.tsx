@@ -56,7 +56,7 @@ export function TopBar() {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <Link href="/chat" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity" aria-label="AI Portal Pro 홈">
           <div className="w-8 h-8 rounded-lg bg-gray-900 dark:bg-white flex items-center justify-center shadow-xs">
             <span className="text-white dark:text-gray-900 font-bold text-xs">AI</span>
           </div>

@@ -40,7 +40,7 @@ export function UseCases() {
   return (
     <Section
       variant="gray"
-      eyebrow="Customer Stories"
+      eyebrow="고객 사례"
       title="모든 사람을 위한 AI 플랫폼"
       subtitle="개발자, 크리에이터, 연구원, 기업 - 각자의 방식으로 AI를 활용하고 있습니다"
     >

@@ -11,7 +11,7 @@ export function MultiPaneChat({
   const selectedModelIds = useModelStore((s) => s.selectedModelIds);
 
   return (
-    <div className="grid grid-cols-2 grid-rows-2 h-full divide-x divide-y divide-gray-200 dark:divide-gray-800">
+    <div className="grid grid-cols-1 md:grid-cols-2 auto-rows-[70vh] md:auto-rows-fr md:grid-rows-2 h-full overflow-y-auto md:overflow-hidden divide-x divide-y divide-gray-200 dark:divide-gray-800">
       {selectedModelIds.map((modelId, index) => (
         <div key={`${modelId}-${index}`} className="min-w-0 min-h-0">
           <ChatWorkspace

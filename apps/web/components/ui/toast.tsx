@@ -33,7 +33,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+    <div className="fixed bottom-24 left-4 right-4 sm:bottom-6 sm:left-auto sm:right-6 z-50 flex flex-col gap-2 items-stretch sm:items-end">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

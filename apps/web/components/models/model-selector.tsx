@@ -16,26 +16,31 @@ export function ModelSelector() {
   const maxModels = mode === 'single' ? 1 : mode === 'dual' ? 2 : 4;
 
   return (
-    <div className="w-56 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col shrink-0 overflow-hidden">
+    <div className="hidden md:flex w-56 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex-col shrink-0 overflow-hidden">
       <div className="p-2.5 border-b border-gray-200 dark:border-gray-800 space-y-2">
         <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
           {MODE_OPTIONS.map((opt) => (
             <button
               key={opt.mode}
               onClick={() => setMode(opt.mode)}
+              aria-pressed={mode === opt.mode}
               className={cn(
-                'flex-1 px-2 py-1 rounded-md text-xs font-medium transition-colors',
+                'flex-1 px-2 py-1 rounded-md text-xs transition-colors',
                 mode === opt.mode
-                  ? 'bg-white dark:bg-gray-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-gray-700 shadow-sm font-semibold text-gray-900 dark:text-white'
+                  : 'font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               )}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-gray-400 text-center">
-          {selectedModelIds.length}/{maxModels} 선택됨
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center">
+          {mode === 'single'
+            ? '모델 1개로 대화'
+            : mode === 'dual'
+              ? `2개 모델 나란히 비교 (${selectedModelIds.length}/2)`
+              : `최대 4개 모델 동시 비교 (${selectedModelIds.length}/4)`}
         </p>
       </div>
 

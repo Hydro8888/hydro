@@ -73,7 +73,7 @@ export function ConversationList({
               <span>{relativeTime(conv.updatedAt)}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -81,6 +81,7 @@ export function ConversationList({
               }}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               title={conv.pinned ? '고정 해제' : '고정'}
+              aria-label={conv.pinned ? '대화 고정 해제' : '대화 고정'}
             >
               <Pin className={`w-3.5 h-3.5 ${conv.pinned ? 'text-primary-500' : 'text-gray-400'}`} />
             </button>
@@ -91,6 +92,7 @@ export function ConversationList({
               }}
               className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950 rounded"
               title="삭제"
+              aria-label="대화 삭제"
             >
               <Trash2 className="w-3.5 h-3.5 text-red-400" />
             </button>

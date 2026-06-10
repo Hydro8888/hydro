@@ -8,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 interface PricingTableProps {
   currentTier?: TierKey;
   onUpgrade?: (tier: TierKey) => void;
+  /** 결제 시스템 오픈 전: 버튼에 "준비 중"을 표기해 기대를 정직하게 관리 */
+  comingSoon?: boolean;
 }
 
-export function PricingTable({ currentTier = 'free', onUpgrade }: PricingTableProps) {
+export function PricingTable({ currentTier = 'free', onUpgrade, comingSoon = false }: PricingTableProps) {
   const tierOrder: TierKey[] = ['free', 'pro', 'team', 'enterprise'];
 
   return (
@@ -75,16 +77,25 @@ export function PricingTable({ currentTier = 'free', onUpgrade }: PricingTablePr
             <button
               onClick={() => onUpgrade?.(key)}
               disabled={isCurrent}
+              aria-disabled={isCurrent || comingSoon}
               className={cn(
                 'w-full py-2.5 rounded-lg text-sm font-semibold transition-all shadow-xs',
                 isCurrent
                   ? 'bg-gray-50 dark:bg-gray-800 text-gray-400 cursor-default'
-                  : isPopular
-                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 ring-1 ring-gray-900/10 dark:ring-white/10'
-                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  : comingSoon && key !== 'enterprise'
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-pointer'
+                    : isPopular
+                      ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 ring-1 ring-gray-900/10 dark:ring-white/10'
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
               )}
             >
-              {isCurrent ? '현재 플랜' : key === 'enterprise' ? '문의하기' : '업그레이드'}
+              {isCurrent
+                ? '현재 플랜'
+                : key === 'enterprise'
+                  ? '문의하기'
+                  : comingSoon
+                    ? '곧 출시 — 알림 받기'
+                    : '업그레이드'}
             </button>
           </div>
         );

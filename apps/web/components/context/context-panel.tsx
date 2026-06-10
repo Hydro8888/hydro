@@ -38,7 +38,7 @@ export function ContextPanel() {
   const outputTokens = 0;
 
   return (
-    <aside className="w-72 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col shrink-0 overflow-y-auto">
+    <aside className="hidden md:flex w-72 border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex-col shrink-0 overflow-y-auto">
       <div className="p-4 space-y-6">
         <TokenCounter
           inputTokens={inputTokens}

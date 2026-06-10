@@ -28,7 +28,7 @@ export function TestimonialsSection() {
   return (
     <Section
       variant="white"
-      eyebrow="Testimonials"
+      eyebrow="사용자 후기"
       title="사용자들이 말하는 AI Portal Pro"
       subtitle="매일 수천 명의 전문가들이 선택한 AI 플랫폼"
     >

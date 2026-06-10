@@ -55,7 +55,7 @@ export function PricingPreview() {
     <Section
       id="pricing"
       variant="gray"
-      eyebrow="Pricing"
+      eyebrow="요금제"
       title="투명하고 간단한 요금제"
       subtitle="필요한 기능을 선택하고 언제든 업그레이드하세요. 숨겨진 비용 없음."
     >

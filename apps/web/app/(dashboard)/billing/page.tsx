@@ -41,8 +41,13 @@ export default function BillingPage() {
         </div>
         <PricingTable
           currentTier="free"
-          onUpgrade={() => {
-            info('결제 시스템은 현재 준비 중입니다.');
+          comingSoon
+          onUpgrade={(tier) => {
+            if (tier === 'enterprise') {
+              window.location.href = 'mailto:contact@free.ai.kr?subject=Enterprise 플랜 문의';
+              return;
+            }
+            info('결제 시스템 오픈 시 이메일로 알려드릴게요. (현재 준비 중)');
           }}
         />
       </div>

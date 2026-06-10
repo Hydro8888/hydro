@@ -21,7 +21,7 @@ export default async function RankingPage({
     <div className="max-w-7xl mx-auto px-3 sm:px-4 py-8">
       <h1 className="text-headline-lg text-text mb-6">뉴스 랭킹</h1>
 
-      <CountryTabs activeCountry={country} />
+      <CountryTabs activeCountry={country} basePath="/ranking?country=[country]" />
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {articles.map((article, idx) => (

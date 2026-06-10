@@ -57,9 +57,6 @@ export default function NewsCardLarge({ article }: { article: Article }) {
           <span className="text-text-secondary">
             {article.source.sourceName}
           </span>
-          <span className="text-text-muted">
-            {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-          </span>
           <span className="text-text-muted flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             {timeAgo(article.publishedAt)}

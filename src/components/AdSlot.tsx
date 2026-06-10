@@ -21,8 +21,14 @@ const SIZE_CONFIG = {
   },
 } as const;
 
+// Placeholder boxes look unfinished to end users — render slots only once
+// real ad serving is wired up (flip NEXT_PUBLIC_ADS_ENABLED=true).
+const ADS_ENABLED = process.env.NEXT_PUBLIC_ADS_ENABLED === 'true';
+
 export default function AdSlot({ size, className = '' }: AdSlotProps) {
   const config = SIZE_CONFIG[size];
+
+  if (!ADS_ENABLED) return null;
 
   return (
     <div

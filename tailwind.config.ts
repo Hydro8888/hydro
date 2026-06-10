@@ -23,7 +23,9 @@ const config: Config = {
         text: {
           DEFAULT: '#e6edf3',
           secondary: '#8b949e',
-          muted: '#484f58',
+          // #484f58 was ~2.3:1 contrast on #0d1117 (fails WCAG); #6e7681 ≈ 4:1
+          // while keeping the muted < secondary < default hierarchy
+          muted: '#6e7681',
         },
         accent: {
           DEFAULT: '#f0883e',
@@ -38,7 +40,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          'Pretendard', '-apple-system', 'BlinkMacSystemFont',
+          'Pretendard Variable', 'Pretendard', '-apple-system', 'BlinkMacSystemFont',
           'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial',
           'Noto Sans KR', 'sans-serif',
         ],

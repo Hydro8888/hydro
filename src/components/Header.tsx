@@ -101,6 +101,7 @@ export default function Header() {
   const [countryOpen, setCountryOpen] = useState(false);
   const countryRef = useRef<HTMLLIElement>(null);
   const navScrollRef = useRef<HTMLUListElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -119,6 +120,34 @@ export default function Header() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Keyboard shortcuts: '/' opens search (as advertised by the kbd hint), ESC closes overlays
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setMobileOpen(false);
+        setCountryOpen(false);
+        return;
+      }
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      e.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Focus the search input when the search bar expands
+  useEffect(() => {
+    if (!searchOpen) return;
+    const t = setTimeout(() => {
+      searchWrapRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    }, 80);
+    return () => clearTimeout(t);
+  }, [searchOpen]);
 
   // Auto-scroll active nav item into view
   useEffect(() => {
@@ -141,7 +170,9 @@ export default function Header() {
       <header
         className={cn(
           'sticky top-0 z-50 w-full bg-surface/95 backdrop-blur-md border-b border-border transition-transform duration-300',
-          collapsed && '-translate-y-[var(--nav-h)]',
+          // Collapse by the exact tier-1 height (h-12): desktop keeps the nav strip
+          // pinned, mobile hides the header fully — no clipped sliver remains.
+          collapsed && '-translate-y-12',
         )}
         style={{ '--nav-h': '40px' } as React.CSSProperties}
       >
@@ -219,6 +250,7 @@ export default function Header() {
 
           {/* Expandable search bar */}
           <div
+            ref={searchWrapRef}
             className={cn(
               'overflow-hidden transition-all duration-300 ease-in-out',
               searchOpen ? 'max-h-20 pb-3 opacity-100' : 'max-h-0 opacity-0',

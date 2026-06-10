@@ -37,9 +37,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className="dark">
       <body className="bg-surface text-text min-h-screen flex flex-col overflow-x-hidden">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-card focus:bg-accent focus:text-white focus:text-sm focus:font-semibold"
+        >
+          본문 바로가기
+        </a>
         <Header />
         <Suspense fallback={<Loading />}>
-          <main className="flex-1">{children}</main>
+          <main id="main" className="flex-1">{children}</main>
         </Suspense>
         <Footer />
       </body>

@@ -184,6 +184,13 @@ export function categoryLabel(slug: string): string {
     energy: '에너지', society: '사회', culture: '문화', entertainment: '연예',
     sports: '스포츠', science: '과학', health: '건강', world: '세계',
     general: '일반', opinion: '오피니언', travel: '여행',
+    // Country subcategory slugs (COUNTRY_SUBCATEGORIES) — without these the
+    // category page title / breadcrumb shows the raw English slug
+    'international-politics': '국제정치', 'war-diplomacy': '전쟁/외교',
+    'global-economy': '글로벌 경제', climate: '기후/환경',
+    'international-society': '국제사회', bigtech: '빅테크',
+    industry: '산업', policy: '정책', technology: '기술',
+    trade: '무역', international: '국제관계',
   };
   return map[slug] || slug;
 }

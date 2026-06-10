@@ -168,8 +168,9 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
           )}
         </div>
 
-        {/* Original Content (collapsible) */}
-        {article.contentOriginal && (
+        {/* Original Content (collapsible) — only when the Korean translation is
+            shown as the body; otherwise the body already displays the original */}
+        {article.contentKo && article.contentOriginal && (
           <details className="mb-6 group">
             <summary className="cursor-pointer text-caption text-text-muted hover:text-text-secondary flex items-center gap-1.5 py-2 transition-colors">
               <svg className="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -214,9 +215,7 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
       </article>
 
       {/* Banner Ad */}
-      <div className="py-6">
-        <AdSlot size="banner" />
-      </div>
+      <AdSlot size="banner" className="my-6" />
 
       {/* Related Articles */}
       {related.length > 0 && (

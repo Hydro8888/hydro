@@ -85,7 +85,7 @@ export default async function HomePage() {
                   const breakingIds = new Set(breaking.map(a => a.id));
                   const fillArticles = articles
                     .filter(a => !heroIds.has(a.id) && !breakingIds.has(a.id))
-                    .slice(0, 8 - breaking.length);
+                    .slice(0, Math.max(0, 8 - breaking.length));
                   const listItems = [...breaking, ...fillArticles].slice(0, 8);
                   const hasExtraFill = fillArticles.length > 0;
 
@@ -120,11 +120,6 @@ export default async function HomePage() {
             </div>
           </section>
         )}
-
-        {/* ── Newsletter Banner ── */}
-        <section className="mt-8 animate-fade-in">
-          <NewsletterBanner />
-        </section>
 
         {/* ── Category Sections ── */}
         {categorySections.length > 0 && (
@@ -217,6 +212,13 @@ export default async function HomePage() {
                 </React.Fragment>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* ── Newsletter Banner — bottom of the feed so it doesn't interrupt reading ── */}
+        {articles.length > 0 && (
+          <section className="mt-12 animate-fade-in">
+            <NewsletterBanner />
           </section>
         )}
 

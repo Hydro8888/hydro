@@ -119,12 +119,16 @@ export default async function CountryPage({
         </div>
       )}
 
-      {/* Newsletter Banner */}
-      <section className="mt-10 mb-6">
-        <NewsletterBanner />
-      </section>
-
+      {/* Pagination directly after the list — users shouldn't scroll past a
+          promo banner to reach page 2 */}
       <Pagination currentPage={page} totalPages={totalPages} basePath={`/${params.country}`} />
+
+      {/* Newsletter Banner */}
+      {articles.length > 0 && (
+        <section className="mt-6">
+          <NewsletterBanner />
+        </section>
+      )}
     </div>
   );
 }

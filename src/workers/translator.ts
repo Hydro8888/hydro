@@ -18,7 +18,7 @@ import { retryWithBackoff } from '../lib/retry';
 
 const CHUNK_SIZE = 10;
 
-interface TranslationResult {
+export interface TranslationResult {
   titleKo: string;
   summaryKo: string;
   primary: string;
@@ -33,6 +33,8 @@ function buildClient(): OpenAI | null {
   });
 }
 
+const EMPTY_RESULT: TranslationResult = { titleKo: '', summaryKo: '', primary: 'general', secondary: '' };
+
 async function translateChunk(
   client: OpenAI,
   model: string,
@@ -45,13 +47,14 @@ async function translateChunk(
     messages: [
       {
         role: 'system',
-        content: `당신은 뉴스 처리 전문가입니다. 각 뉴스 제목에 대해:
-1. 한국어 번역 제목
-2. 한국어 1문장 요약
+        content: `당신은 뉴스 처리 전문가입니다. 번호가 매겨진 각 뉴스 제목에 대해:
+1. 한국어 번역 제목 (titleKo)
+2. 한국어 1문장 요약 (summaryKo)
 3. 카테고리 분류 (politics/economy/market/business/ai-tech/semiconductor/automotive/energy/society/culture/entertainment/sports/science/health/world/general)
 
-JSON 배열로 응답하세요: [{"titleKo":"...","summaryKo":"...","primary":"...","secondary":"..."}]
-정확히 ${articles.length}개의 항목을 반환하세요.`,
+반드시 각 항목에 입력 번호를 "idx" 필드로 포함한 JSON 배열로만 응답하세요:
+[{"idx":1,"titleKo":"...","summaryKo":"...","primary":"...","secondary":"..."}]
+정확히 ${articles.length}개의 항목을 반환하세요. 설명이나 코드블록 없이 JSON만 출력하세요.`,
       },
       { role: 'user', content: titlesText },
     ],
@@ -59,20 +62,92 @@ JSON 배열로 응답하세요: [{"titleKo":"...","summaryKo":"...","primary":".
     temperature: 0.2,
   });
 
-  const text = res.choices[0]?.message?.content?.trim() ?? '';
+  // Strip markdown code fences some models wrap around JSON
+  const text = (res.choices[0]?.message?.content?.trim() ?? '').replace(/```(?:json)?/gi, '');
   const match = text.match(/\[[\s\S]*\]/);
-  if (match) {
-    const parsed: unknown = JSON.parse(match[0]);
-    if (Array.isArray(parsed) && parsed.length === articles.length) {
-      return parsed as TranslationResult[];
+  if (!match) throw new Error('No JSON array found in model response');
+
+  const parsed: unknown = JSON.parse(match[0]);
+  if (!Array.isArray(parsed)) throw new Error('Model response is not a JSON array');
+
+  // Map results by their "idx" field (1-based); fall back to array position.
+  // A count mismatch must NOT wipe the whole chunk anymore — salvage what
+  // matched and only throw when nothing is usable (so retryWithBackoff fires).
+  const out: TranslationResult[] = articles.map(() => ({ ...EMPTY_RESULT }));
+  let matched = 0;
+
+  parsed.forEach((item: unknown, pos: number) => {
+    if (typeof item !== 'object' || item === null) return;
+    const rec = item as Record<string, unknown>;
+    const idxRaw = rec.idx;
+    const i = typeof idxRaw === 'number' && Number.isInteger(idxRaw) ? idxRaw - 1 : pos;
+    const titleKo = typeof rec.titleKo === 'string' ? rec.titleKo.trim() : '';
+    if (i < 0 || i >= out.length || !titleKo) return;
+    out[i] = {
+      titleKo,
+      summaryKo: typeof rec.summaryKo === 'string' ? rec.summaryKo.trim() : '',
+      primary: typeof rec.primary === 'string' && rec.primary ? rec.primary : 'general',
+      secondary: typeof rec.secondary === 'string' ? rec.secondary : '',
+    };
+    matched++;
+  });
+
+  if (matched === 0) throw new Error('No usable translations in model response');
+  if (matched < articles.length) {
+    console.warn(
+      `[translator] Salvaged ${matched}/${articles.length} translations in chunk — rest will be backfilled`,
+    );
+  }
+  return out;
+}
+
+/**
+ * Translates an arbitrary list of titles in chunks of {@link CHUNK_SIZE} with
+ * circuit-breaker + retry. Returns one result per input title (failed chunks
+ * yield empty placeholders). Shared by the collection pipeline and the
+ * translation backfill worker.
+ */
+export async function translateTitleBatch(titles: string[]): Promise<TranslationResult[]> {
+  if (titles.length === 0) return [];
+
+  const client = buildClient();
+  if (!client) {
+    console.warn('[translator] XAI_API_KEY not set — skipping translation');
+    return titles.map(() => ({ ...EMPTY_RESULT }));
+  }
+
+  const model = process.env.XAI_MODEL || 'grok-4-1-fast';
+  const results: TranslationResult[] = [];
+
+  for (let i = 0; i < titles.length; i += CHUNK_SIZE) {
+    const chunk = titles.slice(i, i + CHUNK_SIZE);
+    const chunkLabel = `[${i + 1}–${Math.min(i + CHUNK_SIZE, titles.length)}/${titles.length}]`;
+
+    let translations: TranslationResult[];
+    try {
+      translations = await retryWithBackoff(
+        () =>
+          xaiTextBreaker.execute(() =>
+            translateChunk(client, model, chunk.map((title) => ({ title }))),
+          ),
+        { maxRetries: 2, baseDelay: 1500 },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[translator] Chunk ${chunkLabel} failed: ${message}`);
+      translations = chunk.map(() => ({ ...EMPTY_RESULT }));
+    }
+
+    results.push(...translations);
+    console.log(`[translator] Translated chunk ${chunkLabel}`);
+
+    // Small pause between chunks to be polite to the API
+    if (i + CHUNK_SIZE < titles.length) {
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
 
-  // If the response count doesn't match, return empty placeholders
-  console.warn(
-    `[translator] Unexpected response length for chunk of ${articles.length}. Using placeholders.`,
-  );
-  return articles.map(() => ({ titleKo: '', summaryKo: '', primary: 'general', secondary: '' }));
+  return results;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,68 +178,16 @@ export async function translateArticles(
 ): Promise<TranslatableArticle[]> {
   if (articles.length === 0) return articles;
 
-  const client = buildClient();
-  if (!client) {
-    console.warn('[translator] XAI_API_KEY not set — skipping translation');
-    return articles.map((a) => ({
+  const translations = await translateTitleBatch(articles.map((a) => a.titleOriginal));
+
+  return articles.map((a, i) => {
+    const t = translations[i];
+    return {
       ...a,
-      titleKo: '',
-      summaryKo: '',
-      categoryPrimary: 'general',
-      categorySecondary: '',
-    }));
-  }
-
-  const model = process.env.XAI_MODEL || 'grok-4-1-fast';
-  const results: TranslatableArticle[] = [];
-
-  for (let i = 0; i < articles.length; i += CHUNK_SIZE) {
-    const chunk = articles.slice(i, i + CHUNK_SIZE);
-    const chunkLabel = `[${i + 1}–${Math.min(i + CHUNK_SIZE, articles.length)}/${articles.length}]`;
-
-    let translations: TranslationResult[];
-    try {
-      translations = await retryWithBackoff(
-        () =>
-          xaiTextBreaker.execute(() =>
-            translateChunk(
-              client,
-              model,
-              chunk.map((a) => ({ title: a.titleOriginal })),
-            ),
-          ),
-        { maxRetries: 2, baseDelay: 1500 },
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[translator] Chunk ${chunkLabel} failed: ${message}`);
-      // Keep originals untouched with empty AI fields
-      translations = chunk.map(() => ({
-        titleKo: '',
-        summaryKo: '',
-        primary: 'general',
-        secondary: '',
-      }));
-    }
-
-    for (let j = 0; j < chunk.length; j++) {
-      const t = translations[j];
-      results.push({
-        ...chunk[j],
-        titleKo: t?.titleKo ?? '',
-        summaryKo: t?.summaryKo ?? '',
-        categoryPrimary: t?.primary ?? 'general',
-        categorySecondary: t?.secondary ?? '',
-      });
-    }
-
-    console.log(`[translator] Translated chunk ${chunkLabel}`);
-
-    // Small pause between chunks to be polite to the API
-    if (i + CHUNK_SIZE < articles.length) {
-      await new Promise((r) => setTimeout(r, 300));
-    }
-  }
-
-  return results;
+      titleKo: t?.titleKo ?? '',
+      summaryKo: t?.summaryKo ?? '',
+      categoryPrimary: t?.primary ?? 'general',
+      categorySecondary: t?.secondary ?? '',
+    };
+  });
 }

@@ -24,6 +24,7 @@ interface Stats {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [collecting, setCollecting] = useState(false);
+  const [fixing, setFixing] = useState(false);
 
   const [loadError, setLoadError] = useState(false);
 
@@ -60,6 +61,22 @@ export default function AdminDashboard() {
     }
   }
 
+  async function fixTranslations() {
+    setFixing(true);
+    try {
+      const res = await fetch('/livenews/api/admin/fix-translations?titles=500&content=30', {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      alert(data.message || '번역 보정이 완료되었습니다');
+    } catch {
+      alert('번역 보정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setFixing(false);
+    }
+  }
+
   if (loadError) {
     return (
       <div className="text-center py-20 text-accent-red">
@@ -80,13 +97,23 @@ export default function AdminDashboard() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-text">관리자 대시보드</h1>
-        <button
-          onClick={triggerCollection}
-          disabled={collecting}
-          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"
-        >
-          {collecting ? '수집 중...' : '수동 수집 실행'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fixTranslations}
+            disabled={fixing}
+            className="px-4 py-2 border border-accent text-accent rounded-lg hover:bg-accent/10 disabled:opacity-50"
+            title="한글 번역이 누락된 기사 제목/요약/본문을 일괄 재번역합니다 (500건씩)"
+          >
+            {fixing ? '번역 보정 중...' : '미번역 보정'}
+          </button>
+          <button
+            onClick={triggerCollection}
+            disabled={collecting}
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"
+          >
+            {collecting ? '수집 중...' : '수동 수집 실행'}
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

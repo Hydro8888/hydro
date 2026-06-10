@@ -376,6 +376,25 @@ export async function collectAll(): Promise<void> {
   );
   console.log(`[collector] Next scheduled run at ~${nextRun} (4h interval)`);
 
+  // ── Heal translations that failed in this or earlier runs ───────────────
+  // Without this, an article whose API call failed once kept an English
+  // title forever. Runs before cache invalidation so pages pick it up.
+  try {
+    const { backfillTranslations } = await import('./backfill');
+    const healed = await backfillTranslations(prisma, { titleLimit: 100, contentLimit: 20 });
+    if (healed.titlesFixed > 0 || healed.contentFixed > 0) {
+      console.log(
+        `[collector] Backfill healed ${healed.titlesFixed} title(s), ${healed.contentFixed} body translation(s) ` +
+        `(remaining: ${healed.remainingTitles} titles, ${healed.remainingContent} bodies)`,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      '[collector] Translation backfill failed (non-fatal):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+
   // ── Always invalidate Redis caches after collection ─────────────────────
   // (Even if no new articles, ensures stale cache is cleared)
   try {

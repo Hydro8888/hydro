@@ -1,0 +1,300 @@
+/**
+ * scraper.ts
+ * Fetches the full article text AND image from the original URL.
+ * Enhanced with JSON-LD extraction and site-specific patterns.
+ */
+
+import type { NormalizedArticle } from './normalizer';
+import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+    .replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
+    .replace(/<[^>]+>/g, '\n')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/\n\s*\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 15)
+    .join('\n')
+    .trim();
+}
+
+/**
+ * Extract article body from JSON-LD structured data.
+ * Most modern news sites embed article content in JSON-LD.
+ */
+function extractFromJsonLd(html: string): string {
+  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  let bestContent = '';
+  while ((match = jsonLdRegex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : [data];
+
+      const checkNode = (node: Record<string, unknown>) => {
+        if (!node || typeof node !== 'object') return;
+        const type = String(node['@type'] || '');
+        if (!/Article|NewsArticle|ReportageNewsArticle|BlogPosting|WebPage|Report/i.test(type)) return;
+
+        // Try multiple content fields in priority order
+        const fields = ['articleBody', 'text', 'description', 'abstract'];
+        for (const field of fields) {
+          const val = node[field];
+          if (typeof val === 'string' && val.length > bestContent.length && val.length > 50) {
+            bestContent = val.slice(0, 8000);
+          }
+        }
+      };
+
+      for (const item of items) {
+        checkNode(item as Record<string, unknown>);
+        // Check @graph structure
+        if (item['@graph'] && Array.isArray(item['@graph'])) {
+          for (const node of item['@graph']) {
+            checkNode(node as Record<string, unknown>);
+          }
+        }
+      }
+    } catch { /* Invalid JSON, skip */ }
+  }
+  return bestContent;
+}
+
+/**
+ * Extract image URL from JSON-LD structured data.
+ */
+function extractImageFromJsonLd(html: string): string {
+  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let match;
+  while ((match = jsonLdRegex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        const nodes = [item, ...(Array.isArray(item['@graph']) ? item['@graph'] : [])];
+        for (const node of nodes) {
+          if (!node || typeof node !== 'object') continue;
+          // Check image field (can be string, object, or array)
+          const img = node.image || node.thumbnailUrl;
+          if (!img) continue;
+          const url = typeof img === 'string' ? img
+            : Array.isArray(img) ? (typeof img[0] === 'string' ? img[0] : img[0]?.url)
+            : img.url || img.contentUrl;
+          if (url && typeof url === 'string' && isValidArticleImage(url)) return url;
+        }
+      }
+    } catch { /* invalid JSON */ }
+  }
+  return '';
+}
+
+/**
+ * Extract og:image or twitter:image from HTML meta tags.
+ * Falls back to JSON-LD image, then first large <img> in the article.
+ */
+function extractOgImage(html: string): string {
+  // 1. og:image meta tag
+  const ogMatch = html.match(/<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+  if (ogMatch?.[1] && isValidArticleImage(ogMatch[1])) return ogMatch[1];
+
+  // 2. twitter:image meta tag
+  const twMatch = html.match(/<meta\s[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+  if (twMatch?.[1] && isValidArticleImage(twMatch[1])) return twMatch[1];
+
+  // 3. name="image" meta tag
+  const imgMeta = html.match(/<meta\s[^>]*name=["']image["'][^>]*content=["']([^"']+)["']/i);
+  if (imgMeta?.[1] && isValidArticleImage(imgMeta[1])) return imgMeta[1];
+
+  // 4. JSON-LD structured data image
+  const jsonLdImage = extractImageFromJsonLd(html);
+  if (jsonLdImage) return jsonLdImage;
+
+  // 5. First large <img> in article
+  const imgTag = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*(?:width=["'](\d+)["'])?/gi);
+  if (imgTag) {
+    for (const tag of imgTag) {
+      const srcMatch = tag.match(/src=["']([^"']+)["']/i);
+      const widthMatch = tag.match(/width=["'](\d+)["']/i);
+      if (srcMatch?.[1]) {
+        const src = srcMatch[1];
+        if (widthMatch && parseInt(widthMatch[1]) < 200) continue;
+        if (src.endsWith('.gif') && !src.includes('giphy')) continue;
+        if (!isValidArticleImage(src)) continue;
+        return src;
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Extract article body from HTML page using multiple strategies.
+ */
+function extractArticleContent(html: string): string {
+  // Strategy 1: JSON-LD structured data (most reliable)
+  const jsonLdContent = extractFromJsonLd(html);
+  if (jsonLdContent.length > 50) {
+    console.log(`[scraper] Got content from JSON-LD (${jsonLdContent.length} chars)`);
+    return jsonLdContent;
+  }
+
+  // Strategy 2: Site-specific and semantic HTML patterns
+  const patterns = [
+    // Specific news site patterns
+    /<div[^>]*class="[^"]*ssrcss[^"]*"[^>]*data-component="text-block"[^>]*>([\s\S]*?)<\/div>/gi, // BBC
+    /<div[^>]*class="[^"]*article__body[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, // CNN
+    /<div[^>]*class="[^"]*content--body[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, // Guardian
+    /<div[^>]*class="[^"]*article-body[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, // Reuters/generic
+    /<div[^>]*class="[^"]*story-body[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, // BBC legacy
+    // Generic semantic patterns
+    /<article[^>]*>([\s\S]*?)<\/article>/gi,
+    /<div[^>]*class="[^"]*article[_-]?(?:body|content|text|copy)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*story[_-]?(?:body|content|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*post[_-]?(?:content|body)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*entry[_-]?content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*content[_-]?(?:body|area|main)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*(?:body|text)[_-]?(?:content|copy|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*id="article[_-]?(?:body|content)"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<section[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/section>/gi,
+    /<main[^>]*>([\s\S]*?)<\/main>/gi,
+  ];
+
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0; // Reset regex state
+    const match = pattern.exec(html);
+    if (match && match[1]) {
+      const text = stripHtml(match[1]);
+      if (text.length > 100) {
+        console.log(`[scraper] Got content from HTML pattern (${text.length} chars)`);
+        return text.slice(0, 8000);
+      }
+    }
+  }
+
+  // Strategy 3: Extract ALL <p> tags (aggressive fallback)
+  const paragraphs: string[] = [];
+  const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let pMatch;
+  while ((pMatch = pRegex.exec(html)) !== null) {
+    const text = stripHtml(pMatch[1]).trim();
+    if (text.length > 15) {
+      paragraphs.push(text);
+    }
+  }
+
+  if (paragraphs.length >= 1) {
+    const joined = paragraphs.join('\n');
+    console.log(`[scraper] Got content from <p> tags (${joined.length} chars, ${paragraphs.length} paragraphs)`);
+    return joined.slice(0, 8000);
+  }
+
+  // Strategy 4: og:description meta tag as absolute last resort
+  const descMatch = html.match(/<meta\s[^>]*(?:property=["']og:description["']|name=["']description["'])[^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*(?:property=["']og:description["']|name=["']description["'])/i);
+  if (descMatch?.[1] && descMatch[1].length > 30) {
+    console.log(`[scraper] Got content from meta description (${descMatch[1].length} chars)`);
+    return descMatch[1];
+  }
+
+  return '';
+}
+
+interface ScrapedPage {
+  content: string;
+  imageUrl: string;
+}
+
+export async function fetchArticlePage(url: string): Promise<ScrapedPage> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate',
+        'Cache-Control': 'no-cache',
+      },
+      redirect: 'follow',
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.log(`[scraper] HTTP ${res.status} for ${url.slice(0, 60)}`);
+      return { content: '', imageUrl: '' };
+    }
+
+    const html = await res.text();
+    return {
+      content: extractArticleContent(html),
+      imageUrl: normalizeImageUrl(extractOgImage(html)) || '',
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (!msg.includes('abort')) {
+      console.log(`[scraper] Fetch error for ${url.slice(0, 60)}: ${msg}`);
+    }
+    return { content: '', imageUrl: '' };
+  }
+}
+
+export async function scrapeArticleContents(
+  articles: NormalizedArticle[],
+): Promise<NormalizedArticle[]> {
+  const needsScraping = articles.filter(
+    (a) => !a.contentOriginal || a.contentOriginal.length < 1500 || !a.imageUrl
+  );
+
+  if (needsScraping.length === 0) {
+    console.log('[scraper] All articles already have content and images');
+    return articles;
+  }
+
+  console.log(`[scraper] Scraping ${needsScraping.length}/${articles.length} articles...`);
+
+  let scrapedContent = 0;
+  let scrapedImages = 0;
+
+  for (const article of needsScraping) {
+    const { content, imageUrl } = await fetchArticlePage(article.originalUrl);
+
+    if (content && content.length > 100 && content.length > (article.contentOriginal?.length || 0)) {
+      article.contentOriginal = content;
+      scrapedContent++;
+    }
+
+    if (imageUrl && !article.imageUrl) {
+      article.imageUrl = imageUrl;
+      scrapedImages++;
+    }
+
+    // Polite delay
+    await new Promise((r) => setTimeout(r, 800));
+  }
+
+  console.log(`[scraper] Done: ${scrapedContent} content, ${scrapedImages} images scraped`);
+  return articles;
+}

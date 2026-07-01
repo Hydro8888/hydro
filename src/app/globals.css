@@ -1,0 +1,147 @@
+/* Pretendard Variable (dynamic subset) — the font stack already lists it but it
+   was never actually loaded, so every OS rendered a different fallback font.
+   Runtime CDN import: no build-time fetch, graceful fallback if unreachable. */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-text antialiased;
+  }
+
+  ::selection {
+    @apply bg-accent/20 text-text;
+  }
+
+  @keyframes slogan {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0d1117;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+
+  /* Respect OS-level reduced motion: stop ticker/pulse/shimmer loops */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .breaking-ticker {
+    animation: ticker 30s linear infinite;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .breaking-ticker:hover {
+    animation-play-state: paused;
+  }
+
+  .news-card {
+    @apply flex gap-4 p-4 border-b border-border hover:bg-surface-elevated transition-colors;
+  }
+
+  .news-card-large {
+    @apply rounded-card overflow-hidden border border-border-muted bg-surface-card hover:shadow-elevated transition-all;
+  }
+
+  .category-pill {
+    @apply inline-flex items-center pl-2 border-l-2 text-overline font-semibold tracking-wide uppercase;
+  }
+
+  .country-badge {
+    @apply inline-block px-2 py-0.5 rounded-badge text-xs font-medium;
+  }
+
+  .nav-link {
+    @apply px-3 py-2 text-sm font-medium text-text-secondary hover:text-accent transition-colors;
+  }
+
+  .nav-link-active {
+    @apply text-accent border-b-2 border-accent;
+  }
+
+  .tab-item {
+    @apply px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-accent cursor-pointer transition-colors;
+  }
+
+  .tab-item-active {
+    @apply text-accent border-accent;
+  }
+}
+
+@layer utilities {
+  .text-gradient-amber {
+    @apply bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent;
+  }
+
+  .border-glow {
+    box-shadow: 0 0 0 1px rgba(240, 136, 62, 0.3);
+  }
+
+  .surface-interactive {
+    @apply bg-surface-card hover:bg-surface-elevated active:bg-surface transition-colors duration-150;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Shimmer effect for skeleton loading */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 40%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.04) 60%,
+      transparent 100%
+    );
+    animation: shimmer-slide 1.8s ease-in-out infinite;
+  }
+
+  @keyframes shimmer-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}

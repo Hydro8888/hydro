@@ -381,7 +381,7 @@ export async function collectAll(): Promise<void> {
   // title forever. Runs before cache invalidation so pages pick it up.
   try {
     const { backfillTranslations } = await import('./backfill');
-    const healed = await backfillTranslations(prisma, { titleLimit: 100, contentLimit: 20 });
+    const healed = await backfillTranslations(prisma, { titleLimit: 300, contentLimit: 30 });
     if (healed.titlesFixed > 0 || healed.contentFixed > 0) {
       console.log(
         `[collector] Backfill healed ${healed.titlesFixed} title(s), ${healed.contentFixed} body translation(s) ` +

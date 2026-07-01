@@ -9,6 +9,7 @@
 #    bash /home/ubuntu/livenews/redeploy.sh --frontend           # 웹(livenews)만
 #    bash /home/ubuntu/livenews/redeploy.sh --collector          # 수집기만
 #    bash redeploy.sh --frontend --force                         # 변경 없어도 강제 재배포
+#    bash redeploy.sh --frontend --backfill                      # 배포 후 미번역 제목 일괄 해소
 #
 #  ┌─────────────────────────────────────────────────────────────────────┐
 #  │  ★ 다른 서비스 영향 없음 보장                                          │
@@ -40,18 +41,19 @@ MAX_WAIT=40
 DEPLOY_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---- 인자 파싱 ----
-DEPLOY_WEB=0; DEPLOY_COLLECTOR=0; FORCE=0
+DEPLOY_WEB=0; DEPLOY_COLLECTOR=0; FORCE=0; BACKFILL=0
 for arg in "$@"; do
     case "$arg" in
         --frontend|--web)      DEPLOY_WEB=1 ;;
         --collector|--worker)  DEPLOY_COLLECTOR=1 ;;
         --force)               FORCE=1 ;;
+        --backfill)            BACKFILL=1 ;;
         -h|--help)
-            grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -20
+            grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -24
             exit 0 ;;
         *)
             echo -e "${RED}알 수 없는 옵션: $arg${NC}"
-            echo "사용 가능: --frontend | --collector | --force | --help"
+            echo "사용 가능: --frontend | --collector | --backfill | --force | --help"
             exit 1 ;;
     esac
 done
@@ -163,6 +165,14 @@ else
     echo -e "${YELLOW}[6/6] 수집기 상태 확인...${NC}"
     sleep 2
     pm2 describe "$COLLECTOR_NAME" 2>/dev/null | grep -E "status|restarts" || true
+fi
+
+# ---- 7. (옵션) 한글 번역 백로그 일괄 해소 ----
+if [ "$BACKFILL" = "1" ]; then
+    echo -e "${YELLOW}[+] 번역 백필 실행 (미번역 제목 일괄 처리)...${NC}"
+    # 제목만 우선 처리(빠름/저렴). 본문까지 하려면: npm run backfill:translations -- --content
+    npm run backfill:translations 2>&1 | tail -30 || \
+        echo -e "${RED}      백필 실패 — 수동 실행: npm run backfill:translations${NC}"
 fi
 
 echo ""

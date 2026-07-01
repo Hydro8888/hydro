@@ -33,9 +33,23 @@ export async function translateContent(
 
   const model = process.env.XAI_MODEL || 'grok-4-1-fast';
 
-  const articlesWithContent = articles.filter(
-    (a) => a.contentOriginal && a.contentOriginal.length > 30,
-  );
+  // Content that is already Korean needs no API call — passing it through as
+  // contentKo also removes it from the "missing translation" backlog, which
+  // otherwise never shrinks and stalls the backfill loop.
+  const isAlreadyKorean = (s: string) => {
+    const hangul = (s.match(/[가-힣]/g) || []).length;
+    return hangul > s.length * 0.2;
+  };
+
+  const articlesWithContent: TranslatableArticle[] = [];
+  for (const a of articles) {
+    if (!a.contentOriginal || a.contentOriginal.length <= 30) continue;
+    if (isAlreadyKorean(a.contentOriginal)) {
+      a.contentKo = a.contentOriginal;
+      continue;
+    }
+    articlesWithContent.push(a);
+  }
 
   if (articlesWithContent.length === 0) {
     return articles;
@@ -57,7 +71,7 @@ export async function translateContent(
               messages: [
                 {
                   role: 'system',
-                  content: `당신은 뉴스 기사 번역 전문가입니다. 주어진 영문 뉴스 기사 본문을 자연스러운 한국어로 번역하세요.
+                  content: `당신은 뉴스 기사 번역 전문가입니다. 주어진 외국어(영어·일본어·중국어) 뉴스 기사 본문을 자연스러운 한국어로 번역하세요.
 
 규칙:
 - 뉴스 기사 스타일의 격식체 사용 (예: ~했다, ~이다)
@@ -76,7 +90,9 @@ export async function translateContent(
         { maxRetries: 2, baseDelay: 1500 },
       );
 
-      article.contentKo = contentKo;
+      // Echo guard: a "translation" with no Hangul means the model returned
+      // the source text — leave empty so the backfill retries it later.
+      article.contentKo = /[가-힣]/.test(contentKo) ? contentKo : '';
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(

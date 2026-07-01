@@ -46,16 +46,32 @@ export async function backfillTranslations(
   const contentLimit = opts.contentLimit ?? 20;
 
   // ── Phase 1: titles + summaries + categories ──────────────────────────────
-  const rows = titleLimit > 0
+  const allRows = titleLimit > 0
     ? await prisma.article.findMany({
         where: MISSING_TITLE_WHERE,
         orderBy: { createdAt: 'desc' },
         take: titleLimit,
-        select: { id: true, titleOriginal: true, summaryKo: true, categoryPrimary: true },
+        select: { id: true, titleOriginal: true, summaryKo: true, categoryPrimary: true, language: true },
       })
     : [];
 
+  // Korean-language articles need no API call — pass the title through
+  const koRows = allRows.filter((r) => r.language === 'ko');
+  const rows = allRows.filter((r) => r.language !== 'ko');
+
   let titlesFixed = 0;
+  for (const r of koRows) {
+    try {
+      await prisma.article.update({ where: { id: r.id }, data: { titleKo: r.titleOriginal } });
+      titlesFixed++;
+    } catch (err) {
+      console.warn(`[backfill] ko pass-through failed for ${r.id}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  if (koRows.length > 0) {
+    console.log(`[backfill] Passed through ${koRows.length} Korean-language title(s) without API calls`);
+  }
+
   if (rows.length > 0) {
     console.log(`[backfill] Re-translating ${rows.length} article title(s)…`);
     const results = await translateTitleBatch(rows.map((r) => r.titleOriginal));
@@ -83,7 +99,7 @@ export async function backfillTranslations(
         );
       }
     }
-    console.log(`[backfill] Titles healed: ${titlesFixed}/${rows.length}`);
+    console.log(`[backfill] Titles healed: ${titlesFixed}/${allRows.length}`);
   }
 
   // ── Phase 2: body content (small batch — one API call per article) ───────
@@ -140,7 +156,7 @@ export async function backfillTranslations(
   ]);
 
   return {
-    titlesScanned: rows.length,
+    titlesScanned: allRows.length,
     titlesFixed,
     contentScanned: contentTargets.length,
     contentFixed,

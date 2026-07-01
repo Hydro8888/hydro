@@ -35,6 +35,21 @@ function buildClient(): OpenAI | null {
 
 const EMPTY_RESULT: TranslationResult = { titleKo: '', summaryKo: '', primary: 'general', secondary: '' };
 
+const HANGUL_RE = /[가-힣]/;
+
+/**
+ * True when the model actually produced a Korean translation.
+ * Guards against the model echoing the source title back verbatim —
+ * without this, an English "translation" gets saved as titleKo and the
+ * article looks permanently untranslated to users.
+ */
+export function looksTranslated(titleKo: string, original: string): boolean {
+  const t = titleKo.trim();
+  if (!t) return false;
+  if (t === original.trim()) return false;
+  return HANGUL_RE.test(t);
+}
+
 async function translateChunk(
   client: OpenAI,
   model: string,
@@ -58,16 +73,28 @@ async function translateChunk(
       },
       { role: 'user', content: titlesText },
     ],
-    max_tokens: articles.length * 200,
+    // 320/item: Korean title+summary+JSON overhead can exceed 200 and a
+    // truncated response used to fail the whole chunk
+    max_tokens: articles.length * 320,
     temperature: 0.2,
   });
 
   // Strip markdown code fences some models wrap around JSON
   const text = (res.choices[0]?.message?.content?.trim() ?? '').replace(/```(?:json)?/gi, '');
   const match = text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('No JSON array found in model response');
+  let jsonText: string | null = match ? match[0] : null;
+  if (!jsonText) {
+    // Salvage a truncated array (max_tokens cut-off): keep everything up to
+    // the last complete object and close the array manually.
+    const start = text.indexOf('[');
+    const lastBrace = text.lastIndexOf('}');
+    if (start !== -1 && lastBrace > start) {
+      jsonText = text.slice(start, lastBrace + 1) + ']';
+    }
+  }
+  if (!jsonText) throw new Error('No JSON array found in model response');
 
-  const parsed: unknown = JSON.parse(match[0]);
+  const parsed: unknown = JSON.parse(jsonText);
   if (!Array.isArray(parsed)) throw new Error('Model response is not a JSON array');
 
   // Map results by their "idx" field (1-based); fall back to array position.
@@ -83,6 +110,9 @@ async function translateChunk(
     const i = typeof idxRaw === 'number' && Number.isInteger(idxRaw) ? idxRaw - 1 : pos;
     const titleKo = typeof rec.titleKo === 'string' ? rec.titleKo.trim() : '';
     if (i < 0 || i >= out.length || !titleKo) return;
+    // Reject untranslated echoes — better to leave empty for the backfill
+    // to retry than to persist an English "titleKo" forever.
+    if (!looksTranslated(titleKo, articles[i].title)) return;
     out[i] = {
       titleKo,
       summaryKo: typeof rec.summaryKo === 'string' ? rec.summaryKo.trim() : '',
@@ -178,16 +208,36 @@ export async function translateArticles(
 ): Promise<TranslatableArticle[]> {
   if (articles.length === 0) return articles;
 
-  const translations = await translateTitleBatch(articles.map((a) => a.titleOriginal));
+  // Korean-language sources need no translation — pass titles through so they
+  // never sit in the "untranslated" backlog or burn API calls.
+  const results: TranslatableArticle[] = new Array(articles.length);
+  const toTranslate: number[] = [];
+  articles.forEach((a, i) => {
+    if (a.language === 'ko') {
+      results[i] = {
+        ...a,
+        titleKo: a.titleOriginal,
+        summaryKo: a.summaryKo ?? '',
+        categoryPrimary: a.categoryPrimary ?? 'general',
+        categorySecondary: a.categorySecondary ?? '',
+      };
+    } else {
+      toTranslate.push(i);
+    }
+  });
 
-  return articles.map((a, i) => {
-    const t = translations[i];
-    return {
-      ...a,
+  const translations = await translateTitleBatch(toTranslate.map((i) => articles[i].titleOriginal));
+
+  toTranslate.forEach((origIdx, j) => {
+    const t = translations[j];
+    results[origIdx] = {
+      ...articles[origIdx],
       titleKo: t?.titleKo ?? '',
       summaryKo: t?.summaryKo ?? '',
       categoryPrimary: t?.primary ?? 'general',
       categorySecondary: t?.secondary ?? '',
     };
   });
+
+  return results;
 }

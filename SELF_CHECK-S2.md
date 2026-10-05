@@ -47,3 +47,11 @@
 - 기존 기능 영향: 루트 로딩 스켈레톤이 홈·국가·기사·검색 경로에서는 더 이상 표시되지 않음(SPEC 의도 — 404 정상화의 대가, 로컬 응답 15~70ms). 관리자 대시보드는 여전히 `/api/admin/stats` 사용(변경 없음). 플래그 off 기본값으로 푸터 뉴스레터 열이 사라지고 3열 그리드.
 - 알려진 기존 이슈(S2 범위 밖): 관리자 클라이언트 fetch 401(`/api/admin/sources` 등, D12 — S4).
 - TypeScript 오류: 없음
+
+## QA 피드백 반영 (QA_REPORT-S2 개선 지시 1·2, 서버 재시작 없이 코드 근거로 확인)
+1. **LiveClock 접근 이름** (`src/components/Header.tsx` LiveClock): 라벨과 `KST` span을 하나의 인라인 `<span>{clock.label}{' '}<span>KST</span></span>`으로 묶음. 이전에는 두 노드가 flex 아이템이라 사이의 공백이 렌더되지 않아 접근 이름이 "01:41:48KST"였음. 이제 인라인 컨텍스트 안의 실제 공백 문자가 렌더되어 "… 01:41:48 KST"로 읽힘. 시각 간격은 flex gap(6px)에서 공백 1칸(약 4px)으로 바뀌며, 색과 크기는 같음. T6의 `includes(kstOf(dt))`와 `/KST/` 판정은 그대로 성립.
+2. **관리자 바 375px 2행** (`src/app/admin/layout.tsx`): 내부 래퍼를 없애고 브랜드·AdminNav 래퍼·복귀 링크를 한 flex-wrap 컨테이너의 형제로 둠.
+   - `< sm`: 브랜드(order 0), 복귀 링크(`order-2 ml-auto`)가 1행에 놓임. 너비는 약 140 + 24 + 110px로 375 − 32px 안에 들어감. AdminNav 래퍼는 `order-3 w-full`이라 강제로 2행에 감. 메뉴 4개는 이전 375px 스크린샷에서 한 줄에 들어갔음. 따라서 총 2행.
+   - `≥ sm`: `sm:order-none`, `sm:w-auto`로 원래 DOM 순서(브랜드 · 메뉴 · `ml-auto` 복귀 링크)로 돌아가 이전 배치와 같음.
+   - 바 태그는 `div`를 유지하고 `whitespace-nowrap`도 유지.
+- 검증: `npx tsc --noEmit` 0 오류, `npm test` 70/70 통과. :4000은 S3 Planner가 쓰고 있어 재빌드와 스크린샷은 생략.

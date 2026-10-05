@@ -15,14 +15,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-surface">
       {/* Admin bar — same max-w-7xl + px-4 box as the content, so the logo and content align */}
       <div className="bg-surface-card border-b border-border py-3">
-        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Link href="/admin" className="whitespace-nowrap font-bold text-lg text-accent">
-              LiveNews Admin
-            </Link>
+        {/* < sm: row 1 = brand + back link, row 2 = AdminNav (order + w-full).
+            >= sm: order reset → brand · nav · (ml-auto) back link, as before. */}
+        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Link href="/admin" className="whitespace-nowrap font-bold text-lg text-accent">
+            LiveNews Admin
+          </Link>
+          <div className="order-3 w-full sm:order-none sm:w-auto">
             <AdminNav items={adminMenu} />
           </div>
-          <Link href="/" className="whitespace-nowrap text-sm text-text-muted hover:text-text">
+          <Link href="/" className="order-2 ml-auto whitespace-nowrap text-sm text-text-muted hover:text-text sm:order-none">
             사이트로 돌아가기
           </Link>
         </div>

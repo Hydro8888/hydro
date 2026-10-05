@@ -32,8 +32,11 @@ function LiveClock() {
       className="hidden md:flex items-center gap-1.5 text-caption text-text-muted tabular-nums select-none"
     >
       <span aria-hidden="true" className="inline-block h-1 w-1 rounded-full bg-accent-green animate-pulse-dot" />
-      {clock.label}
-      <span className="text-[10px] font-semibold tracking-wider text-text-muted">KST</span>
+      {/* One inline run so the space between time and zone is rendered → name "01:41:48 KST" */}
+      <span>
+        {clock.label}{' '}
+        <span className="text-[10px] font-semibold tracking-wider text-text-muted">KST</span>
+      </span>
     </time>
   );
 }

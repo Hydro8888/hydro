@@ -25,6 +25,7 @@ import { translateLongText } from './content-translator';
 import {
   hasHangul,
   isKoreanLanguage,
+  coversLegacyPrefix,
   isMostlyKorean,
   isStandardCategory,
   isTruncatedTranslation,
@@ -32,7 +33,7 @@ import {
   isUntranslatedTitle,
 } from './translation-text';
 import { countTranslationBacklog, selectBacklogIds } from '../lib/translation-coverage';
-import { createXaiClient, newApiStats } from '../lib/xai-client';
+import { createXaiClient, newApiStats, type ChatClient } from '../lib/xai-client';
 
 export interface BackfillCursor {
   /** next title/summary page starts below this id; null = phase exhausted */
@@ -56,6 +57,8 @@ export interface BackfillStats {
   repaired: number;
   /** truncated bodies reset to NULL (could not be re-translated completely) */
   repairReset: number;
+  /** failed repairs whose stored translation covers the first 6000 chars — kept */
+  repairKept: number;
   apiCalls: number;
   apiFailures: number;
   remainingTitles: number;
@@ -78,6 +81,8 @@ export interface BackfillOptions {
   cursor?: Partial<BackfillCursor>;
   /** Pause between bodies (default 500ms). */
   articlePauseMs?: number;
+  /** Inject a chat client (tests). Default: createXaiClient('text'). */
+  client?: ChatClient | null;
 }
 
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
@@ -153,7 +158,7 @@ export async function backfillTranslations(
       console.log(`[backfill] Re-translating ${foreign.length} article title(s)/summaries…`);
       const results = await translateTitleBatch(
         foreign.map((r) => r.titleOriginal),
-        { stats: api },
+        { stats: api, ...(opts.client !== undefined ? { client: opts.client } : {}) },
       );
 
       for (let i = 0; i < foreign.length; i++) {
@@ -206,7 +211,8 @@ export async function backfillTranslations(
   // ── Phase 2 / 3 need a client ─────────────────────────────────────────────
   const wantsBodies = contentLimit > 0 && cursor.contentBeforeId !== null;
   const wantsRepair = repairLimit > 0 && cursor.repairBeforeId !== null;
-  const client = wantsBodies || wantsRepair ? createXaiClient('text') : null;
+  const client =
+    wantsBodies || wantsRepair ? (opts.client === undefined ? createXaiClient('text') : opts.client) : null;
   if ((wantsBodies || wantsRepair) && !client) {
     console.warn('[backfill] XAI_API_KEY not set — skipping body translation');
   }
@@ -268,6 +274,7 @@ export async function backfillTranslations(
   // ── Phase 3: repair bodies truncated by the old 6000-char cut (opt-in) ────
   let repaired = 0;
   let repairReset = 0;
+  let repairKept = 0;
 
   if (wantsRepair && client) {
     const ids = await selectBacklogIds(prisma, 'truncated', {
@@ -291,14 +298,19 @@ export async function backfillTranslations(
       if (!res.ok && res.http) {
         // API outage: keep the row as is, the next run picks it up again
         console.warn(`[backfill] Repair of ${r.id} skipped (API failure): ${res.reason}`);
+      } else if (!res.ok && coversLegacyPrefix(r.contentKo, r.contentOriginal)) {
+        // The stored text covers everything the old translator was given —
+        // only the tail is missing. Keep it rather than lose a usable body.
+        repairKept++;
+        console.warn(`[backfill] Repair of ${r.id} failed (${res.reason}) — existing translation kept (covers the first 6000 chars)`);
       } else {
         try {
           if (res.ok) {
             await prisma.article.update({ where: { id: r.id }, data: { contentKo: res.text } });
             repaired++;
           } else {
-            // Model could not produce a complete translation: drop the partial
-            // one so the page shows summary + original honestly.
+            // Model could not produce a complete translation and the stored one
+            // is cut short: drop it so the page shows summary + original honestly.
             await prisma.article.update({ where: { id: r.id }, data: { contentKo: null } });
             repairReset++;
             console.warn(`[backfill] Repair of ${r.id} failed (${res.reason}) — contentKo reset to NULL`);
@@ -309,7 +321,7 @@ export async function backfillTranslations(
       }
       if (i < rows.length - 1) await sleep(articlePauseMs);
     }
-    if (rows.length > 0) console.log(`[backfill] Truncated bodies repaired: ${repaired}, reset: ${repairReset}`);
+    if (rows.length > 0) console.log(`[backfill] Truncated bodies repaired: ${repaired}, reset: ${repairReset}, kept: ${repairKept}`);
   }
 
   // ── Remaining work counts (same definition as /api/admin/health) ─────────
@@ -327,6 +339,7 @@ export async function backfillTranslations(
     contentFailed,
     repaired,
     repairReset,
+    repairKept,
     apiCalls: api.apiCalls,
     apiFailures: api.apiFailures,
     remainingTitles: backlog.untranslatedTitles,

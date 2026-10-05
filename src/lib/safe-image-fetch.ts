@@ -8,7 +8,10 @@
  *  - the connection is pinned to the validated address (custom `lookup`), so
  *    a DNS answer that changes between check and connect (rebinding) is ignored
  *  - redirects are followed manually (max 3), re-validating every hop
- *  - only 2xx with Content-Type image/* is returned (else 502 / 415);
+ *  - only 2xx with Content-Type image/* is returned (else 502 / 415); a missing
+ *    or octet-stream type is decided by the magic number (JPEG/PNG/GIF/WebP/AVIF;
+ *    never SVG)
+ *  - all validated addresses are tried in order (IPv4 first) on connection errors
  *    > 10MB → 413 (Content-Length or streamed); overall timeout 10s → 504
  *  - never throws; errors are short codes, never raw messages
  */
@@ -206,11 +209,14 @@ const defaultLookup: HostLookup = async (hostname) => {
   return res.map((r) => ({ address: r.address, family: r.family === 6 ? 6 : 4 }));
 };
 
-/** Resolve and validate. Returns the first address (all must be public). */
+/**
+ * Resolve and validate. Every answer must be public (one internal answer → 403).
+ * Returns all validated addresses, IPv4 first (stable), for connection fallback.
+ */
 async function resolveSafe(
   hostname: string,
   lookup: HostLookup,
-): Promise<{ ok: true; address: ResolvedAddress } | { ok: false; status: 403 | 502; error: string }> {
+): Promise<{ ok: true; addresses: ResolvedAddress[] } | { ok: false; status: 403 | 502; error: string }> {
   const ipFamily = net.isIP(hostname);
   let addresses: ResolvedAddress[];
   if (ipFamily) {
@@ -224,7 +230,31 @@ async function resolveSafe(
   }
   if (addresses.length === 0) return { ok: false, status: 502, error: 'dns_failed' };
   if (addresses.some((a) => isBlockedAddress(a.address))) return { ok: false, status: 403, error: 'blocked_host' };
-  return { ok: true, address: addresses[0] };
+  const seen = new Set<string>();
+  const unique = addresses.filter((a) => (seen.has(a.address) ? false : (seen.add(a.address), true)));
+  const ordered = [...unique.filter((a) => a.family === 4), ...unique.filter((a) => a.family !== 4)];
+  return { ok: true, addresses: ordered };
+}
+
+// ---------------------------------------------------------------------------
+// Content sniffing for upstreams that send no / a generic Content-Type
+// ---------------------------------------------------------------------------
+
+const GENERIC_TYPES = new Set(['', 'application/octet-stream', 'binary/octet-stream']);
+
+/**
+ * Raster image type from the first bytes: JPEG, PNG, GIF, WebP, AVIF.
+ * SVG is deliberately never sniffed (it must be declared as image/svg+xml).
+ */
+export function sniffImageType(buf: Uint8Array): string | null {
+  const b = buf;
+  const ascii = (start: number, end: number) => String.fromCharCode(...Array.from(b.subarray(start, end)));
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b.length >= 4 && ascii(0, 4) === 'GIF8') return 'image/gif';
+  if (b.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+  if (b.length >= 12 && ascii(4, 8) === 'ftyp' && ['avif', 'avis'].includes(ascii(8, 12))) return 'image/avif';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -312,12 +342,18 @@ export async function fetchImageSafely(rawUrl: string, opts: SafeFetchOptions = 
       if (!resolved.ok) return { ok: false, status: resolved.status, error: resolved.error };
       if (timedOut) return { ok: false, status: 504, error: 'timeout' };
 
-      let res: UpstreamResponse;
-      try {
-        res = await request(check.url, resolved.address, controller.signal);
-      } catch {
-        return timedOut ? { ok: false, status: 504, error: 'timeout' } : { ok: false, status: 502, error: 'upstream_error' };
+      // Try each validated address in order (IPv4 first); a connection error
+      // moves on to the next one, all within the overall timeout.
+      let res: UpstreamResponse | null = null;
+      for (const address of resolved.addresses) {
+        try {
+          res = await request(check.url, address, controller.signal);
+          break;
+        } catch {
+          if (timedOut) return { ok: false, status: 504, error: 'timeout' };
+        }
       }
+      if (!res) return { ok: false, status: 502, error: 'upstream_error' };
 
       if ([301, 302, 303, 307, 308].includes(res.status)) {
         res.destroy?.();
@@ -337,8 +373,10 @@ export async function fetchImageSafely(rawUrl: string, opts: SafeFetchOptions = 
         return { ok: false, status: 502, error: 'upstream_status' };
       }
 
-      const contentType = (header(res.headers, 'content-type') ?? '').split(';')[0].trim().toLowerCase();
-      if (!contentType.startsWith('image/')) {
+      const declaredType = (header(res.headers, 'content-type') ?? '').split(';')[0].trim().toLowerCase();
+      // Missing / generic types are decided by the magic number once the body is read
+      const needsSniff = GENERIC_TYPES.has(declaredType);
+      if (!needsSniff && !declaredType.startsWith('image/')) {
         res.destroy?.();
         return { ok: false, status: 415, error: 'not_an_image' };
       }
@@ -367,7 +405,10 @@ export async function fetchImageSafely(rawUrl: string, opts: SafeFetchOptions = 
       }
       if (timedOut) return { ok: false, status: 504, error: 'timeout' };
 
-      return { ok: true, status: 200, contentType, body: Buffer.concat(chunks), finalUrl: check.url.href };
+      const body = Buffer.concat(chunks);
+      const contentType = needsSniff ? sniffImageType(body.subarray(0, 16)) : declaredType;
+      if (!contentType) return { ok: false, status: 415, error: 'not_an_image' };
+      return { ok: true, status: 200, contentType, body, finalUrl: check.url.href };
     }
   } catch {
     return timedOut ? { ok: false, status: 504, error: 'timeout' } : { ok: false, status: 502, error: 'upstream_error' };

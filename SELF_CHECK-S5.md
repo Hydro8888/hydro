@@ -71,3 +71,21 @@
   - `ecosystem.config.js` cron 변경은 `pm2 startOrReload`로 반영되지 않을 수 있음 — SPEC 운영 절차 1의 `pm2 describe livenews-collector | grep -i cron` 확인 필요.
 - TypeScript 오류: 없음
 - DB 스키마·의존성 변경: 없음
+
+## QA 피드백 반영 (QA_REPORT-S5 개선 지시 1~5)
+- [x] 지시 1 (잘림 오판·repair 데이터 손실): `isTruncatedTranslation` = 원문 > 6000자 && 번역 문단 수 < 원문 문단 수 && 번역 문단 수 ≤ **원문 앞 6000자의 문단 수**(`legacyPrefixParagraphs`). SQL `TRUNCATED_BODY_SQL`도 `left("contentOriginal", 6000)`의 문단 수와 비교(동일 의미). 문단 몇 개를 합친 완역본(61→58)은 잘림이 아님. `backfill.ts` repair: 모델 출력 문제로 실패해도 기존 번역이 앞 6000자 문단을 모두 덮으면(`coversLegacyPrefix`) **보존**(`repairKept`), 그보다 짧은 경우만 NULL. CLI 라운드/Done 줄에 `kept=` 표시. 테스트: 61문단 원문+58문단 완역 → false, 앞 6000자 경계, `coversLegacyPrefix` 진리표, `tests/backfill-repair.test.ts`(가짜 Prisma+항상 length 클라이언트 → 1건 보존·1건 NULL, update는 NULL 1건뿐).
+- [x] 지시 2 (CDN 이미지 차단): Content-Type 없음/`application/octet-stream`/`binary/octet-stream`이면 본문 앞 16바이트 매직넘버(`sniffImageType`: JPEG·PNG·GIF·WebP·AVIF)로 판별해 해당 `image/*`로 200. HTML·SVG는 스니핑하지 않음 → 415. 선언된 `image/*`는 기존대로. 테스트: octet-stream+JPEG → 200 `image/jpeg`, binary/octet-stream·무헤더+PNG → 200, octet-stream+HTML/SVG → 415, 매직넘버 표.
+- [x] 지시 3 (다중 주소): `resolveSafe`가 검증된 주소 전체를 중복 제거 후 **IPv4 우선**으로 반환. 요청 단계 reject(연결 오류) 시 다음 주소로 1회씩 시도(전체 10초 타임아웃 내), 모두 실패 → 502. 하나라도 사설 주소면 여전히 403. 테스트: v6+v4×2 중 첫 v4 거부 → 두 번째 v4 성공, 전부 실패 시 시도 순서 v4,v4,v6 후 502, 혼합(공개+10.0.0.1) → 403.
+- [x] 지시 4 (재시작 추가 수집): `scheduler.ts` 기동 시 CollectionLog 최신 `completedAt`이 3시간 이내면 즉시 수집 생략 + 이유 로그(`Startup collection skipped: last run completed N min ago …`). 조회 실패 시엔 기존처럼 수집. `cron_restart '30 2,14 * * *'` 유지. ecosystem 주석·`redeploy.sh` 수집기 단계 주석에 운영 방식 한 줄. 실측: reseed 후 `timeout 8 tsx scheduler.ts` → 생략 로그 출력, CollectionLog 80 → 80(수집 없음). 한계: 신규 기사 0건인 성공 소스는 CollectionLog를 남기지 않으므로 직전 실행 전체가 "새 기사 0"이면 생략되지 않음(기존 동작과 동일한 1회 수집).
+- [x] 지시 5 (idx 혼재): 응답에 `idx`가 하나라도 있으면 `idx` 없는 항목은 버림(위치 매핑은 응답 전체에 idx가 없을 때만). 버린 항목은 누락 재요청 경로로 다시 번역. 테스트: idx 빠진 항목을 맨 앞에 둔 혼합 응답 → 엉뚱한 번역 미채택, 해당 제목만 단건 재요청으로 정확히 채움 / idx 전무 → 위치 폴백 유지.
+
+### 재검증 (반영 후)
+| 기준 | 결과 |
+|---|---|
+| `npx tsc --noEmit` / `npm test` | 0 errors / **166/166 pass** (신규 8 추가) |
+| E2E-1 | exit 0, 30초, circuit OPEN 0, 진단 0; T1 `408`, T2 NULL, T3 15/15·44/44, T4 `{408}`(405 채움), T5 0, T6 381~390 전부 60/60, T7 410 24문단·LENGTHCUT>1200 3건, T8 최대 2949자·title ≤10줄, T9 title 10건·`1. ECHO` 2건·393/394 각 1회, T10 표준 slug·language 불변, T11 407 불변; `Truncated bodies to repair: 10` → `repaired=10 reset=0 kept=0` |
+| E2E-2 재실행 | exit 0, 요청 1건, `Truncated bodies to repair: 0` |
+| health(reseed 직후, 재빌드 후) | `{60, 28, 45, 10, 409}` — 새 잘림 기준에서도 픽스처 381~390 10건 그대로 대상 |
+| `/api/img` | 내부 13건 403, 형식 오류 8건 400, 500 0건 |
+| 회귀 | `qa-env.sh restart` 빌드 성공, `planner-s4-verify` 12/12, `planner-s3-verify` 8/8 |
+| 정리 | `qa-env.sh reseed && qa-env.sh mock` 완료 |

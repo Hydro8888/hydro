@@ -41,12 +41,17 @@ export const MISSING_SUMMARY_SQL = Prisma.sql`(
   ${NON_KO} AND ("summaryKo" IS NULL OR "summaryKo" !~ '[가-힣]')
 )`;
 
-/** Body translation cut by the old 6000-char limit (fewer paragraphs than the original). */
+/**
+ * Body translation cut by the old 6000-char limit: no more paragraphs than the
+ * first 6000 chars of the original (and fewer than the whole original).
+ * A complete translation with a few merged paragraphs is not flagged.
+ */
 export const TRUNCATED_BODY_SQL = Prisma.sql`(
   ${NON_KO}
   AND char_length(coalesce("contentOriginal", '')) > 6000
   AND "contentKo" ~ '[가-힣]'
   AND ${paragraphs(CONTENT_KO)} < ${paragraphs(CONTENT_ORIGINAL)}
+  AND ${paragraphs(CONTENT_KO)} <= ${paragraphs(Prisma.sql`left("contentOriginal", 6000)`)}
 )`;
 
 export type BacklogKind = 'title' | 'body' | 'summary' | 'truncated' | 'titleOrSummary';

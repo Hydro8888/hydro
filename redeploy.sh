@@ -163,6 +163,8 @@ if [ "$DEPLOY_WEB" = "1" ]; then
         echo -e "${YELLOW}      롤백: git reset --hard ${PREV_COMMIT:0:8} && rm -rf .next && npm run build && pm2 reload ${APP_NAME}${NC}"
     fi
 else
+    # 수집기는 재기동 시 직전 수집 완료가 3시간 이내면 즉시 수집을 생략한다(scheduler.ts) —
+    # 배포·PM2 위생 재시작(02:30/14:30)이 수집을 추가로 돌리지 않음. 다음 수집은 4시간 정각.
     echo -e "${YELLOW}[6/6] 수집기 상태 확인...${NC}"
     sleep 2
     pm2 describe "$COLLECTOR_NAME" 2>/dev/null | grep -E "status|restarts" || true

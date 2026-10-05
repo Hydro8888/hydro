@@ -29,6 +29,8 @@ module.exports = {
       // Hygiene restart at 02:30 / 14:30 — between the 4-hourly collection
       // runs (scheduler.ts '0 */4 * * *'), so a restart never kills a run
       // mid-translation. (Was '0 */12 * * *' = exactly on a collection start.)
+      // scheduler.ts skips its startup collection when the last run finished
+      // < 3h ago, so these restarts add no extra collection runs.
       cron_restart: '30 2,14 * * *',
       env: {
         NODE_ENV: 'production',

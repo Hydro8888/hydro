@@ -9,7 +9,9 @@ import {
   hasHangul,
   isKoreanLanguage,
   isMissingSummary,
+  coversLegacyPrefix,
   isTruncatedTranslation,
+  legacyPrefixParagraphs,
   isUntranslatedContent,
   isUntranslatedTitle,
   normalizeCategorySlug,
@@ -145,6 +147,27 @@ test('isTruncatedTranslation / countParagraphs', () => {
   assert.equal(isTruncatedTranslation(ko12, body(6)), false, 'short originals were never cut');
   assert.equal(isTruncatedTranslation(null, orig), false);
   assert.equal(isTruncatedTranslation('English only', orig), false);
+});
+
+test('isTruncatedTranslation: a complete translation with merged paragraphs is not "truncated"', () => {
+  const orig61 = body(61);
+  const prefix = legacyPrefixParagraphs(orig61);
+  assert.ok(prefix > 30 && prefix < 61, `prefix=${prefix}`);
+  const ko = (n: number) => Array.from({ length: n }, () => '번역 문단').join('\n');
+  assert.equal(isTruncatedTranslation(ko(58), orig61), false, '58 of 61 = merged, not cut');
+  assert.equal(isTruncatedTranslation(ko(prefix + 1), orig61), false);
+  assert.equal(isTruncatedTranslation(ko(prefix), orig61), true, 'exactly the old 6000-char prefix');
+  assert.equal(isTruncatedTranslation(ko(12), orig61), true);
+});
+
+test('coversLegacyPrefix: keep-on-failed-repair rule', () => {
+  const orig = body(60);
+  const prefix = legacyPrefixParagraphs(orig);
+  const ko = (n: number) => Array.from({ length: n }, () => '번역 문단').join('\n');
+  assert.equal(coversLegacyPrefix(ko(prefix), orig), true);
+  assert.equal(coversLegacyPrefix(ko(12), orig), false);
+  assert.equal(coversLegacyPrefix(null, orig), false);
+  assert.equal(coversLegacyPrefix('English', orig), false);
 });
 
 test('hasHangul / isKoreanLanguage', () => {

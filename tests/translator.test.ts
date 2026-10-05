@@ -122,6 +122,32 @@ test('translateArticles: Korean sources pass through, others translated', async 
   assert.ok(calls.every((c) => !c.titles.includes('한국어 원제목')));
 });
 
+test('mixed idx: items without idx are dropped (no positional mapping), then re-requested', async () => {
+  let first = true;
+  const { client, calls } = fakeClient({
+    transform: (items) => {
+      if (!first) return items;
+      first = false;
+      // idx 2 missing its idx and placed first: positional mapping would put it on title 1
+      const [a, b, c] = items;
+      return [{ ...b, idx: undefined, titleKo: '엉뚱한 번역' }, { ...a }, { ...c }];
+    },
+  });
+  const r = await translateTitleBatch(titles(3), { client, pauseMs: 0 });
+  assert.equal(r[0].titleKo, '한국어 제목: Headline number 0');
+  assert.equal(r[1].titleKo, '한국어 제목: Headline number 1', 'title 2 came from its own re-request');
+  assert.equal(r[2].titleKo, '한국어 제목: Headline number 2');
+  assert.ok(!r.some((x) => x.titleKo === '엉뚱한 번역'));
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1].titles, ['Headline number 1']);
+});
+
+test('no idx anywhere → positional fallback still works', async () => {
+  const { client } = fakeClient({ transform: (items) => items.map(({ idx, ...rest }) => rest) });
+  const r = await translateTitleBatch(titles(3), { client, pauseMs: 0 });
+  r.forEach((x, i) => assert.equal(x.titleKo, `한국어 제목: Headline number ${i}`));
+});
+
 test('HTTP 503 every time → 3 attempts, no split re-requests, empty results', async () => {
   const { client, calls } = fakeClient({
     fail: () => Object.assign(new Error('Service Unavailable'), { status: 503 }),

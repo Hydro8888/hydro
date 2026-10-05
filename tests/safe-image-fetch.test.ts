@@ -8,6 +8,7 @@ import {
   checkImageUrl,
   fetchImageSafely,
   isBlockedAddress,
+  sniffImageType,
   type ImageRequester,
   type ResolvedAddress,
   type UpstreamResponse,
@@ -185,4 +186,70 @@ test('bad port → 400, upstream error → 502, upstream 404 → 502, DNS failur
     new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted'))));
   const t = await fetchImageSafely('https://img.example.com/slow', { lookup, request: hang, timeoutMs: 30 });
   assert.equal(t.ok ? 200 : t.status, 504);
+});
+
+test('missing / octet-stream Content-Type → magic-number sniffing (never HTML or SVG)', async () => {
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const html = Buffer.from('<!doctype html><html><body>x</body></html>');
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+  const { req } = requester({
+    'https://img.example.com/o.jpg': () => response(200, { 'content-type': 'application/octet-stream' }, [jpeg]),
+    'https://img.example.com/b.png': () => response(200, { 'content-type': 'binary/octet-stream' }, [png]),
+    'https://img.example.com/none': () => response(200, {}, [png]),
+    'https://img.example.com/o.html': () => response(200, { 'content-type': 'application/octet-stream' }, [html]),
+    'https://img.example.com/o.svg': () => response(200, { 'content-type': 'application/octet-stream' }, [svg]),
+  });
+  const get = (u: string) => fetchImageSafely(u, { lookup, request: req });
+  const a = await get('https://img.example.com/o.jpg');
+  assert.ok(a.ok && a.contentType === 'image/jpeg');
+  const b = await get('https://img.example.com/b.png');
+  assert.ok(b.ok && b.contentType === 'image/png');
+  const c = await get('https://img.example.com/none');
+  assert.ok(c.ok && c.contentType === 'image/png');
+  const d = await get('https://img.example.com/o.html');
+  assert.equal(d.ok ? 200 : d.status, 415);
+  const e = await get('https://img.example.com/o.svg');
+  assert.equal(e.ok ? 200 : e.status, 415);
+});
+
+test('sniffImageType table', () => {
+  const b = (...x: Array<number | string>) =>
+    Buffer.concat(x.map((v) => (typeof v === 'string' ? Buffer.from(v, 'latin1') : Buffer.from([v]))));
+  assert.equal(sniffImageType(b(0xff, 0xd8, 0xff, 0xdb)), 'image/jpeg');
+  assert.equal(sniffImageType(b(0x89, 'PNG\r\n')), 'image/png');
+  assert.equal(sniffImageType(b('GIF89a')), 'image/gif');
+  assert.equal(sniffImageType(b('RIFF', 0, 0, 0, 0, 'WEBPVP8 ')), 'image/webp');
+  assert.equal(sniffImageType(b(0, 0, 0, 0x1c, 'ftypavif')), 'image/avif');
+  assert.equal(sniffImageType(b('<svg')), null);
+  assert.equal(sniffImageType(b('<html>')), null);
+  assert.equal(sniffImageType(Buffer.alloc(0)), null);
+});
+
+test('connection fallback: IPv4 first, next validated address on connect error', async () => {
+  const multi = lookupTable({ 'multi.example.com': ['2606:4700::1111', '93.184.216.40', '93.184.216.41'] });
+  const tried: string[] = [];
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+  const req: ImageRequester = async (_url, address) => {
+    tried.push(address.address);
+    if (address.address === '93.184.216.40') throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    return response(200, { 'content-type': 'image/png' }, [png]);
+  };
+  const r = await fetchImageSafely('https://multi.example.com/a.png', { lookup: multi, request: req });
+  assert.equal(r.ok, true);
+  assert.deepEqual(tried, ['93.184.216.40', '93.184.216.41']);
+
+  const tried2: string[] = [];
+  const down: ImageRequester = async (_u, a) => {
+    tried2.push(a.address);
+    throw new Error('connect ETIMEDOUT');
+  };
+  const all = await fetchImageSafely('https://multi.example.com/a.png', { lookup: multi, request: down });
+  assert.equal(all.ok ? 200 : all.status, 502);
+  assert.deepEqual(tried2, ['93.184.216.40', '93.184.216.41', '2606:4700::1111']);
+
+  // a mixed answer with one internal address is still refused outright
+  const mixed = lookupTable({ 'mix.example.com': ['93.184.216.40', '10.0.0.1'] });
+  const blocked = await fetchImageSafely('https://mix.example.com/a.png', { lookup: mixed, request: down });
+  assert.equal(blocked.ok ? 200 : blocked.status, 403);
 });

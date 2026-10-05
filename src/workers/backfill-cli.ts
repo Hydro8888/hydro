@@ -90,6 +90,7 @@ async function main() {
     contentFailed: 0,
     repaired: 0,
     repairReset: 0,
+    repairKept: 0,
   };
   let remaining = { titles: 0, bodies: 0, summaries: 0, truncated: 0 };
 
@@ -135,6 +136,7 @@ async function main() {
       totals.contentFailed += stats.contentFailed;
       totals.repaired += stats.repaired;
       totals.repairReset += stats.repairReset;
+      totals.repairKept += stats.repairKept;
       remaining = {
         titles: stats.remainingTitles,
         bodies: stats.remainingContent,
@@ -144,7 +146,7 @@ async function main() {
 
       console.log(
         `[backfill-cli] Round ${round}: titles +${stats.titlesFixed}/-${stats.titlesFailed}, ` +
-          `bodies +${stats.contentFixed}/-${stats.contentFailed}, repaired ${stats.repaired}/reset ${stats.repairReset}, ` +
+          `bodies +${stats.contentFixed}/-${stats.contentFailed}, repaired ${stats.repaired}/reset ${stats.repairReset}/kept ${stats.repairKept}, ` +
           `api ${stats.apiCalls - stats.apiFailures}/${stats.apiCalls} ok`,
       );
 
@@ -184,7 +186,7 @@ async function main() {
     console.log(
       `[backfill-cli] Done: titles healed=${totals.titlesFixed} failed=${totals.titlesFailed}; ` +
         `bodies healed=${totals.contentFixed} failed=${totals.contentFailed}; ` +
-        `repaired=${totals.repaired} reset=${totals.repairReset}; ` +
+        `repaired=${totals.repaired} reset=${totals.repairReset} kept=${totals.repairKept}; ` +
         `remaining titles=${remaining.titles} bodies=${remaining.bodies} ` +
         `summaries=${remaining.summaries} truncated=${remaining.truncated}`,
     );

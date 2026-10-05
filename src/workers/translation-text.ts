@@ -125,10 +125,18 @@ export function countParagraphs(s: string | null | undefined): number {
 /** Threshold of the old translator's hard cut (D18/D21). */
 export const LEGACY_TRUNCATION_CHARS = 6000;
 
+/** Paragraphs in the part of the original the old translator actually sent (first 6000 chars). */
+export function legacyPrefixParagraphs(contentOriginal: string | null | undefined): number {
+  return countParagraphs(Array.from(contentOriginal ?? '').slice(0, LEGACY_TRUNCATION_CHARS).join(''));
+}
+
 /**
- * A stored Korean body that was cut by the old 6000-char limit: the original
- * is longer than that and the translation has fewer paragraphs. A repaired
- * row has the same paragraph count → false, so a re-run never re-translates it.
+ * A stored Korean body that bears the mark of the old 6000-char cut: the
+ * original is longer than 6000 chars and the translation has no more
+ * paragraphs than the first 6000 chars of the original (and fewer than the
+ * whole original). A complete translation in which the model merged a few
+ * paragraphs (e.g. 58 of 61) is NOT flagged; a repaired row has the full
+ * paragraph count → false, so a re-run never re-translates it.
  */
 export function isTruncatedTranslation(
   contentKo: string | null | undefined,
@@ -136,7 +144,21 @@ export function isTruncatedTranslation(
 ): boolean {
   if (!contentKo || !hasHangul(contentKo)) return false;
   if (Array.from(contentOriginal ?? '').length <= LEGACY_TRUNCATION_CHARS) return false;
-  return countParagraphs(contentKo) < countParagraphs(contentOriginal);
+  const ko = countParagraphs(contentKo);
+  return ko < countParagraphs(contentOriginal) && ko <= legacyPrefixParagraphs(contentOriginal);
+}
+
+/**
+ * The stored translation covers at least everything the old translator sent
+ * (the first 6000 chars). Such a row is incomplete only at the tail, so a
+ * failed repair keeps it instead of wiping it.
+ */
+export function coversLegacyPrefix(
+  contentKo: string | null | undefined,
+  contentOriginal: string | null | undefined,
+): boolean {
+  if (!contentKo || !hasHangul(contentKo)) return false;
+  return countParagraphs(contentKo) >= legacyPrefixParagraphs(contentOriginal);
 }
 
 // ---------------------------------------------------------------------------

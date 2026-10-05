@@ -3,8 +3,9 @@
  * PM2 entry point for the news-collection worker process.
  *
  * Behaviour:
- *   - Runs collectAll() immediately on startup.
- *   - Schedules collectAll() to run every 4 hours via node-cron (00/04/08/12/16/20, server time zone).
+ *   - Runs collectAll() on startup — unless the last collection finished less
+ *     than 3 hours ago (PM2 hygiene restarts must not add extra runs).
+ *   - Schedules collectAll() to run every 4 hours via node-cron (00/04/08/12/16/20 UTC).
  *   - Logs start/end times and duration for every run.
  *   - Handles overlapping runs gracefully (skips if a run is already in progress).
  *   - Disconnects Prisma and Redis cleanly on SIGTERM / SIGINT.
@@ -86,8 +87,35 @@ const CRON_SCHEDULE = '0 */4 * * *';
 console.log(`[scheduler] ${timestamp()} — Starting Hydro news collector`);
 console.log(`[scheduler] Cron schedule: "${CRON_SCHEDULE}" (every 4 hours)`);
 
-// Run immediately at startup so there is no cold-start gap
-runCollection().catch((err) => {
+// Run at startup so there is no cold-start gap — but not when a collection
+// finished recently: PM2's hygiene restart (ecosystem.config.js cron_restart
+// 02:30/14:30) would otherwise add two extra runs (and translation costs) a day.
+const STARTUP_SKIP_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+async function startupCollection(): Promise<void> {
+  try {
+    const last = await prisma.collectionLog.findFirst({
+      where: { completedAt: { not: null } },
+      orderBy: { completedAt: 'desc' },
+      select: { completedAt: true },
+    });
+    const completedAt = last?.completedAt ?? null;
+    if (completedAt && Date.now() - completedAt.getTime() < STARTUP_SKIP_WINDOW_MS) {
+      const ageMin = Math.max(0, Math.round((Date.now() - completedAt.getTime()) / 60000));
+      console.log(
+        `[scheduler] ${timestamp()} — Startup collection skipped: last run completed ${ageMin} min ago ` +
+          `(${completedAt.toISOString()}, < 3h). Next run on the cron schedule.`,
+      );
+      return;
+    }
+  } catch (err) {
+    // Can't tell → collect (the old behaviour) rather than risk a cold-start gap
+    console.warn('[scheduler] Last-run lookup failed, collecting now:', err instanceof Error ? err.message : err);
+  }
+  await runCollection();
+}
+
+startupCollection().catch((err) => {
   console.error('[scheduler] Initial run error:', err);
 });
 

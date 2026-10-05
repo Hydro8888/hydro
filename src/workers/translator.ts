@@ -126,7 +126,12 @@ async function translateGroup(
 
   const items = salvageTitleItems(content);
   const accepted = new Array<boolean>(titles.length).fill(false);
+  // Map by "idx". Position is only a fallback when NO item carries an idx —
+  // in a mixed response an idx-less item cannot be placed safely (a shifted
+  // position would attach a translation to the wrong headline).
+  const anyIdx = items.some((item) => item.idx !== undefined);
   items.forEach((item, pos) => {
+    if (anyIdx && item.idx === undefined) return;
     const i = item.idx !== undefined ? item.idx - 1 : pos;
     if (i < 0 || i >= titles.length || accepted[i]) return;
     const titleKo = (item.titleKo ?? '').trim();

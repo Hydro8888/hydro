@@ -45,6 +45,8 @@ export interface TickerArticle {
   id: string;
   titleKo: string | null;
   titleOriginal: string;
+  /** Source language code — tags an untranslated title with `lang` (getDisplayTitle). */
+  language?: string | null;
 }
 
 export interface TrendingKeyword {

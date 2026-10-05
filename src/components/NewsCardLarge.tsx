@@ -1,50 +1,47 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { timeAgo, categoryLabel, getDefaultImage, getCategoryStyle, cn, isValidArticleImage, normalizeImageUrl, estimateReadingTime, proxyImageUrl } from '@/lib/utils';
+import { timeAgo, toIsoDateTime, categoryLabel, getCategoryStyle, cn, estimateReadingTime, getArticleImageSources, getDisplayTitle } from '@/lib/utils';
 import type { Article } from '@/lib/types';
 import BookmarkButton from './BookmarkButton';
+import ArticleImage from './ArticleImage';
 
 export default function NewsCardLarge({ article }: { article: Article }) {
-  const title = article.titleKo || article.titleOriginal;
+  const t = getDisplayTitle(article);
   const summary = article.summaryKo;
   const catStyle = getCategoryStyle(article.categoryPrimary || 'general');
   const catLabel = article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '';
   const readMin = estimateReadingTime(article.contentOriginal || article.summaryKo);
-  const fallback = getDefaultImage(article.categoryPrimary, article.id);
-  const normalized = normalizeImageUrl(article.imageUrl);
-  const initial = isValidArticleImage(normalized) ? proxyImageUrl(normalized!) : fallback;
-  const [imgSrc, setImgSrc] = useState(initial);
+  const sources = getArticleImageSources(article);
+  const isoDate = toIsoDateTime(article.publishedAt);
+  const ago = timeAgo(article.publishedAt);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-card bg-surface-card border border-border-muted hover:border-border hover:shadow-elevated transition-all duration-300">
       {/* Image */}
       <div className="relative">
-        <Link href={`/article/${article.id}`} className="relative block h-[200px] sm:h-[260px] w-full overflow-hidden bg-surface-elevated">
-          <Image
-            src={imgSrc}
-            alt={title}
-            fill
-            unoptimized
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImgSrc(fallback)}
+        <Link
+          href={`/article/${article.id}`}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="relative block h-[200px] sm:h-[260px] w-full overflow-hidden bg-surface-elevated"
+        >
+          <ArticleImage
+            sources={sources}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {/* Gradient overlay from dark surface */}
           <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-surface-card/40 to-transparent" />
-
-          {/* Overlaid category badge */}
-          {catLabel && (
-            <span className={cn(
-              'absolute bottom-3 left-3 border-l-2 px-2.5 py-1 rounded-badge text-caption backdrop-blur-sm',
-              catStyle.border, catStyle.text, catStyle.bg
-            )}>
-              {catLabel}
-            </span>
-          )}
         </Link>
+        {/* Overlaid category badge — sibling of the aria-hidden image link so its text stays readable */}
+        {catLabel && (
+          <span className={cn(
+            'pointer-events-none absolute bottom-3 left-3 border-l-2 px-2.5 py-1 rounded-badge text-caption backdrop-blur-sm',
+            catStyle.border, catStyle.text, catStyle.bg
+          )}>
+            {catLabel}
+          </span>
+        )}
         <div className="absolute top-3 right-3 z-10">
           <BookmarkButton articleId={article.id} />
         </div>
@@ -57,10 +54,12 @@ export default function NewsCardLarge({ article }: { article: Article }) {
           <span className="text-text-secondary">
             {article.source.sourceName}
           </span>
-          <span className="text-text-muted flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            {timeAgo(article.publishedAt)}
-          </span>
+          {isoDate && ago && (
+            <span className="text-text-muted flex items-center gap-1">
+              <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <time dateTime={isoDate} suppressHydrationWarning>{ago}</time>
+            </span>
+          )}
           <span className="text-text-muted flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
             {readMin}분 읽기
@@ -69,8 +68,8 @@ export default function NewsCardLarge({ article }: { article: Article }) {
 
         {/* Title */}
         <Link href={`/article/${article.id}`}>
-          <h2 className="mb-2 text-headline-lg text-text group-hover:text-accent transition-colors line-clamp-2">
-            {title}
+          <h2 lang={t.lang} className="mb-2 text-headline-lg text-text group-hover:text-accent transition-colors line-clamp-2">
+            {t.text}
           </h2>
         </Link>
 

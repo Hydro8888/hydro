@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { timeAgo } from '@/lib/utils';
+import { timeAgo, toIsoDateTime, getDisplayTitle } from '@/lib/utils';
 
 interface Props {
   article: {
@@ -8,12 +8,15 @@ interface Props {
     titleOriginal: string;
     publishedAt: Date | string | null;
     source: { sourceName: string };
+    language?: string | null;
   };
   rank?: number;
 }
 
 export default function NewsCardCompact({ article, rank }: Props) {
-  const title = article.titleKo || article.titleOriginal;
+  const t = getDisplayTitle(article);
+  const isoDate = toIsoDateTime(article.publishedAt);
+  const ago = timeAgo(article.publishedAt);
   return (
     <Link
       href={`/article/${article.id}`}
@@ -25,12 +28,16 @@ export default function NewsCardCompact({ article, rank }: Props) {
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <h4 className="text-body-md text-text group-hover:text-accent transition-colors line-clamp-2 font-medium leading-snug">
-          {title}
+        <h4 lang={t.lang} className="text-body-md text-text group-hover:text-accent transition-colors line-clamp-2 font-medium leading-snug">
+          {t.text}
         </h4>
         <div className="flex items-center gap-2 mt-1 text-caption text-text-muted">
           <span>{article.source.sourceName}</span>
-          <span>{timeAgo(article.publishedAt)}</span>
+          {isoDate && ago && (
+            <time dateTime={isoDate} suppressHydrationWarning>
+              {ago}
+            </time>
+          )}
         </div>
       </div>
     </Link>

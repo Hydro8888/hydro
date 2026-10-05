@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { TickerArticle } from '@/lib/types';
+import { getDisplayTitle } from '@/lib/utils';
 
 interface BreakingTickerProps {
   articles: TickerArticle[];
@@ -18,7 +19,7 @@ export default function BreakingTicker({ articles }: BreakingTickerProps) {
     <div
       className="flex w-full items-stretch overflow-hidden bg-accent-red/10 border-y border-accent-red/20"
       role="marquee"
-      aria-live="polite"
+      aria-label="속보"
     >
       {/* "속보" badge */}
       <div className="flex flex-none items-center gap-1.5 bg-accent-red px-3 py-2 z-10">
@@ -43,7 +44,7 @@ export default function BreakingTicker({ articles }: BreakingTickerProps) {
           aria-label="속보 뉴스 목록"
         >
           {doubled.map((article, idx) => {
-            const title = article.titleKo || article.titleOriginal;
+            const t = getDisplayTitle(article);
             return (
               <li
                 key={`${article.id}-${idx}`}
@@ -53,9 +54,10 @@ export default function BreakingTicker({ articles }: BreakingTickerProps) {
                 <Link
                   href={`/article/${article.id}`}
                   tabIndex={idx >= items.length ? -1 : 0}
+                  lang={t.lang}
                   className="px-4 text-body-md text-text hover:text-accent-red transition-colors"
                 >
-                  {title}
+                  {t.text}
                 </Link>
                 <span className="text-text-muted select-none" aria-hidden="true">
                   /
@@ -78,7 +80,8 @@ export default function BreakingTicker({ articles }: BreakingTickerProps) {
         .animate-ticker {
           animation: ticker ${items.length * 4}s linear infinite;
         }
-        .animate-ticker:hover {
+        .animate-ticker:hover,
+        .animate-ticker:focus-within {
           animation-play-state: paused;
         }
       `}</style>

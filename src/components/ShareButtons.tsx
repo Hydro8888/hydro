@@ -1,14 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ShareButtonsProps {
   url: string;
   title: string;
 }
 
+type CopyState = 'idle' | 'copied' | 'failed';
+
+/** Legacy fallback; true only when the browser reports the copy actually happened. */
+function execCommandCopy(text: string): boolean {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  try {
+    textarea.select();
+    return document.execCommand('copy') === true;
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 export default function ShareButtons({ url, title }: ShareButtonsProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
 
   const encodedUrl = encodeURIComponent(url);
   const encodedTitle = encodeURIComponent(title);
@@ -44,24 +69,21 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
   ];
 
   async function handleCopy() {
+    let ok = false;
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard API unavailable');
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      ok = true;
     } catch {
-      // Fallback for older browsers
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      ok = execCommandCopy(url);
     }
+    setCopyState(ok ? 'copied' : 'failed');
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopyState('idle'), 2000);
   }
+
+  const copyLabel = copyState === 'copied' ? '복사됨' : copyState === 'failed' ? '복사 실패' : '링크 복사';
+  const statusText = copyState === 'copied' ? '링크를 복사했습니다.' : copyState === 'failed' ? '링크를 복사하지 못했습니다.' : '';
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -86,26 +108,21 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
       <button
         type="button"
         onClick={handleCopy}
-        className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-badge
+        className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-badge
           bg-surface-elevated border border-border-muted
-          text-caption text-text-secondary
+          text-caption ${copyState === 'failed' ? 'text-accent-red' : copyState === 'copied' ? 'text-accent' : 'text-text-secondary'}
           hover:text-text hover:border-border hover:bg-surface-card
-          transition-colors duration-200"
+          transition-colors duration-200`}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
         </svg>
-        <span>{copied ? '복사됨' : '링크 복사'}</span>
-
-        {/* Toast */}
-        {copied && (
-          <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
-            px-2 py-1 rounded-badge bg-accent text-white text-caption
-            animate-toast-in pointer-events-none">
-            복사됨
-          </span>
-        )}
+        <span>{copyLabel}</span>
       </button>
+      {/* Announces the copy result to assistive tech (the button label changes visually). */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {statusText}
+      </span>
     </div>
   );
 }

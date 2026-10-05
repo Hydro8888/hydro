@@ -22,7 +22,7 @@ export default function TrendingKeywords({ keywords }: TrendingKeywordsProps) {
     return (
       <div className="rounded-card border border-border-muted bg-surface-card p-4">
         <h2 className="mb-3 text-body-md font-bold text-text">실시간 인기 검색어</h2>
-        <p className="text-caption text-text-muted">데이터를 불러오는 중입니다.</p>
+        <p className="text-caption text-text-muted">아직 집계된 인기 검색어가 없습니다.</p>
       </div>
     );
   }

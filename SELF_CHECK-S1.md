@@ -41,7 +41,7 @@
   - 미지 slug 폴백의 "같은 불변식"은 `borderAll === border.replace(…)`로 적용함. 폴백의 `text`/`bg`는 항목 2.4의 "기존 필드·값 불변"에 따라 `text-text-secondary`/`bg-surface-elevated`를 유지하고, 테스트도 정확한 값으로 단언.
   - 존재하지 않는 날짜(`2026-02-30`)는 V8처럼 다음 달로 넘기지 않고 무효(`''`)로 처리.
 
-## 검증 실행 결과 (최종 빌드 기준)
+## 검증 실행 결과 (1회차, 커밋 `3c912ea` 기준 — 2회차 수치는 아래 "QA 피드백 반영")
 | # | 검증 | 결과 |
 |---|---|---|
 | 1 | `npx tsc --noEmit` | **통과** (오류 0) |
@@ -56,6 +56,35 @@
 | - | V5-2 `grep -nE "toLocale\|Intl\." utils.ts` | **0건** |
 | - | V5-3 기사 페이지 | `2026.10.05 22:08` 형식, `AM/PM/Invalid Date/오전/오후` 0건(기사 1·391·392·395·396·397, 홈). 미래 기사는 절대 시각, 날짜 null은 빈칸 |
 | - | V3-3 육안 | 모바일 `/article/392`: URL 제목이 화면 안에서 줄바꿈, h1 28px. `/article/391`: 어절 단위 줄바꿈. 배지 유색(에너지=amber, 자동차=sky). 스크린샷 `$SP/peek/s1gen-*.jpg` |
+
+## QA 피드백 반영 (QA_REPORT-S1 "구체적 개선 지시" 1·2, 2회차)
+- [x] **지시 1: 비-ISO 날짜 문자열의 서버 TZ 의존 제거** (`src/lib/utils.ts` `parseDateString`)
+  - 변경: 비-ISO 분기를 `return Date.parse(s)`에서 `EXPLICIT_ZONE_RE.test(s) ? Date.parse(s) : NaN`으로 바꿈. 문자열이 명시적 존으로 끝날 때만 `Date.parse`를 쓰고, 그 외에는 무효(`''`)로 처리.
+    - 명시적 존으로 인정하는 것: `Z`, `UT`, `UTC`, `GMT`, RFC 2822 미국 존 `EST…PDT`, 그리고 시각·공백·GMT/UTC 바로 뒤의 `±hhmm`/`±hh:mm`.
+    - `Date#toString()` 끝의 `(Korean Standard Time)` 같은 괄호 주석은 허용.
+    - 사실과 다르던 주석 "carry their own zone"을 실제 동작 설명으로 고침.
+  - QA 예시 정규식과 다르게 한 부분:
+    - `[+-]\d{2}:?\d{2}\s*$`만 쓰면 `'10-01-2026'`의 `-2026`(연도)을 오프셋으로 오인해 `Date.parse`로 넘기고, 결과가 다시 TZ에 의존한다(실측: UTC 10-01 00:00Z, 서울 09-30 15:00Z, LA 10-01 07:00Z). 그래서 숫자 오프셋은 시각·공백·GMT/UTC 바로 뒤에서만 인정함.
+    - `'08:03Z'`처럼 숫자 바로 뒤의 Z는 V8이 TZ와 무관하게 파싱하므로 허용함(`\bZ`보다 넓음).
+  - 실측 근거(`$SP/gen-s1/zoneprobe.js`, 4개 TZ에서 `Date.parse` 결과 비교):
+    - 존이 없는 비-ISO 5종(`'2026/10/01 08:03'`, `'Oct 1, 2026 08:03'`, `'10-01-2026'`, `'01-10-2026 08:03'`, `'2026/10/01'`)은 전부 TZ에 의존하며, 이제 모두 `''`.
+    - 명시적 존이 있는 19종은 전부 TZ와 무관하며 계속 파싱됨.
+    - `Quiz`, `FOREST`, `hutc`, `garbage Z`처럼 존으로 오인될 수 있는 입력은 `''`.
+  - 테스트(`tests/utils.test.ts`):
+    - TZ 독립성 스냅샷 `INPUTS`에 `'2026/10/01 08:03'`과 명시적 존이 있는 비-ISO 2종(RFC 2822 GMT, `Date#toString()`)을 추가함. 4개 TZ 결과가 같고, `'2026/10/01 08:03'` 행은 모든 TZ에서 무효임을 단언.
+    - `formatDate` suite에 비-ISO 테스트를 추가함. 명시적 존 6종은 `'2026.10.01 17:03'`, 존 없는 5종은 `''`/`undefined`.
+- [x] **지시 2: 부호 붙은 숫자 문자열 테스트 공백 보강** (구현은 변경 없음)
+  - `parseIntParam('-3', LIMIT) === 20`, `parseIntParam('+7', LIMIT) === 20` 테스트 추가.
+  - `parsePage` 무효 입력 목록에 `'+7'` 추가.
+- **2회차 검증 결과**
+  - `TZ=UTC`, `TZ=Asia/Seoul`, `TZ=America/Los_Angeles` 각각에서 `npx tsc --noEmit && npm test`: tsc 오류 0, **63/63 통과**(20 suite, 신규 테스트 2개 포함).
+  - 테스트 우선 순서로 진행함: 수정 전 구현에서 새 날짜 테스트 2건이 실패하는 것을 확인한 뒤 고쳤다.
+  - 변이 확인(스크래치 사본, 작업 트리는 그대로):
+    - QA에서 살아남았던 "부호 허용" 변이(`/^[+-]?\d+$/`)는 이제 2건 실패로 검출됨.
+    - 예전 `Date.parse` 폴백은 UTC와 서울 모두에서 2건 실패로 검출됨.
+  - V5-2 `grep -nE "toLocale|Intl\." src/lib/utils.ts`는 여전히 0건.
+  - CSS 영향 없음: HEAD `utils.ts`와 새 `utils.ts`로 Tailwind를 프로그램 방식으로 컴파일해 비교한 결과, 셀렉터 616개로 동일하고 추가·삭제 0, 바이트 수 동일(53,372 B). 그래서 지시에 따라 `qa-env.sh restart`는 실행하지 않음.
+- 수정 파일: `src/lib/utils.ts`(`EXPLICIT_ZONE_RE` 상수와 `parseDateString` 비-ISO 분기 및 주석), `tests/utils.test.ts`, `SELF_CHECK-S1.md`. 커밋하지 않음.
 
 ## 환경 이슈 (오케스트레이터 참고, 코드 무관)
 - **`$SP/qa-env.sh restart`가 서버를 실제로 재시작하지 않는다.**

@@ -184,6 +184,14 @@ const MAX_DATE_MS = 8.64e15;
 const ISO_DATE_RE =
   /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d+))?)?)?\s*(Z|UTC|GMT|[+-]\d{2}(?::?\d{2})?)?$/i;
 
+/**
+ * Non-ISO string that ENDS with an explicit zone: Z, UT, UTC, GMT, an RFC 2822 US zone (EST … PDT),
+ * or a ±hhmm / ±hh:mm offset right after a time, a space or GMT/UTC (so the year in '10-01-2026'
+ * is not taken for an offset). A trailing comment like Date#toString()'s '(Korean Standard Time)' is allowed.
+ */
+const EXPLICIT_ZONE_RE =
+  /(?:(?:^|[^a-z])(?:z|ut|utc|gmt|[ecmp][sd]t)|(?:\s|gmt|utc?|\d:\d{2}(?::\d{2}(?:\.\d+)?)?)[+-]\d{2}:?\d{2})(?:\s*\([^()]*\))?\s*$/i;
+
 function utcMs(year: number, month: number, day: number, hour: number, minute: number, second: number, ms: number): number {
   const d = new Date(0);
   // setUTCFullYear (unlike Date.UTC) does not remap years 0-99 to 1900-1999
@@ -192,12 +200,17 @@ function utcMs(year: number, month: number, day: number, hour: number, minute: n
   return d.getTime();
 }
 
-/** Strict ISO parse. A string WITHOUT a zone is read as UTC (Prisma stores UTC); V8 would use the local TZ. */
+/**
+ * Strict ISO parse. An ISO string WITHOUT a zone is read as UTC (Prisma stores UTC); V8 would use the local TZ.
+ * Any other format goes to Date.parse only if it ends with an explicit zone (RFC 2822, Date#toString(), …):
+ * without one Date.parse reads it in the process time zone ('2026/10/01 08:03' → different instants on a
+ * UTC server and a KST browser), so such strings are treated as invalid.
+ */
 function parseDateString(raw: string): number {
   const s = raw.trim();
   if (!s) return NaN;
   const m = ISO_DATE_RE.exec(s);
-  if (!m) return Date.parse(s); // other formats (RFC 2822 …) carry their own zone
+  if (!m) return EXPLICIT_ZONE_RE.test(s) ? Date.parse(s) : NaN;
 
   const year = Number(m[1]);
   const month = Number(m[2]);

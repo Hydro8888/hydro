@@ -69,6 +69,21 @@ describe('formatDate (KST, 24h, YYYY.MM.DD HH:mm)', () => {
     assert.equal(formatDate('2026-10-01 08:03'), '2026.10.01 17:03');
   });
 
+  test('non-ISO string: parsed only when it ends with an explicit zone, otherwise invalid', () => {
+    // explicit zone → Date.parse gives the same instant in every process TZ
+    assert.equal(formatDate('Thu, 01 Oct 2026 08:03:00 GMT'), '2026.10.01 17:03'); // RFC 2822 / toUTCString()
+    assert.equal(formatDate('Thu, 01 Oct 2026 08:03:00 +0000'), '2026.10.01 17:03');
+    assert.equal(formatDate('Thu, 01 Oct 2026 04:03:00 EDT'), '2026.10.01 17:03');
+    assert.equal(formatDate('Thu Oct 01 2026 17:03:00 GMT+0900 (Korean Standard Time)'), '2026.10.01 17:03'); // Date#toString()
+    assert.equal(formatDate('2026/10/01 17:03:00+09:00'), '2026.10.01 17:03');
+    assert.equal(formatDate('2026/10/01 08:03Z'), '2026.10.01 17:03');
+    // no zone → Date.parse would read it in the process TZ → rejected ('-2026' is a year, not an offset)
+    for (const s of ['2026/10/01 08:03', 'Oct 1, 2026 08:03', '2026/10/01', '10-01-2026', '01-10-2026 08:03']) {
+      assert.equal(formatDate(s), '', s);
+      assert.equal(toIsoDateTime(s), undefined, s);
+    }
+  });
+
   test('day / month / year rollover and leap years', () => {
     assert.equal(formatDate('2026-12-31T15:00:00Z'), '2027.01.01 00:00');
     assert.equal(formatDate('2026-12-31T14:59:59Z'), '2026.12.31 23:59');
@@ -154,9 +169,17 @@ describe('timeAgo(t, NOW)', () => {
 
 describe('date output does not depend on the process time zone', () => {
   const ZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Pacific/Kiritimati'];
-  const INPUTS = ['2026-10-01T08:03:00Z', '2026-10-01T08:03:00', '2026-12-31T15:00:00Z', '2026-09-01T20:30:00Z'];
+  const INPUTS = [
+    '2026-10-01T08:03:00Z',
+    '2026-10-01T08:03:00',
+    '2026-12-31T15:00:00Z',
+    '2026-09-01T20:30:00Z',
+    '2026/10/01 08:03', // non-ISO without a zone
+    'Thu, 01 Oct 2026 08:03:00 GMT', // non-ISO with an explicit zone
+    'Thu Oct 01 2026 17:03:00 GMT+0900 (Korean Standard Time)',
+  ];
   const snapshot = () =>
-    INPUTS.map((d) => [formatDate(d), formatDateOnly(d), timeAgo(d, NOW), toIsoDateTime(d)].join(' | '))
+    INPUTS.map((d) => [formatDate(d), formatDateOnly(d), timeAgo(d, NOW), toIsoDateTime(d) ?? '(none)'].join(' | '))
       .concat([timeAgo(NOW - 3 * 3600 * SEC, NOW), timeAgo(NOW + 5 * 3600 * SEC, NOW)]);
 
   test('the TZ switch is effective in this runtime (sanity check)', () => {
@@ -170,6 +193,9 @@ describe('date output does not depend on the process time zone', () => {
     const expected = withTZ('UTC', snapshot);
     assert.equal(expected[0], '2026.10.01 17:03 | 2026.10.01 | 3일 전 | 2026-10-01T08:03:00.000Z');
     assert.equal(expected[3], '2026.09.02 05:30 | 2026.09.02 | 2026.09.02 | 2026-09-01T20:30:00.000Z');
+    assert.equal(expected[4], ' |  |  | (none)'); // '2026/10/01 08:03' is invalid in every TZ
+    assert.equal(expected[5], expected[0]);
+    assert.equal(expected[6], expected[0]);
     for (const tz of ZONES) assert.deepEqual(withTZ(tz, snapshot), expected, `TZ=${tz}`);
   });
 });
@@ -180,7 +206,7 @@ describe('date output does not depend on the process time zone', () => {
 
 describe('parsePage', () => {
   test('unparseable input → 1', () => {
-    const cases: unknown[] = [undefined, null, '', 'abc', '7abc', '-3', '2.5', '1e3', '０７', [], {}, 2.5, NaN, Infinity, -Infinity, true];
+    const cases: unknown[] = [undefined, null, '', 'abc', '7abc', '-3', '+7', '2.5', '1e3', '０７', [], {}, 2.5, NaN, Infinity, -Infinity, true];
     for (const raw of cases) assert.equal(parsePage(raw), 1, `input ${JSON.stringify(raw)}`);
   });
 
@@ -234,6 +260,10 @@ describe('parseIntParam', () => {
     assert.equal(parseIntParam('0', LIMIT), 1);
     assert.equal(parseIntParam('500', LIMIT), 100);
     assert.equal(parseIntParam('50', LIMIT), 50);
+  });
+  test('signed digit strings are not numbers here → fallback (not clamped)', () => {
+    assert.equal(parseIntParam('-3', LIMIT), 20);
+    assert.equal(parseIntParam('+7', LIMIT), 20);
   });
 });
 

@@ -1,10 +1,20 @@
 import type { Config } from 'tailwindcss';
 
+/** Border token — single source for `border-border*` and the default border color below. */
+const borderTokens = {
+  DEFAULT: '#30363d',
+  muted: '#21262d',
+};
+
 const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    // Shared modules hold class strings too (CATEGORY_COLORS, getCategoryStyle, …).
+    // Tailwind only generates classes it finds in these files.
+    './src/lib/**/*.{js,ts,jsx,tsx}',
+    './src/hooks/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -33,10 +43,12 @@ const config: Config = {
           red: '#f85149',
           green: '#3fb950',
         },
-        border: {
-          DEFAULT: '#30363d',
-          muted: '#21262d',
-        },
+        border: borderTokens,
+      },
+      // Preflight paints every border without a color class with borderColor.DEFAULT.
+      // Tailwind's default is gray-200 (#e5e7eb), a light-theme line on our dark surfaces.
+      borderColor: {
+        DEFAULT: borderTokens.DEFAULT,
       },
       fontFamily: {
         sans: [
@@ -46,7 +58,9 @@ const config: Config = {
         ],
       },
       fontSize: {
-        'headline-xl': ['2.5rem', { lineHeight: '1.15', fontWeight: '800' }],
+        // Fluid: 28px (= headline-lg) up to 440px wide → ≈34.6px at 768px → 40px from 1040px.
+        // rem + vw so browser zoom still enlarges it.
+        'headline-xl': ['clamp(1.75rem, 1.2rem + 2vw, 2.5rem)', { lineHeight: '1.15', fontWeight: '800' }],
         'headline-lg': ['1.75rem', { lineHeight: '1.2', fontWeight: '700' }],
         'headline-md': ['1.25rem', { lineHeight: '1.3', fontWeight: '700' }],
         'headline-sm': ['1rem', { lineHeight: '1.4', fontWeight: '600' }],

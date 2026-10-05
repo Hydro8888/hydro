@@ -10,6 +10,25 @@
 @layer base {
   body {
     @apply bg-surface text-text antialiased;
+    /* Long URLs / unbroken words wrap instead of overflowing the viewport.
+       `anywhere` (unlike `break-word`) also lowers min-content, so flex items can shrink too. */
+    overflow-wrap: anywhere;
+    /* Korean wraps between words (어절), not mid-syllable */
+    word-break: keep-all;
+  }
+
+  /* Chinese/Japanese have no spaces: keep-all would leave no break points, so restore
+     per-character breaking (with kinsoku). Needs a lang attribute on the text (toLangTag). */
+  :lang(ja),
+  :lang(zh) {
+    word-break: normal;
+  }
+
+  /* Tables size columns from min-content: inheriting `anywhere` would squeeze short-word
+     columns letter by letter. Restore the previous rules; overflow-x-auto wrappers absorb width. */
+  table {
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   ::selection {
@@ -108,11 +127,14 @@
     @apply bg-surface-card hover:bg-surface-elevated active:bg-surface transition-colors duration-150;
   }
 
-  .scrollbar-none {
+  /* .scrollbar-hide: alias used by the country/category pill rows */
+  .scrollbar-none,
+  .scrollbar-hide {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  .scrollbar-none::-webkit-scrollbar {
+  .scrollbar-none::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 

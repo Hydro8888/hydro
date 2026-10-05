@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { fetchAdminJson, hasRowsWithId, isAbortError, isRecord, type AdminFetchErrorKind } from '@/lib/admin-fetch';
 import { withBasePath } from '@/lib/site';
-import { getDisplayTitle, toLangTag } from '@/lib/utils';
+import { categoryLabel, countryLabel, getDisplayTitle, toLangTag } from '@/lib/utils';
+import { COUNTRIES } from '@/lib/constants';
 import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
 
 interface Article {
@@ -130,10 +131,9 @@ export default function AdminArticlesPage() {
             className="text-sm bg-surface border border-border text-text rounded px-2 py-1 focus:border-accent focus:outline-none"
           >
             <option value="">전체 국가</option>
-            <option value="global">글로벌</option>
-            <option value="us">미국</option>
-            <option value="japan">일본</option>
-            <option value="china">중국</option>
+            {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -180,9 +180,9 @@ export default function AdminArticlesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-text-secondary">{article.source.sourceName}</td>
-                      <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{article.country}</td>
+                      <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{countryLabel(article.country)}</td>
                       <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">
-                        {article.categoryPrimary || '-'}
+                        {article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '-'}
                       </td>
                       <td className="px-4 py-3 text-text tabular-nums">{article.viewCount}</td>
                       <td className="px-4 py-3">

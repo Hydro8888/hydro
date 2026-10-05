@@ -14,7 +14,7 @@ interface Article {
   titleKo: string | null;
   summaryKo: string | null;
   originalUrl: string;
-  language?: string;
+  language: string | null;
   country: string;
   categoryPrimary: string | null;
   publishedAt: string | null;
@@ -187,8 +187,8 @@ function SearchPage() {
         </div>
       </div>
 
-      {/* Results */}
-      {q && (
+      {/* Results — count only once it is actually known (not while loading / after an error) */}
+      {q && !error && !loading && (
         <div className="mb-4 text-body-md text-text-secondary">
           &quot;{q}&quot; 검색 결과: {total}건
         </div>
@@ -217,7 +217,7 @@ function SearchPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {articles.map((article) => (
-              <NewsCard key={article.id} article={article} />
+              <NewsCard key={article.id} article={{ ...article, language: article.language ?? undefined }} />
             ))}
           </div>
 

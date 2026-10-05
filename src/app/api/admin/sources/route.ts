@@ -1,5 +1,6 @@
 import prisma from '@/lib/db';
 import { invalidateCache } from '@/lib/redis';
+import { parseArticleId } from '@/lib/routing';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
@@ -87,12 +88,13 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { id, ...rest } = body;
 
-    if (!id) {
+    if (id === undefined || id === null || id === '') {
       return NextResponse.json({ error: 'Source id is required' }, { status: 400 });
     }
 
-    const sourceId = parseInt(String(id), 10);
-    if (isNaN(sourceId)) {
+    // Strict: positive int32 only ('12abc', '1.5', '-1', 0 → 400; no parseInt leniency)
+    const sourceId = parseArticleId(typeof id === 'number' ? id : String(id));
+    if (sourceId === null) {
       return NextResponse.json({ error: 'Invalid source id' }, { status: 400 });
     }
 

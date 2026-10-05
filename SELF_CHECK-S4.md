@@ -54,3 +54,10 @@
 ## 회귀 위험 확인
 - 기존 기능 영향: 의도된 변경은 다음과 같다. ① `/api/admin/stats`·`/api/admin/logs` 비공개(공개 크롬은 S2 `/api/stats`만 사용, S2 T7 PASS). ② 비활성 기사 공개 상세·API 404. ③ 미지 카테고리 404. ④ 홈이 40건을 조회한다. 미들웨어가 `/breaking`·`/category/*`에서도 실행된다(헤더 전달만 하며 인증은 없음).
 - TypeScript 오류: 없음.
+
+## QA 피드백 반영 (QA_REPORT-S4 지시 1~4, 서버 재시작·커밋 없음)
+- [x] 지시 1: `src/app/search/page.tsx`의 "검색 결과: N건"을 `q && !error && !loading`일 때만 표시하도록 바꿨다. 이제 로딩 중이나 오류 상태에서 "0건"이 보이지 않는다.
+- [x] 지시 2: `src/app/admin/articles/page.tsx`의 국가·카테고리 열에 `countryLabel`/`categoryLabel`을 적용했다. 국가 필터 옵션은 `COUNTRIES`(all 제외)에서 생성한다.
+- [x] 지시 3: `src/app/search/page.tsx`의 `language: string | null`로 바꿨다. `NewsCard`에는 `language ?? undefined`로 변환해 넘긴다. 이유는 S3 `types.ts`의 `language?: string`을 수정하지 않기 위해서다.
+- [x] 지시 4: `src/app/api/admin/sources/route.ts`의 PUT에서 `parseInt`를 `parseArticleId`(양의 int32만 허용)로 바꿨다. `'12abc'`·`'1.5'`·`-1`·`0` 같은 잘못된 id는 400을 반환한다.
+- 검증: `npx tsc --noEmit` 통과, `npm test` 106/106 통과. :4000 서버는 S5 Planner가 사용 중이라 재빌드하지 않았다. 따라서 런타임 확인은 다음 재시작 때 해야 한다.

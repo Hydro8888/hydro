@@ -17,18 +17,26 @@ import BreakingTicker from '@/components/BreakingTicker';
 import TrendingKeywords from '@/components/TrendingKeywords';
 import NewsletterBanner from '@/components/NewsletterBanner';
 import AdSlot from '@/components/AdSlot';
+import { NEWSLETTER_ENABLED } from '@/lib/newsletter';
+
+/** 30 visible slots + the 8 compact "latest" items that are no longer repeated below. */
+const HOME_ARTICLE_COUNT = 40;
+const COMPACT_LIST_SIZE = 8;
 
 export default async function HomePage() {
+  // getArticles throws on a DB error → error.tsx; the decorative helpers degrade to [].
   const [articles, breaking, catCounts, trendingKw] = await Promise.all([
-    getArticles('all'),
+    getArticles('all', HOME_ARTICLE_COUNT),
     getBreakingNews(),
     getCategoryCounts(),
     getTrendingKeywords(),
   ]);
 
+  // Each article is placed exactly once: hero → sub-heroes → compact list → category / latest grids.
   const hero = articles[0];
   const subHeroes = articles.slice(1, 3);
-  const remaining = articles.slice(3);
+  const listItems = articles.slice(3, 3 + COMPACT_LIST_SIZE);
+  const remaining = articles.slice(3 + listItems.length);
 
   // Group remaining articles by category for editorial sections
   const grouped = groupByCategory(remaining);
@@ -38,14 +46,12 @@ export default async function HomePage() {
     .filter((cat): cat is string => !!cat && !!grouped[cat] && grouped[cat].length >= 2)
     .slice(0, 3);
 
-  const usedIds = new Set<number | string>();
+  const usedIds = new Set<number>();
   const categorySections = topCatSlugs.map((slug) => {
     const catArticles = grouped[slug] || [];
     const featured = catArticles[0];
     const secondary = catArticles.slice(1, 4);
-    [featured, ...secondary].forEach((a) => {
-      if (a && 'id' in a) usedIds.add((a as any).id);
-    });
+    for (const a of [featured, ...secondary]) if (a) usedIds.add(a.id);
     return { slug, label: categoryLabel(slug), featured, secondary };
   });
 
@@ -54,6 +60,7 @@ export default async function HomePage() {
   return (
     <>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6">
+        <h1 className="sr-only">LiveNews 주요 뉴스</h1>
         {/* Breaking Ticker — inside container, aligned with content */}
         {breaking.length > 0 && (
           <div className="mb-6 rounded-lg overflow-hidden">
@@ -62,6 +69,7 @@ export default async function HomePage() {
                 id: String(a.id),
                 titleKo: a.titleKo,
                 titleOriginal: a.titleOriginal,
+                language: a.language,
               }))}
             />
           </div>
@@ -79,28 +87,20 @@ export default async function HomePage() {
               <div className="lg:col-span-2 flex flex-col gap-5">
                 <NewsCardLarge article={hero} />
 
-                {/* Latest headlines below hero — deduplicated against hero/sub-hero.
-                    Breaking news already appears in the ticker so we don't repeat it here. */}
-                {(() => {
-                  const usedIds = new Set([hero.id, ...subHeroes.map(a => a.id)]);
-                  const listItems = articles
-                    .filter(a => !usedIds.has(a.id))
-                    .slice(0, 8);
-
-                  if (listItems.length === 0) return null;
-                  return (
-                    <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
-                      <h3 className="text-headline-sm text-text mb-3">
-                        최신 뉴스
-                      </h3>
-                      <div className="space-y-0">
-                        {listItems.map((article, idx) => (
-                          <NewsCardCompact key={article.id} article={article} rank={idx + 1} />
-                        ))}
-                      </div>
+                {/* Latest headlines below hero (articles 4–11) — these are not repeated
+                    in the category / latest grids further down. */}
+                {listItems.length > 0 && (
+                  <div className="bg-surface-card rounded-card border border-border-muted p-4 flex-1">
+                    <h3 className="text-headline-sm text-text mb-3">
+                      최신 뉴스
+                    </h3>
+                    <div className="space-y-0">
+                      {listItems.map((article, idx) => (
+                        <NewsCardCompact key={article.id} article={article} rank={idx + 1} />
+                      ))}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
 
               {/* Sub-hero stack */}
@@ -156,18 +156,14 @@ export default async function HomePage() {
 
                     {featured && (
                       <div className="mb-3">
-                        <NewsCard article={featured as any} />
+                        <NewsCard article={featured} />
                       </div>
                     )}
 
                     {secondary.length > 0 && (
                       <div className="mt-1">
                         {secondary.map((article, idx) => (
-                          <NewsCardCompact
-                            key={(article as any).id}
-                            article={article as any}
-                            rank={idx + 1}
-                          />
+                          <NewsCardCompact key={article.id} article={article} rank={idx + 1} />
                         ))}
                       </div>
                     )}
@@ -206,16 +202,17 @@ export default async function HomePage() {
         )}
 
         {/* ── Newsletter Banner — bottom of the feed so it doesn't interrupt reading ── */}
-        {articles.length > 0 && (
+        {NEWSLETTER_ENABLED && articles.length > 0 && (
           <section className="mt-12 animate-fade-in">
             <NewsletterBanner />
           </section>
         )}
 
-        {/* ── Empty State ── */}
+        {/* ── Empty State — the query succeeded and there is genuinely nothing yet ── */}
         {articles.length === 0 && (
           <div className="text-center py-24">
             <svg
+              aria-hidden="true"
               className="w-16 h-16 mx-auto mb-4 text-text-muted"
               fill="none"
               viewBox="0 0 24 24"
@@ -228,18 +225,8 @@ export default async function HomePage() {
                 d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2"
               />
             </svg>
-            <p className="text-headline-sm text-text-secondary">
-              뉴스를 불러오는 중입니다
-            </p>
-            <p className="text-body-md text-text-muted mt-2">
-              잠시 후 새로고침해 주세요
-            </p>
-            <Link
-              href="/"
-              className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
-            >
-              새로고침
-            </Link>
+            <p className="text-headline-sm text-text-secondary">아직 표시할 뉴스가 없습니다</p>
+            <p className="text-body-md text-text-muted mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
           </div>
         )}
       </div>

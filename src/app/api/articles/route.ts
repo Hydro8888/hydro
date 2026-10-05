@@ -1,5 +1,6 @@
 import prisma from '@/lib/db';
 import { getCached } from '@/lib/redis';
+import { parseIntParam, parsePage } from '@/lib/utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -9,8 +10,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const country = searchParams.get('country') ?? 'all';
     const category = searchParams.get('category');
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
+    // Never NaN: garbage → defaults, out of range → clamped
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseIntParam(searchParams.get('limit'), { min: 1, max: 100, fallback: 20 });
     const sort = searchParams.get('sort') === 'popular' ? 'popular' : 'latest';
 
     const cacheKey = `articles:${country}:${category ?? ''}:${page}:${limit}:${sort}`;
@@ -23,9 +25,10 @@ export async function GET(req: NextRequest) {
         ...(category && { categoryPrimary: category }),
       };
 
+      // Undated articles go last (PostgreSQL DESC puts NULL first); id breaks ties
       const orderBy = sort === 'popular'
-        ? { viewCount: 'desc' as const }
-        : { publishedAt: 'desc' as const };
+        ? [{ viewCount: 'desc' as const }, { id: 'desc' as const }]
+        : [{ publishedAt: { sort: 'desc' as const, nulls: 'last' as const } }, { id: 'desc' as const }];
 
       const skip = (page - 1) * limit;
 

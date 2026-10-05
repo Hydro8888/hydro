@@ -1,19 +1,24 @@
 export const dynamic = 'force-dynamic';
 
 import React from 'react';
+import { notFound, redirect } from 'next/navigation';
 import { CATEGORIES } from '@/lib/constants';
-import { categoryLabel, getCategoryStyle } from '@/lib/utils';
+import { categoryLabel, parsePage } from '@/lib/utils';
 import { getCategoryArticles } from '@/lib/queries';
+import { isKnownCategorySlug, pageHref, resolvePageRequest } from '@/lib/routing';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
 import AdSlot from '@/components/AdSlot';
 import Link from 'next/link';
 
+// Unknown slugs get their 404 status from category/[slug]/layout.tsx; the notFound() here only
+// makes Next resolve not-found.tsx's metadata for the RSC head (tab title after hydration).
 export async function generateMetadata({ params }: { params: { slug: string } }) {
+  if (!isKnownCategorySlug(params.slug)) notFound();
   const label = categoryLabel(params.slug);
   return {
-    title: `${label} 뉴스 - LiveNews`,
+    title: `${label} 뉴스`,
     description: `${label} 관련 최신 글로벌 뉴스`,
   };
 }
@@ -23,12 +28,16 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { page?: string };
+  searchParams: { page?: string | string[] };
 }) {
-  const page = parseInt(searchParams.page || '1');
+  const page = parsePage(searchParams.page);
+  // Throws on a DB error → error boundary (never a fake empty state)
   const { articles, total, totalPages } = await getCategoryArticles(params.slug, page);
+
+  const resolved = resolvePageRequest(page, totalPages);
+  if (resolved.kind === 'redirect') redirect(pageHref(`/category/${params.slug}`, resolved.page));
+
   const label = categoryLabel(params.slug);
-  const style = getCategoryStyle(params.slug);
   const headlines = articles.slice(0, 3);
   const rest = articles.slice(3);
 
@@ -86,9 +95,17 @@ export default async function CategoryPage({
         </section>
       )}
 
+      {/* Empty state — the query succeeded and there is genuinely nothing yet */}
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-muted text-body-lg">{label} 관련 뉴스가 없습니다</p>
+          <p className="text-text-secondary text-headline-sm">{label} 분야 기사가 아직 없습니다</p>
+          <p className="text-text-muted text-body-md mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
+          <Link
+            href="/breaking"
+            className="mt-4 inline-block px-4 py-2 border border-border text-text-secondary rounded-card text-body-md hover:border-accent hover:text-accent transition-colors"
+          >
+            전체 속보 보기
+          </Link>
         </div>
       )}
 

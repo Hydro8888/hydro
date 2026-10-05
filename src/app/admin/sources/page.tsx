@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { fetchAdminJson, hasRowsWithId, isAbortError, type AdminFetchErrorKind } from '@/lib/admin-fetch';
+import { withBasePath } from '@/lib/site';
+import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
 
 interface Source {
   id: number;
@@ -16,9 +19,14 @@ interface Source {
   articleCount?: number;
 }
 
+const isSourcesPayload = (json: unknown): json is { sources: Source[] } => hasRowsWithId(json, 'sources');
+
+type LoadState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; kind: AdminFetchErrorKind; code?: number };
+
 export default function AdminSourcesPage() {
   const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [load, setLoad] = useState<LoadState>({ status: 'loading' });
+  const controllerRef = useRef<AbortController | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editSource, setEditSource] = useState<Source | null>(null);
 
@@ -27,20 +35,32 @@ export default function AdminSourcesPage() {
     baseUrl: '', feedUrl: '', crawlInterval: 180, isEnabled: true,
   });
 
-  useEffect(() => { loadSources(); }, []);
-
-  async function loadSources() {
-    setLoading(true);
+  /**
+   * (Re)load the list. `quiet` keeps the current table on screen (refresh after a change);
+   * a failed load always replaces the table with an error box — never an empty "(0)" list.
+   */
+  const loadSources = useCallback(async (quiet = false) => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    if (!quiet) setLoad({ status: 'loading' });
     try {
-      const res = await fetch('/livenews/api/admin/sources');
-      const data = await res.json();
-      setSources(data.sources || []);
-    } catch {
-      setSources([]);
-    } finally {
-      setLoading(false);
+      const r = await fetchAdminJson('/api/admin/sources', isSourcesPayload, { signal: controller.signal });
+      if (r.ok) {
+        setSources(r.data.sources);
+        setLoad({ status: 'ready' });
+      } else {
+        setLoad({ status: 'error', kind: r.kind, code: r.status });
+      }
+    } catch (err) {
+      if (!isAbortError(err)) setLoad({ status: 'error', kind: 'network' });
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadSources();
+    return () => controllerRef.current?.abort();
+  }, [loadSources]);
 
   const [saving, setSaving] = useState(false);
 
@@ -51,7 +71,7 @@ export default function AdminSourcesPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/livenews/api/admin/sources', {
+      const res = await fetch(withBasePath('/api/admin/sources'), {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -66,7 +86,7 @@ export default function AdminSourcesPage() {
         sourceName: '', sourceType: 'RSS', country: 'global', language: 'en',
         baseUrl: '', feedUrl: '', crawlInterval: 180, isEnabled: true,
       });
-      loadSources();
+      loadSources(true);
     } catch (err) {
       alert(`소스 저장에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally {
@@ -80,13 +100,13 @@ export default function AdminSourcesPage() {
       prev.map((s) => (s.id === id ? { ...s, isEnabled: !isEnabled } : s))
     );
     try {
-      const res = await fetch('/livenews/api/admin/sources', {
+      const res = await fetch(withBasePath('/api/admin/sources'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, isEnabled: !isEnabled }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      loadSources();
+      loadSources(true);
     } catch {
       setSources((prev) =>
         prev.map((s) => (s.id === id ? { ...s, isEnabled } : s))
@@ -106,8 +126,17 @@ export default function AdminSourcesPage() {
     setShowForm(true);
   }
 
-  if (loading) {
-    return <div className="text-center py-20"><div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto"></div></div>;
+  if (load.status !== 'ready') {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-text mb-6">소스 관리</h1>
+        {load.status === 'loading' ? (
+          <AdminLoading />
+        ) : (
+          <AdminLoadError kind={load.kind} status={load.code} onRetry={() => loadSources()} />
+        )}
+      </div>
+    );
   }
 
   return (

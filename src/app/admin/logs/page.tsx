@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAdminJson, hasRowsWithId, isAbortError, isRecord, type AdminFetchErrorKind } from '@/lib/admin-fetch';
+import { formatDate } from '@/lib/utils';
+import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
 
 interface Log {
   id: number;
@@ -14,34 +17,48 @@ interface Log {
   source: { sourceName: string; country: string };
 }
 
+interface LogsPayload {
+  logs: Log[];
+  total: number;
+  totalPages: number;
+}
+
+const isLogsPayload = (json: unknown): json is LogsPayload =>
+  hasRowsWithId(json, 'logs') && isRecord(json) && typeof json.total === 'number' && typeof json.totalPages === 'number';
+
+type LoadState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; kind: AdminFetchErrorKind; code?: number };
+
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [load, setLoad] = useState<LoadState>({ status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    setError(false);
+    const controller = new AbortController();
+    setLoad({ status: 'loading' });
     const params = new URLSearchParams({ page: String(page), limit: '50' });
     if (statusFilter) params.set('status', statusFilter);
 
-    fetch(`/livenews/api/admin/logs?${params}`)
+    fetchAdminJson(`/api/admin/logs?${params}`, isLogsPayload, { signal: controller.signal })
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+        if (r.ok) {
+          setLogs(r.data.logs);
+          setTotal(r.data.total);
+          setTotalPages(r.data.totalPages);
+          setLoad({ status: 'ready' });
+        } else {
+          setLoad({ status: 'error', kind: r.kind, code: r.status });
+        }
       })
-      .then((data) => {
-        setLogs(data.logs || []);
-        setTotal(data.total || 0);
-        setTotalPages(data.totalPages || 0);
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [page, statusFilter]);
+      .catch((err) => {
+        if (!isAbortError(err)) setLoad({ status: 'error', kind: 'network' });
+      });
+    return () => controller.abort();
+  }, [page, statusFilter, reloadKey]);
 
   const successCount = logs.filter((l) => l.status === 'success').length;
   const failedCount = logs.filter((l) => l.status === 'failed').length;
@@ -49,7 +66,7 @@ export default function AdminLogsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text">수집 로그 ({total})</h1>
+        <h1 className="text-2xl font-bold text-text">{load.status === 'ready' ? `수집 로그 (${total})` : '수집 로그'}</h1>
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -62,6 +79,7 @@ export default function AdminLogsPage() {
         </select>
       </div>
 
+      {load.status === 'ready' && (
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-surface-card rounded-lg shadow-card p-4 border border-border text-center">
           <p className="text-sm text-text-secondary">이 페이지</p>
@@ -76,11 +94,12 @@ export default function AdminLogsPage() {
           <p className="text-2xl font-bold text-accent-red">{failedCount}</p>
         </div>
       </div>
+      )}
 
-      {error ? (
-        <div className="text-center py-20 text-accent-red">로그를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.</div>
-      ) : loading ? (
-        <div className="text-center py-20"><div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto"></div></div>
+      {load.status === 'error' ? (
+        <AdminLoadError kind={load.kind} status={load.code} onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : load.status === 'loading' ? (
+        <AdminLoading />
       ) : (
         <>
           <div className="bg-surface-card rounded-lg shadow-card border border-border overflow-x-auto">
@@ -115,8 +134,8 @@ export default function AdminLogsPage() {
                     </td>
                     <td className="px-4 py-3 text-text hidden sm:table-cell">{log.articlesFound}</td>
                     <td className="px-4 py-3 font-medium text-text hidden sm:table-cell">{log.articlesNew}</td>
-                    <td className="px-4 py-3 text-text-secondary">{new Date(log.startedAt).toLocaleString('ko-KR')}</td>
-                    <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{log.completedAt ? new Date(log.completedAt).toLocaleString('ko-KR') : '-'}</td>
+                    <td className="px-4 py-3 text-text-secondary tabular-nums">{formatDate(log.startedAt) || '-'}</td>
+                    <td className="px-4 py-3 text-text-secondary tabular-nums hidden sm:table-cell">{formatDate(log.completedAt) || '-'}</td>
                     <td className="px-4 py-3 text-accent-red truncate max-w-xs hidden sm:table-cell">{log.errorMessage || '-'}</td>
                   </tr>
                 ))}

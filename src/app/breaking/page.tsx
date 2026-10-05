@@ -1,23 +1,30 @@
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getBreakingArticles } from '@/lib/queries';
+import { parsePage } from '@/lib/utils';
+import { pageHref, resolvePageRequest } from '@/lib/routing';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
 
 export const metadata = {
-  title: '속보 - LiveNews',
+  title: '속보',
   description: '최신 속보 뉴스를 실시간으로 확인하세요',
 };
 
 export default async function BreakingPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: { page?: string | string[] };
 }) {
-  const page = parseInt(searchParams.page || '1');
+  const page = parsePage(searchParams.page);
+  // Throws on a DB error → breaking/error boundary (never a fake "loading" empty state)
   const { articles, total, totalPages } = await getBreakingArticles(page);
+
+  const resolved = resolvePageRequest(page, totalPages);
+  if (resolved.kind === 'redirect') redirect(pageHref('/breaking', resolved.page));
+
   const headlines = articles.slice(0, 3);
   const rest = articles.slice(3);
 
@@ -49,11 +56,8 @@ export default async function BreakingPage({
 
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-secondary text-headline-sm">뉴스를 불러오는 중입니다</p>
-          <p className="text-text-muted text-body-md mt-2">잠시 후 새로고침해 주세요</p>
-          <Link href="/breaking" className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors">
-            새로고침
-          </Link>
+          <p className="text-text-secondary text-headline-sm">아직 표시할 뉴스가 없습니다</p>
+          <p className="text-text-muted text-body-md mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
         </div>
       )}
 

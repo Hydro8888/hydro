@@ -1,5 +1,6 @@
 import prisma from '@/lib/db';
 import { getCached } from '@/lib/redis';
+import { startOfKstDay } from '@/lib/site';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -7,8 +8,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const stats = await getCached('admin:stats', 60, async () => {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // "Today" = since KST midnight, same boundary as the public /api/stats (server runs in UTC)
+      const startOfToday = startOfKstDay(Date.now());
       const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
       const [

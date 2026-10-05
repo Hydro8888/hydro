@@ -1,20 +1,23 @@
 export const dynamic = 'force-dynamic';
 
 import { getRankingArticles } from '@/lib/queries';
+import { normalizeRankingCountry } from '@/lib/routing';
 import NewsCard from '@/components/NewsCard';
 import CountryTabs from '@/components/CountryTabs';
 
 export const metadata = {
-  title: '랭킹 - LiveNews',
+  title: '랭킹',
   description: '가장 많이 본 뉴스 랭킹',
 };
 
 export default async function RankingPage({
   searchParams,
 }: {
-  searchParams: { country?: string };
+  searchParams: { country?: string | string[] };
 }) {
-  const country = searchParams.country || 'all';
+  // Unknown ?country= values fall back to 'all' (no empty page, no arbitrary cache keys)
+  const country = normalizeRankingCountry(searchParams.country);
+  // Throws on a DB error → error boundary
   const articles = await getRankingArticles(country);
 
   return (
@@ -38,7 +41,8 @@ export default async function RankingPage({
 
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-muted text-body-lg">랭킹 데이터가 없습니다</p>
+          <p className="text-text-secondary text-headline-sm">아직 랭킹 데이터가 없습니다</p>
+          <p className="text-text-muted text-body-md mt-2">기사 조회가 쌓이면 이곳에 순위가 표시됩니다</p>
         </div>
       )}
     </div>

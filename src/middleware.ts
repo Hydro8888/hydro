@@ -1,63 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WWW_AUTHENTICATE, isValidBasicAuth, requiresAuth } from '@/lib/auth-policy';
+import { LIST_QUERY_HEADER, forwardsListQuery } from '@/lib/routing';
 
+// Which requests need admin auth is decided by requiresAuth (src/lib/auth-policy.ts, unit-tested);
+// the matcher below only limits where this middleware runs at all.
 export function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-  const method = request.method;
+  const { pathname, search } = request.nextUrl;
 
-  // GET requests to /api/admin/stats are public — consumed by Header/Footer
-  // on every page load. All other /admin and /api/admin mutating requests
-  // require Basic Auth.
-  const isPublicRead =
-    method === 'GET' && pathname === '/api/admin/stats';
-
-  if (isPublicRead) {
+  if (!requiresAuth(pathname, request.method)) {
+    if (forwardsListQuery(pathname)) {
+      // Public list pages: hand the query string to the segment layout (layouts get no
+      // searchParams) so an out-of-range ?page= is answered with a real 307 — see routing.ts.
+      // Always overwritten, never trusted from the client.
+      const headers = new Headers(request.headers);
+      headers.set(LIST_QUERY_HEADER, search);
+      return NextResponse.next({ request: { headers } });
+    }
     return NextResponse.next();
   }
 
-  // /api/admin/* mutating (POST/PUT/PATCH/DELETE) + ALL /api/collect,
-  // /api/articles/[id] PATCH — require auth.
-  // The matcher below ensures we only run for the relevant paths.
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !isValidAuth(authHeader)) {
-    // API routes get JSON 401; page routes get browser Basic Auth challenge
-    const isApi = pathname.startsWith('/api/');
-    if (isApi) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-    return new NextResponse('Authentication required', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Admin"' },
-    });
+  const user = process.env.ADMIN_USER || 'admin';
+  const pass = process.env.ADMIN_PASS || 'livenews2026';
+  if (isValidBasicAuth(request.headers.get('authorization'), user, pass)) return NextResponse.next();
+
+  // Every 401 carries the challenge: without it the browser does not re-send the admin
+  // credentials it cached for /admin to /api/admin/* (bookmarked admin pages got empty tables).
+  const challenge = { 'WWW-Authenticate': WWW_AUTHENTICATE };
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401, headers: challenge });
   }
-
-  return NextResponse.next();
-}
-
-function isValidAuth(header: string): boolean {
-  const [scheme, encoded] = header.split(' ');
-  if (scheme !== 'Basic' || !encoded) return false;
-  const decoded = Buffer.from(encoded, 'base64').toString();
-  const [user, pass] = decoded.split(':');
-  return user === (process.env.ADMIN_USER || 'admin') && pass === (process.env.ADMIN_PASS || 'livenews2026');
+  return new NextResponse('Authentication required', { status: 401, headers: challenge });
 }
 
 export const config = {
   matcher: [
-    // Admin pages (including /admin itself)
     '/admin',
     '/admin/:path*',
-    // Admin API mutating endpoints
-    '/api/admin/sources',
-    '/api/admin/clear-cache',
-    '/api/admin/fix-content',
-    '/api/admin/fix-images',
-    '/api/admin/fix-translations',
-    '/api/admin/stats',
-    // Public API mutating endpoints that must be protected
+    '/api/admin/:path*',
     '/api/collect',
+    '/api/collect/:path*',
+    '/api/articles',
     '/api/articles/:path*',
+    // Public list pages under a loading.tsx boundary (query forwarding only, no auth)
+    '/breaking',
+    '/category/:path*',
   ],
 };

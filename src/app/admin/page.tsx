@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { fetchAdminJson, isAbortError, isRecord, type AdminFetchErrorKind } from '@/lib/admin-fetch';
+import { withBasePath } from '@/lib/site';
+import { categoryLabel, countryLabel, formatDate } from '@/lib/utils';
+import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
 
 interface Stats {
   totalArticles: number;
@@ -21,37 +25,46 @@ interface Stats {
   }>;
 }
 
+/** Minimal guard: the numbers and lists the dashboard renders. */
+function isStats(json: unknown): json is Stats {
+  return (
+    isRecord(json) &&
+    typeof json.totalArticles === 'number' &&
+    typeof json.articlesToday === 'number' &&
+    typeof json.activeSources === 'number' &&
+    typeof json.failedCollections === 'number' &&
+    Array.isArray(json.byCountry) &&
+    Array.isArray(json.byCategory) &&
+    Array.isArray(json.recentLogs)
+  );
+}
+
+type LoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; stats: Stats }
+  | { status: 'error'; kind: AdminFetchErrorKind; code?: number };
+
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
   const [collecting, setCollecting] = useState(false);
   const [fixing, setFixing] = useState(false);
 
-  const [loadError, setLoadError] = useState(false);
-
   useEffect(() => {
-    fetch('/livenews/api/admin/stats')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        // Guard against error payloads ({ error: ... }) that lack stats fields
-        if (data && typeof data.totalArticles === 'number') {
-          setStats(data);
-        } else {
-          throw new Error('Malformed stats response');
-        }
-      })
+    const controller = new AbortController();
+    setState({ status: 'loading' });
+    fetchAdminJson('/api/admin/stats', isStats, { signal: controller.signal })
+      .then((r) => setState(r.ok ? { status: 'ready', stats: r.data } : { status: 'error', kind: r.kind, code: r.status }))
       .catch((err) => {
-        console.error('[AdminDashboard] Failed to load stats:', err);
-        setLoadError(true);
+        if (!isAbortError(err)) setState({ status: 'error', kind: 'network' });
       });
-  }, []);
+    return () => controller.abort();
+  }, [reloadKey]);
 
   async function triggerCollection() {
     setCollecting(true);
     try {
-      const res = await fetch('/livenews/api/collect', { method: 'POST' });
+      const res = await fetch(withBasePath('/api/collect'), { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       alert('수집이 시작되었습니다');
     } catch {
@@ -64,7 +77,7 @@ export default function AdminDashboard() {
   async function fixTranslations() {
     setFixing(true);
     try {
-      const res = await fetch('/livenews/api/admin/fix-translations?titles=500&content=30', {
+      const res = await fetch(withBasePath('/api/admin/fix-translations?titles=500&content=30'), {
         method: 'POST',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -77,21 +90,20 @@ export default function AdminDashboard() {
     }
   }
 
-  if (loadError) {
+  if (state.status !== 'ready') {
     return (
-      <div className="text-center py-20 text-accent-red">
-        통계를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.
+      <div>
+        <h1 className="text-2xl font-bold text-text mb-8">관리자 대시보드</h1>
+        {state.status === 'loading' ? (
+          <AdminLoading />
+        ) : (
+          <AdminLoadError kind={state.kind} status={state.code} onRetry={() => setReloadKey((k) => k + 1)} />
+        )}
       </div>
     );
   }
 
-  if (!stats) {
-    return (
-      <div className="text-center py-20">
-        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto"></div>
-      </div>
-    );
-  }
+  const { stats } = state;
 
   return (
     <div>
@@ -144,7 +156,7 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             {stats.byCountry.map((item) => (
               <div key={item.country} className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">{item.country}</span>
+                <span className="text-sm text-text-secondary">{countryLabel(item.country)}</span>
                 <span className="text-sm font-medium text-text">{item.count.toLocaleString()}</span>
               </div>
             ))}
@@ -157,7 +169,7 @@ export default function AdminDashboard() {
           <div className="space-y-3">
             {stats.byCategory.slice(0, 10).map((item) => (
               <div key={item.category} className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">{item.category || '미분류'}</span>
+                <span className="text-sm text-text-secondary">{item.category ? categoryLabel(item.category) : '미분류'}</span>
                 <span className="text-sm font-medium text-text">{item.count.toLocaleString()}</span>
               </div>
             ))}
@@ -204,8 +216,8 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-4 py-3 text-text hidden sm:table-cell">{log.articlesFound}</td>
                   <td className="px-4 py-3 font-medium text-text hidden sm:table-cell">{log.articlesNew}</td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {new Date(log.startedAt).toLocaleString('ko-KR')}
+                  <td className="px-4 py-3 text-text-secondary tabular-nums">
+                    {formatDate(log.startedAt) || '-'}
                   </td>
                   <td className="px-4 py-3 text-accent-red truncate max-w-xs hidden sm:table-cell">
                     {log.errorMessage || '-'}

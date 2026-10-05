@@ -2,9 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import React from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { COUNTRY_SUBCATEGORIES } from '@/lib/constants';
 import { getCountryArticles } from '@/lib/queries';
+import { parsePage } from '@/lib/utils';
+import { pageHref, resolvePageRequest } from '@/lib/routing';
+import { NEWSLETTER_ENABLED } from '@/lib/newsletter';
 import NewsCard from '@/components/NewsCard';
 import NewsCardLarge from '@/components/NewsCardLarge';
 import Pagination from '@/components/Pagination';
@@ -12,7 +15,7 @@ import NewsletterBanner from '@/components/NewsletterBanner';
 import AdSlot from '@/components/AdSlot';
 
 // Route-param → Prisma country code mapping
-const COUNTRY_CONFIG: Record<string, { dbCode: string; label: string; emoji: string }> = {
+const COUNTRY_CONFIG: Partial<Record<string, { dbCode: string; label: string; emoji: string }>> = {
   world: { dbCode: 'global', label: '세계', emoji: '🌍' },
   us:    { dbCode: 'us',     label: '미국', emoji: '🇺🇸' },
   japan: { dbCode: 'japan',  label: '일본', emoji: '🇯🇵' },
@@ -25,11 +28,17 @@ export function generateStaticParams() {
   return VALID_COUNTRIES.map((country) => ({ country }));
 }
 
+function getConfig(country: string) {
+  return Object.prototype.hasOwnProperty.call(COUNTRY_CONFIG, country) ? COUNTRY_CONFIG[country] : undefined;
+}
+
 export async function generateMetadata({ params }: { params: { country: string } }) {
-  const config = COUNTRY_CONFIG[params.country];
-  if (!config) return { title: 'Not Found - LiveNews' };
+  const config = getConfig(params.country);
+  // Unknown → notFound() here too, so the RSC head carries not-found.tsx's title after
+  // hydration (returning {} falls back to the root default title). No loading.tsx → real 404.
+  if (!config) notFound();
   return {
-    title: `${config.label} 뉴스 - LiveNews`,
+    title: `${config.label} 뉴스`,
     description: `${config.label} 주요 뉴스를 실시간으로 확인하세요`,
   };
 }
@@ -39,13 +48,18 @@ export default async function CountryPage({
   searchParams,
 }: {
   params: { country: string };
-  searchParams: { page?: string };
+  searchParams: { page?: string | string[] };
 }) {
-  const config = COUNTRY_CONFIG[params.country];
+  const config = getConfig(params.country);
   if (!config) notFound();
 
-  const page = parseInt(searchParams.page || '1');
+  const page = parsePage(searchParams.page);
+  // Throws on a DB error → error.tsx (no loading boundary here, so a real HTTP 500)
   const { articles, total, totalPages } = await getCountryArticles(config.dbCode, page);
+
+  const resolved = resolvePageRequest(page, totalPages);
+  if (resolved.kind === 'redirect') redirect(pageHref(`/${params.country}`, resolved.page));
+
   const headlines = articles.slice(0, 3);
   const rest = articles.slice(3);
   const subcategories = COUNTRY_SUBCATEGORIES[config.dbCode] || [];
@@ -103,18 +117,16 @@ export default async function CountryPage({
         </section>
       )}
 
-      {/* Empty state */}
+      {/* Empty state — the query succeeded and there is genuinely nothing yet */}
       {articles.length === 0 && (
         <div className="text-center py-24">
-          <p className="text-text-secondary text-headline-sm">
-            {config.label} 뉴스를 불러오는 중입니다
-          </p>
-          <p className="text-text-muted text-body-md mt-2">잠시 후 새로고침해 주세요</p>
+          <p className="text-text-secondary text-headline-sm">{config.label} 뉴스가 아직 없습니다</p>
+          <p className="text-text-muted text-body-md mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
           <Link
-            href={`/${params.country}`}
-            className="mt-4 inline-block px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
+            href="/breaking"
+            className="mt-4 inline-block px-4 py-2 border border-border text-text-secondary rounded-card text-body-md hover:border-accent hover:text-accent transition-colors"
           >
-            새로고침
+            전체 속보 보기
           </Link>
         </div>
       )}
@@ -124,7 +136,7 @@ export default async function CountryPage({
       <Pagination currentPage={page} totalPages={totalPages} basePath={`/${params.country}`} />
 
       {/* Newsletter Banner */}
-      {articles.length > 0 && (
+      {NEWSLETTER_ENABLED && articles.length > 0 && (
         <section className="mt-6">
           <NewsletterBanner />
         </section>

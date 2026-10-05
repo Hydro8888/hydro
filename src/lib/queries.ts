@@ -1,27 +1,37 @@
 import { prisma } from './db';
 import { getCached } from './redis';
+import { BREAKING_ITEMS_PER_PAGE, ITEMS_PER_PAGE } from './constants';
+
+// Main list queries (getArticles, getCountryArticles, getBreakingArticles, getCategoryArticles,
+// getRankingArticles) log and RE-THROW database errors so the segment error.tsx shows an honest
+// error screen — a DB outage must not look like "no news". Decorative helpers (ticker, category
+// counts, trending keywords) still degrade to [] so they never take the whole home page down.
+
+function logDbError(err: unknown): void {
+  console.error('[queries] DB error:', err instanceof Error ? err.message : err);
+}
 
 // ---------------------------------------------------------------------------
 // Shared data-fetching functions used across pages
 // ---------------------------------------------------------------------------
 
-/** Fetch articles for home page, optionally filtered by country */
-export async function getArticles(country?: string) {
+/** Fetch the newest articles for the home page, optionally filtered by country. Throws on DB error. */
+export async function getArticles(country?: string, take = 30) {
   try {
     const where: Record<string, unknown> = { isActive: true };
     if (country && country !== 'all') where.country = country;
 
-    return await getCached(`home:${country || 'all'}`, 60, () =>
+    return await getCached(`home:${country || 'all'}:${take}`, 60, () =>
       prisma.article.findMany({
         where,
         include: { source: true },
         orderBy: { createdAt: 'desc' },
-        take: 30,
+        take,
       })
     );
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
-    return [];
+    logDbError(err);
+    throw err;
   }
 }
 
@@ -37,7 +47,7 @@ export async function getBreakingNews() {
       })
     );
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
+    logDbError(err);
     return [];
   }
 }
@@ -54,14 +64,14 @@ export async function getCategoryCounts() {
       return counts.map((c) => ({ category: c.categoryPrimary, count: c._count }));
     });
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
+    logDbError(err);
     return [];
   }
 }
 
-/** Paginated articles for a specific country */
+/** Paginated articles for a specific country. Throws on DB error. */
 export async function getCountryArticles(countryCode: string, page: number) {
-  const take = 20;
+  const take = ITEMS_PER_PAGE;
   const skip = (page - 1) * take;
 
   try {
@@ -79,14 +89,14 @@ export async function getCountryArticles(countryCode: string, page: number) {
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
-    return { articles: [], total: 0, totalPages: 0 };
+    logDbError(err);
+    throw err;
   }
 }
 
-/** Paginated breaking articles */
+/** Paginated breaking articles. Throws on DB error. */
 export async function getBreakingArticles(page: number) {
-  const take = 30;
+  const take = BREAKING_ITEMS_PER_PAGE;
   const skip = (page - 1) * take;
 
   try {
@@ -104,12 +114,12 @@ export async function getBreakingArticles(page: number) {
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
-    return { articles: [], total: 0, totalPages: 0 };
+    logDbError(err);
+    throw err;
   }
 }
 
-/** Ranked articles by view count */
+/** Ranked articles by view count. Throws on DB error. */
 export async function getRankingArticles(country: string) {
   const where: Record<string, unknown> = { isActive: true };
   if (country && country !== 'all') where.country = country;
@@ -119,29 +129,25 @@ export async function getRankingArticles(country: string) {
       prisma.article.findMany({
         where,
         include: { source: true },
-        orderBy: { viewCount: 'desc' },
+        orderBy: [{ viewCount: 'desc' }, { id: 'desc' }],
         take: 30,
       })
     );
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
-    return [];
+    logDbError(err);
+    throw err;
   }
 }
 
-/** Group articles by their primary category (pure function, no DB) */
-export function groupByCategory(
-  articles: { categoryPrimary: string | null }[]
-): Record<string, typeof articles> {
-  return articles.reduce(
-    (acc, article) => {
-      const cat = article.categoryPrimary || 'general';
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(article);
-      return acc;
-    },
-    {} as Record<string, typeof articles>
-  );
+/** Group articles by their primary category (pure function, no DB). Keeps the element type. */
+export function groupByCategory<T extends { categoryPrimary: string | null }>(articles: T[]): Record<string, T[]> {
+  const acc: Record<string, T[]> = {};
+  for (const article of articles) {
+    const cat = article.categoryPrimary || 'general';
+    if (!Object.prototype.hasOwnProperty.call(acc, cat)) acc[cat] = [];
+    acc[cat].push(article);
+  }
+  return acc;
 }
 
 /** Trending keywords based on category counts */
@@ -161,14 +167,14 @@ export async function getTrendingKeywords() {
       }));
     });
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
+    logDbError(err);
     return [];
   }
 }
 
-/** Paginated articles for a specific category */
+/** Paginated articles for a specific category. Throws on DB error. */
 export async function getCategoryArticles(slug: string, page: number) {
-  const take = 20;
+  const take = ITEMS_PER_PAGE;
   const skip = (page - 1) * take;
 
   try {
@@ -186,7 +192,7 @@ export async function getCategoryArticles(slug: string, page: number) {
       return { articles, total, totalPages: Math.ceil(total / take) };
     });
   } catch (err) {
-    console.error('[queries] DB error:', err instanceof Error ? err.message : err);
-    return { articles: [], total: 0, totalPages: 0 };
+    logDbError(err);
+    throw err;
   }
 }

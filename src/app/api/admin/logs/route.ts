@@ -1,4 +1,5 @@
 import prisma from '@/lib/db';
+import { parseIntParam, parsePage } from '@/lib/utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -6,8 +7,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)));
+    const page = parsePage(searchParams.get('page'));
+    const limit = parseIntParam(searchParams.get('limit'), { min: 1, max: 100, fallback: 50 });
     const status = searchParams.get('status');
     const skip = (page - 1) * limit;
 

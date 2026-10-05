@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { NEWSLETTER_ENABLED, subscribeNewsletter } from '@/lib/newsletter';
+import { cn } from '@/lib/utils';
 
 const DISMISSED_KEY = 'livenews_newsletter_dismissed';
 
@@ -80,11 +81,7 @@ export default function NewsletterBanner() {
       {/* Accent top bar */}
       <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
 
-      {status === 'success' ? (
-        <div role="status" aria-live="polite" className="text-center py-2">
-          <p className="text-headline-sm text-accent">구독 신청이 접수되었습니다.</p>
-        </div>
-      ) : (
+      {status !== 'success' && (
         <>
           <h3 className="text-headline-sm text-text mb-1 pr-6">
             매일 아침 AI가 정리한 글로벌 뉴스를 받아보세요
@@ -122,11 +119,20 @@ export default function NewsletterBanner() {
               구독
             </button>
           </form>
-          <p role="status" aria-live="polite" className="mt-2 text-caption text-accent-red empty:hidden">
-            {status === 'error' ? errorMsg : ''}
-          </p>
         </>
       )}
+
+      {/* One live region that is always mounted; only its text changes (success / error). */}
+      <p
+        role="status"
+        aria-live="polite"
+        className={cn(
+          'empty:hidden',
+          status === 'success' ? 'py-2 text-center text-headline-sm text-accent' : 'mt-2 text-caption text-accent-red',
+        )}
+      >
+        {status === 'success' ? '구독 신청이 접수되었습니다.' : status === 'error' ? errorMsg : ''}
+      </p>
     </div>
   );
 }

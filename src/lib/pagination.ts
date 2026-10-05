@@ -2,9 +2,11 @@
 
 export type PageItem = number | 'gap';
 
-function normTotal(total: number): number {
-  return Number.isFinite(total) && Number.isInteger(total) && total >= 1 ? total : 1;
+/** Page count as a whole number ≥ 1 (14.5 → 14; NaN/Infinity/≤0 → 1). */
+export function normalizeTotalPages(total: number): number {
+  return Number.isFinite(total) && total >= 1 ? Math.floor(total) : 1;
 }
+const normTotal = normalizeTotalPages;
 
 function normCurrent(current: number, total: number): number {
   const c = Number.isFinite(current) && Number.isInteger(current) ? current : 1;

@@ -3,7 +3,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getPageItems, getPrevNext, type PageItem } from '../src/lib/pagination';
+import { getPageItems, getPrevNext, normalizeTotalPages, type PageItem } from '../src/lib/pagination';
 
 const G = 'gap' as const;
 
@@ -40,6 +40,16 @@ test('getPageItems: invalid / out-of-range input is normalized', () => {
   assert.deepEqual(getPageItems(999, 14, 0), getPageItems(14, 14, 0));
   assert.deepEqual(getPageItems(1, NaN, 0), [1]);
   assert.deepEqual(getPageItems(1, 0, 0), [1]);
+  // non-integer total is floored, not reset to 1
+  assert.deepEqual(getPageItems(7, 14.5, 0), getPageItems(7, 14, 0));
+  assert.deepEqual(getPageItems(7, 14.5, 2), getPageItems(7, 14, 2));
+  assert.deepEqual(getPrevNext(7, 14.5), { prev: 6, next: 8 });
+  assert.deepEqual(getPrevNext(999, 14.5), { prev: 14, next: null });
+});
+
+test('normalizeTotalPages', () => {
+  const cases: [number, number][] = [[14, 14], [14.5, 14], [1.9, 1], [1, 1], [0, 1], [-3, 1], [NaN, 1], [Infinity, 1]];
+  for (const [t, want] of cases) assert.equal(normalizeTotalPages(t), want, String(t));
 });
 
 test('getPageItems: fuzz invariants', () => {

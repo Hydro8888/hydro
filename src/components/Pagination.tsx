@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { getPageItems, getPrevNext, type PageItem } from '@/lib/pagination';
+import { getPageItems, getPrevNext, normalizeTotalPages, type PageItem } from '@/lib/pagination';
 
 interface PaginationProps {
   currentPage: number;
@@ -114,17 +114,18 @@ function PageRow({
 }
 
 export default function Pagination({ currentPage, totalPages, basePath }: PaginationProps) {
-  if (!(totalPages > 1)) return null;
+  const total = normalizeTotalPages(totalPages);
+  if (total <= 1) return null;
 
-  // Every generated link stays within 1..totalPages, even for NaN or out-of-range currentPage.
-  const { prev, next } = getPrevNext(currentPage, totalPages);
+  // Every generated link stays within 1..total, even for NaN or out-of-range currentPage.
+  const { prev, next } = getPrevNext(currentPage, total);
   const shared = { currentPage, prev, next, basePath };
 
   return (
     <nav aria-label="페이지 탐색" className="py-6">
       {/* Only one row is displayed (the other is display:none), so assistive tech reads it once. */}
-      <PageRow size="mobile" items={getPageItems(currentPage, totalPages, 0)} {...shared} />
-      <PageRow size="desktop" items={getPageItems(currentPage, totalPages, 2)} {...shared} />
+      <PageRow size="mobile" items={getPageItems(currentPage, total, 0)} {...shared} />
+      <PageRow size="desktop" items={getPageItems(currentPage, total, 2)} {...shared} />
     </nav>
   );
 }

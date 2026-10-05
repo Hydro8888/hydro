@@ -34,3 +34,13 @@
 - 기존 기능 영향: 없음. 카드 이미지 박스 높이·북마크 위치·Large 배지 위치 동일, 페이지 링크 형식(`?page=N`, `[page]`) 불변. 의도된 변경: 공유 "복사됨" 토스트 제거(라벨로 일원화), 뉴스레터 배너는 플래그 off에서 미렌더(홈·[country]의 감싸는 `<section className="mt-12">` 빈 여백 정리는 S4 계약).
 - TypeScript 오류: 없음.
 - S4 인계: 상세 `ArticleHeroImage sources={getArticleImageSources(article)}` 전환, 홈 티커 매핑 `language: a.language` 추가, 배너 섹션 `NEWSLETTER_ENABLED &&` 감싸기.
+
+## QA 피드백 반영 (QA_REPORT-S3 개선 지시 1~5)
+- [x] 지시 1: `ArticleImage`에 `onSettled?(isPlaceholder)` 콜백 + `<img data-placeholder>` 추가(실제 이미지 로드 시 false, 하이드레이션 전에 로드된 경우는 마운트 검사로 보고). `ArticleHeroImage`는 플레이스홀더 확정 시 1회만 `aspect-[3/1] sm:aspect-[4/1]` 낮은 띠로 줄이고, 이미지는 `object-contain`(아이콘 작게), 카테고리 색 1px 상단 라인(`border-t` + `catStyle.borderAll`), 선택 prop `sourceName`이 있으면 `text-overline text-text-muted` 워드마크 표시. 새 선택 prop `categoryPrimary?`·`sourceName?` — 지금 page는 넘기지 않으므로 라인은 general 회색, 워드마크는 없음(**S4가 넘길 것**). 다크 토큰만 사용.
+  - 영향: `planner-s3-verify.js` **T3**(플레이스홀더 상태에서도 16:10/2:1 고정 비율을 기대)는 이제 외부망 차단 조건에서 0.333/0.25로 측정됨 → 의도된 변경이므로 S4/Evaluator가 T3 기대값을 "실사진 16:10·2:1, `[data-no-image]`면 3:1·4:1"로 갱신 필요. :4000 재시작 금지 지시로 :4000에서는 verify를 다시 돌리지 않음.
+- [x] 지시 2: `normalizeTotalPages`(export) — 유한값 ≥1이면 `Math.floor`, 아니면 1. `Pagination`이 같은 값으로 `total <= 1` 판정·`getPrevNext`·`getPageItems` 호출. 테스트 `(7,14.5,s)`=`(7,14,s)`, `getPrevNext(7|999, 14.5)`, `normalizeTotalPages` 표 추가.
+- [x] 지시 3: `NewsletterBanner` — 항상 마운트된 `<p role="status" aria-live="polite">` 하나에서 성공/오류 텍스트만 교체(성공 시 폼만 숨김).
+- [x] 지시 4: `NewsCard`·`NewsCardLarge` "N분 읽기" svg에 `aria-hidden="true"`.
+- [x] 지시 5: `ArticleImage` key = `list.slice(0, -1).join('\n')`(플레이스홀더 데이터 URI 제외).
+
+검증: `npx tsc --noEmit` 0 오류, `npm test` 82/82 pass. 화면은 스크래치패드 복사본 `next dev :4002`(외부망 차단)로 확인 후 종료 — `/article/393`·`/article/1` 375px 비율 0.333, 1440px 0.250, `data-placeholder`·`data-no-image` 표시, 깨진 이미지 0, page/console 오류 0 (`peek/s3fb-ja-0.jpg`, `peek/s3fb-a1b-0.jpg`). :4000 서버는 건드리지 않음.

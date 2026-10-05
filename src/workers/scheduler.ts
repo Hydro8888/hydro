@@ -4,7 +4,7 @@
  *
  * Behaviour:
  *   - Runs collectAll() immediately on startup.
- *   - Schedules collectAll() to run every 3 hours via node-cron.
+ *   - Schedules collectAll() to run every 4 hours via node-cron (00/04/08/12/16/20, server time zone).
  *   - Logs start/end times and duration for every run.
  *   - Handles overlapping runs gracefully (skips if a run is already in progress).
  *   - Disconnects Prisma and Redis cleanly on SIGTERM / SIGINT.

@@ -24,6 +24,12 @@ import { translateContent } from './content-translator';
 import { generateImages } from './image-generator';
 import { scrapeArticleContents } from './scraper';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
+import {
+  hasHangul,
+  isKoreanLanguage,
+  normalizeCategorySlug,
+  normalizeSecondaryCategory,
+} from './translation-text';
 
 // ---------------------------------------------------------------------------
 // Clients — created once per process lifetime, exported for scheduler reuse
@@ -81,9 +87,9 @@ async function invalidateCachesSelective(
     for (const article of enrichedArticles) {
       // Match cache keys from queries.ts: `${countryCode}:${page}` e.g. "global:1"
       patterns.add(`${article.country}:*`);
-      // Match home page cache: `home:${country}` e.g. "home:global"
-      patterns.add(`home:${article.country}`);
-      patterns.add(`home:all`);
+      // Match home page cache: `home:${country}:${take}` e.g. "home:global:30"
+      patterns.add(`home:${article.country}:*`);
+      patterns.add(`home:all:*`);
       if (article.categoryPrimary) {
         // Match category cache: `cat:${slug}:${page}` e.g. "cat:economy:1"
         patterns.add(`cat:${article.categoryPrimary}:*`);
@@ -91,7 +97,8 @@ async function invalidateCachesSelective(
     }
 
     // Always invalidate breaking/trending/ranking — they span all countries
-    patterns.add('breaking:*');
+    patterns.add('breaking');   // ticker key (queries.ts getBreakingNews)
+    patterns.add('breaking:*'); // paginated breaking pages
     patterns.add('ranking:*');
     patterns.add('cat-counts');
     patterns.add('trending-kw');
@@ -131,19 +138,72 @@ interface CollectionResult {
   errorMessage: string | null;
 }
 
+/**
+ * Never rejects: an exception anywhere in one source (feed parser, scraper,
+ * translator, DB) becomes a 'failed' result + CollectionLog row instead of
+ * rejecting the whole run (which used to skip the backfill and cache refresh).
+ * Early failed/partial exits are logged too.
+ */
 async function collectSource(source: Source): Promise<CollectionResult> {
   const startedAt = new Date();
+  let result: CollectionResult;
+  let logged = false;
+  try {
+    ({ result, logged } = await collectSourceInner(source, startedAt));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[collector] [${source.sourceName}] Collection failed: ${message}`);
+    result = {
+      sourceId: source.id,
+      articlesFound: 0,
+      articlesNew: 0,
+      status: 'failed',
+      errorMessage: `Unexpected error: ${message}`.slice(0, 1000),
+    };
+  }
+
+  if (!logged && result.status !== 'success') {
+    await writeCollectionLog(source, result, startedAt);
+  }
+  return result;
+}
+
+async function writeCollectionLog(source: Source, result: CollectionResult, startedAt: Date): Promise<void> {
+  try {
+    await prisma.collectionLog.create({
+      data: {
+        sourceId: source.id,
+        status: result.status,
+        articlesFound: result.articlesFound,
+        articlesNew: result.articlesNew,
+        errorMessage: result.errorMessage,
+        startedAt,
+        completedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Log writing is non-fatal
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[collector] [${source.sourceName}] CollectionLog write failed (non-fatal): ${message}`);
+  }
+}
+
+async function collectSourceInner(
+  source: Source,
+  startedAt: Date,
+): Promise<{ result: CollectionResult; logged: boolean }> {
   const logBase = `[collector] [${source.sourceName}]`;
+  const done = (result: CollectionResult) => ({ result, logged: false });
 
   if (!source.feedUrl) {
     console.warn(`${logBase} No feedUrl configured — skipping`);
-    return {
+    return done({
       sourceId: source.id,
       articlesFound: 0,
       articlesNew: 0,
       status: 'failed',
       errorMessage: 'No feedUrl configured',
-    };
+    });
   }
 
   console.log(`${logBase} Starting collection from ${source.feedUrl}`);
@@ -151,13 +211,13 @@ async function collectSource(source: Source): Promise<CollectionResult> {
   // ── Step 1: Parse RSS ────────────────────────────────────────────────────
   const rawItems = await parseRssFeed(source.feedUrl);
   if (rawItems.length === 0) {
-    return {
+    return done({
       sourceId: source.id,
       articlesFound: 0,
       articlesNew: 0,
       status: 'partial',
       errorMessage: 'Feed returned no items',
-    };
+    });
   }
 
   // ── Step 2: Filter already-known URLs ───────────────────────────────────
@@ -173,13 +233,13 @@ async function collectSource(source: Source): Promise<CollectionResult> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`${logBase} DB lookup failed: ${message}`);
-    return {
+    return done({
       sourceId: source.id,
       articlesFound: rawItems.length,
       articlesNew: 0,
       status: 'failed',
       errorMessage: `DB lookup failed: ${message}`,
-    };
+    });
   }
 
   const newRawItems = rawItems.filter((i) => i.link && !existingUrls.has(i.link));
@@ -188,13 +248,13 @@ async function collectSource(source: Source): Promise<CollectionResult> {
   );
 
   if (newRawItems.length === 0) {
-    return {
+    return done({
       sourceId: source.id,
       articlesFound: rawItems.length,
       articlesNew: 0,
       status: 'success',
       errorMessage: null,
-    };
+    });
   }
 
   // ── Step 3: Normalize ────────────────────────────────────────────────────
@@ -203,13 +263,13 @@ async function collectSource(source: Source): Promise<CollectionResult> {
     .filter((a): a is NonNullable<typeof a> => a !== null);
 
   if (normalized.length === 0) {
-    return {
+    return done({
       sourceId: source.id,
       articlesFound: rawItems.length,
       articlesNew: 0,
       status: 'partial',
       errorMessage: 'All new items failed normalization',
-    };
+    });
   }
 
   // ── Step 3.5: Scrape full article content from original URLs ────────────
@@ -269,7 +329,8 @@ async function collectSource(source: Source): Promise<CollectionResult> {
         originalUrl: a.originalUrl,
         titleOriginal: a.titleOriginal,
         titleKo: a.titleKo || null,
-        summaryKo: a.summaryKo || null,
+        // Contract A: Korean summaries only (never an English echo)
+        summaryKo: a.summaryKo && (hasHangul(a.summaryKo) || isKoreanLanguage(a.language)) ? a.summaryKo : null,
         contentOriginal: a.contentOriginal || null,
         contentKo: a.contentKo || null,
         publishedAt: a.publishedAt,
@@ -277,8 +338,8 @@ async function collectSource(source: Source): Promise<CollectionResult> {
         country: a.country,
         author: a.author,
         imageUrl: a.imageUrl,
-        categoryPrimary: a.categoryPrimary || 'general',
-        categorySecondary: a.categorySecondary || null,
+        categoryPrimary: normalizeCategorySlug(a.categoryPrimary),
+        categorySecondary: normalizeSecondaryCategory(a.categorySecondary) || null,
         tags: [],
         isActive: true,
       })),
@@ -296,31 +357,15 @@ async function collectSource(source: Source): Promise<CollectionResult> {
     saveError ? 'partial' : 'success';
 
   // ── Step 6: Write CollectionLog ──────────────────────────────────────────
-  try {
-    await prisma.collectionLog.create({
-      data: {
-        sourceId: source.id,
-        status,
-        articlesFound: rawItems.length,
-        articlesNew: savedCount,
-        errorMessage: saveError,
-        startedAt,
-        completedAt: new Date(),
-      },
-    });
-  } catch (err) {
-    // Log writing is non-fatal
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`${logBase} CollectionLog write failed (non-fatal): ${message}`);
-  }
-
-  return {
+  const result: CollectionResult = {
     sourceId: source.id,
     articlesFound: rawItems.length,
     articlesNew: savedCount,
     status,
     errorMessage: saveError,
   };
+  await writeCollectionLog(source, result, startedAt);
+  return { result, logged: true };
 }
 
 // ---------------------------------------------------------------------------

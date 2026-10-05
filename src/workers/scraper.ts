@@ -7,6 +7,12 @@
 import type { NormalizedArticle } from './normalizer';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
+/** Numeric character reference → character; out-of-range values stay as written. */
+function decodeCodePoint(raw: string, cp: number): string {
+  if (!Number.isFinite(cp) || cp <= 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return raw;
+  return String.fromCodePoint(cp);
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
@@ -23,8 +29,8 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (m, hex) => decodeCodePoint(m, parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (m, dec) => decodeCodePoint(m, parseInt(dec, 10)))
     .replace(/\n\s*\n/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .split('\n')

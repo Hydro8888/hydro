@@ -9,7 +9,8 @@
 #    bash /home/ubuntu/livenews/redeploy.sh --frontend           # 웹(livenews)만
 #    bash /home/ubuntu/livenews/redeploy.sh --collector          # 수집기만
 #    bash redeploy.sh --frontend --force                         # 변경 없어도 강제 재배포
-#    bash redeploy.sh --frontend --backfill                      # 배포 후 미번역 제목 일괄 해소
+#    bash redeploy.sh --frontend --backfill                      # 배포 후 미번역 제목·영어 echo 제목·요약 결손 일괄 해소
+#    (본문 미번역 + 6000자 잘림 복구는 비용이 커서 수동: npm run backfill:translations -- --content --repair-truncated)
 #
 #  ┌─────────────────────────────────────────────────────────────────────┐
 #  │  ★ 다른 서비스 영향 없음 보장                                          │
@@ -49,7 +50,7 @@ for arg in "$@"; do
         --force)               FORCE=1 ;;
         --backfill)            BACKFILL=1 ;;
         -h|--help)
-            grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -24
+            grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -23
             exit 0 ;;
         *)
             echo -e "${RED}알 수 없는 옵션: $arg${NC}"
@@ -169,8 +170,10 @@ fi
 
 # ---- 7. (옵션) 한글 번역 백로그 일괄 해소 ----
 if [ "$BACKFILL" = "1" ]; then
-    echo -e "${YELLOW}[+] 번역 백필 실행 (미번역 제목 일괄 처리)...${NC}"
-    # 제목만 우선 처리(빠름/저렴). 본문까지 하려면: npm run backfill:translations -- --content
+    echo -e "${YELLOW}[+] 번역 백필 실행 (미번역·echo 제목 + 요약 결손 일괄 처리)...${NC}"
+    # 제목·요약만 처리(빠름/저렴). 본문 미번역 + 잘린 본문 1회 복구(비용 큼, 수동):
+    #   npm run backfill:translations -- --content --repair-truncated
+    # 현황: curl -s http://localhost:4000/livenews/api/admin/health  → translation{...}
     npm run backfill:translations 2>&1 | tail -30 || \
         echo -e "${RED}      백필 실패 — 수동 실행: npm run backfill:translations${NC}"
 fi

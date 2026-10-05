@@ -1,15 +1,38 @@
 /**
- * GET /api/admin/health
+ * GET /api/admin/health  (PUBLIC — used unauthenticated by redeploy.sh)
  * Health endpoint for monitoring pipeline status.
  * Returns: pipeline status, last collection time, circuit breaker state,
- * source count, article count.
+ * source count, article count, translation coverage counts.
+ *
+ * Public response ⇒ numbers and booleans only: no raw error strings (they can
+ * contain feed URLs), no secrets.
  */
 
 import prisma from '@/lib/db';
 import { xaiTextBreaker, xaiImageBreaker } from '@/lib/circuit-breaker';
+import { countTranslationBacklog, type TranslationBacklog } from '@/lib/translation-coverage';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+
+/** Coverage counts scan the article table — cache them per process for 60s. */
+const TRANSLATION_CACHE_MS = 60_000;
+let translationCache: { at: number; value: TranslationBacklog } | null = null;
+
+async function getTranslationCoverage(): Promise<TranslationBacklog | null> {
+  if (translationCache && Date.now() - translationCache.at < TRANSLATION_CACHE_MS) {
+    return translationCache.value;
+  }
+  try {
+    const value = await countTranslationBacklog(prisma);
+    translationCache = { at: Date.now(), value };
+    return value;
+  } catch (err) {
+    // Coverage is informational: it must never turn the health check into a 503
+    console.error('[GET /api/admin/health] translation coverage failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
 
 export async function GET() {
   const startMs = Date.now();
@@ -32,6 +55,7 @@ export async function GET() {
 
     const dbOk = true;
     const latencyMs = Date.now() - startMs;
+    const translation = await getTranslationCoverage();
 
     // Calculate next scheduled run (every 4 hours from last run)
     const lastTime = lastLog?.completedAt;
@@ -58,7 +82,8 @@ export async function GET() {
         lastCollectionStatus: lastLog?.status ?? null,
         lastArticlesSaved: lastLog?.articlesNew ?? 0,
         lastArticlesFound: lastLog?.articlesFound ?? 0,
-        lastError: lastLog?.errorMessage ?? null,
+        // The message itself stays in the (authenticated) admin logs
+        lastErrorPresent: Boolean(lastLog?.errorMessage),
         hoursSinceLastRun,
         nextRunEstimate,
         scheduleInterval: '4 hours',
@@ -69,19 +94,20 @@ export async function GET() {
           new: l.articlesNew,
         })),
       },
+      translation,
       circuitBreakers: {
         xaiText: xaiTextBreaker.getState(),
         xaiImage: xaiImageBreaker.getState(),
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    console.error('[GET /api/admin/health] database check failed:', err instanceof Error ? err.message : err);
     return NextResponse.json(
       {
         status: 'error',
         timestamp: new Date().toISOString(),
         latencyMs: Date.now() - startMs,
-        error: message,
+        error: 'database_unavailable',
         circuitBreakers: {
           xaiText: xaiTextBreaker.getState(),
           xaiImage: xaiImageBreaker.getState(),

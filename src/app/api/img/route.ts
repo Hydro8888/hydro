@@ -1,60 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchImageSafely } from '@/lib/safe-image-fetch';
 
 export const dynamic = 'force-dynamic';
+
+const ERROR_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Cache-Control': 'no-store',
+};
+
+function fail(status: number, error: string) {
+  return NextResponse.json({ error }, { status, headers: ERROR_HEADERS });
+}
 
 /**
  * Image proxy endpoint: /api/img?url=...
  * Fetches external images through our server to avoid CORS, hotlink blocking,
  * and mixed content issues. Caches for 24 hours.
+ *
+ * SSRF-hardened (see src/lib/safe-image-fetch.ts): public http(s) hosts on
+ * port 80/443 only, every redirect hop re-validated, image/* only, ≤ 10MB.
+ * Errors: 400 / 403 / 413 / 415 / 502 / 504 with `{ error: <code> }` — never 500.
  */
 export async function GET(req: NextRequest) {
-  const url = req.nextUrl.searchParams.get('url');
-  if (!url) {
-    return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
-  }
-
   try {
-    const decoded = decodeURIComponent(url);
-    // Basic URL validation
-    const parsed = new URL(decoded);
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      return NextResponse.json({ error: 'Invalid protocol' }, { status: 400 });
-    }
+    // `proxyImageUrl` encodes once and searchParams decodes once — no second
+    // decodeURIComponent (it threw URIError → 500 on inputs like %25E0).
+    const url = req.nextUrl.searchParams.get('url');
+    if (!url) return fail(400, 'missing_url');
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const result = await fetchImageSafely(url);
+    if (!result.ok) return fail(result.status, result.error);
 
-    const res = await fetch(decoded, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'image/*,*/*;q=0.8',
-        'Referer': parsed.origin,
-      },
-    });
-
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      return NextResponse.json({ error: `Upstream ${res.status}` }, { status: 502 });
-    }
-
-    const contentType = res.headers.get('content-type') || 'image/jpeg';
-    const buffer = Buffer.from(await res.arrayBuffer());
-
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(result.body), {
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': result.contentType,
+        'Content-Length': String(result.body.length),
         'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800',
         'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
+        // An SVG opened directly must not run scripts
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    if (msg.includes('abort')) {
-      return NextResponse.json({ error: 'Timeout' }, { status: 504 });
-    }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('[GET /api/img] unexpected error:', err instanceof Error ? err.message : err);
+    return fail(502, 'upstream_error');
   }
 }

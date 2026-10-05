@@ -5,6 +5,7 @@
 
 import type { RawFeedItem } from './rss-parser';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
+import { normalizeLanguageTag } from './translation-text';
 
 /** Minimal source fields needed for normalization */
 export interface SourceInfo {
@@ -156,7 +157,8 @@ export function normalizeArticle(
     titleOriginal,
     contentOriginal,
     publishedAt: parseDate(raw.pubDate),
-    language: source.language,
+    // Contract A: lower-case primary subtag ('EN-us' / 'english' → 'en')
+    language: normalizeLanguageTag(source.language),
     country: source.country,
     author: raw.creator?.trim() || null,
     imageUrl: normalizeImageUrl(resolveImageUrl(raw)),

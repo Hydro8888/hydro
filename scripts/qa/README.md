@@ -34,7 +34,12 @@ node scripts/qa/ui-audit.js after-fix   # 문제 0건이면 "ALL CLEAN", 아니�
 ## 4. 번역 파이프라인 E2E (API 키 없이)
 ```bash
 node scripts/qa/mock-llm.js 4010 &
-XAI_API_KEY=test XAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content
+XAI_API_KEY=test XAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
+# 재실행(멱등성): 요청 거의 0건, "Truncated bodies to repair: 0"
+XAI_API_KEY=test XAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
+curl -s http://127.0.0.1:4000/livenews/api/admin/health   # translation{untranslatedTitles,…}
 ```
+종료 코드: 0 = 완료, 2 = 한 라운드의 요청이 전부 HTTP 단계에서 실패(API 장애 — 진단 메시지에 엔드포인트 표시),
+1 = 설정 오류. 모델이 거부한 행(echo 등)은 장애로 보지 않고 미번역(NULL)으로 남깁니다.
 가짜 서버는 제목 echo(`ECHO`), JSON 잘림(`TRUNCJSON`), 토큰 한도 잘림(`LENGTHCUT`)을 재현합니다.
 요청 로그: `qa-out/mock-llm-requests.jsonl`.

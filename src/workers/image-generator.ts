@@ -4,16 +4,20 @@
  * Split from translator.ts for separation of concerns.
  */
 
-import OpenAI from 'openai';
 import type { TranslatableArticle } from './translator';
 import { xaiImageBreaker, CircuitOpenError } from '../lib/circuit-breaker';
+import { createXaiClient } from '../lib/xai-client';
+import { getErrorStatus } from '../lib/retry';
 
-function buildClient(): OpenAI | null {
-  if (!process.env.XAI_API_KEY) return null;
-  return new OpenAI({
-    apiKey: process.env.XAI_API_KEY,
-    baseURL: 'https://api.x.ai/v1',
-  });
+/**
+ * Errors after which further image requests in this run are pointless:
+ * open circuit, or an HTTP status that will not change per article
+ * (bad request / auth / unknown model).
+ */
+function isFatalImageError(err: unknown): boolean {
+  if (err instanceof CircuitOpenError) return true;
+  const status = getErrorStatus(err);
+  return status === 400 || status === 401 || status === 403 || status === 404;
 }
 
 /**
@@ -23,7 +27,7 @@ function buildClient(): OpenAI | null {
 export async function generateImages(
   articles: TranslatableArticle[],
 ): Promise<TranslatableArticle[]> {
-  const client = buildClient();
+  const client = createXaiClient('image');
   if (!client) {
     console.warn('[image-generator] XAI_API_KEY not set — skipping image generation');
     return articles;
@@ -62,15 +66,10 @@ export async function generateImages(
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[image-generator] Image generation failed: ${msg}`);
 
-      // Stop trying if the model is not available
-      if (
-        err instanceof CircuitOpenError ||
-        msg.includes('model') ||
-        msg.includes('not found') ||
-        msg.includes('404')
-      ) {
+      // Stop trying if the model / key / API is not usable
+      if (isFatalImageError(err)) {
         console.warn(
-          `[image-generator] Image generation model not available. Skipping remaining.`,
+          `[image-generator] Image generation unavailable (${getErrorStatus(err) ?? 'circuit open'}). Skipping remaining.`,
         );
         break;
       }

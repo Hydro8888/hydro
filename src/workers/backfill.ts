@@ -1,166 +1,338 @@
 /**
  * backfill.ts
- * Heals articles whose AI translation failed at collection time.
+ * Heals articles whose AI translation is missing or unusable.
  *
- * Until now a failed translation was saved as titleKo=null and never retried,
- * which is why some articles permanently showed English titles. This worker
- * re-translates them in batches:
- *   - Phase 1: titles + summaries + categories (cheap, 10 per API call)
- *   - Phase 2: body content (expensive — cost-controlled small batch per run)
+ * Targets come from ONE definition (src/lib/translation-coverage.ts):
+ *   - Phase 1: untranslated titles (NULL / blank / English echo) ∪ missing
+ *              Korean summaries — 10 titles per API call (cheap)
+ *   - Phase 2: untranslated bodies — chunked full-body translation (costly,
+ *              small batch per run)
+ *   - Phase 3: (opt-in, operator only) bodies cut by the old 6000-char limit
  *
- * Used by: collector.collectAll() after every run, and the
- * /api/admin/fix-translations endpoint for on-demand bulk healing.
+ * Rules (S4 contract A — the pages trust what is stored):
+ *   - only complete Korean text is written; an already-good titleKo is never overwritten
+ *   - an echo titleKo / Hangul-less contentKo that the model refuses again is reset to NULL
+ *   - each phase walks the backlog with an id cursor (newest first), so one
+ *     run never re-selects a row that just failed
+ *
+ * Used by: collector.collectAll() after every run (one batch, no repair), the
+ * /api/admin/fix-translations endpoint, and backfill-cli.ts (cursor loop).
  */
 
-import type { PrismaClient, Prisma } from '@prisma/client';
-import { translateTitleBatch, type TranslatableArticle } from './translator';
-import { translateContent } from './content-translator';
+import type { PrismaClient } from '@prisma/client';
+import { translateTitleBatch } from './translator';
+import { translateLongText } from './content-translator';
+import {
+  hasHangul,
+  isKoreanLanguage,
+  isMostlyKorean,
+  isStandardCategory,
+  isTruncatedTranslation,
+  isUntranslatedContent,
+  isUntranslatedTitle,
+} from './translation-text';
+import { countTranslationBacklog, selectBacklogIds } from '../lib/translation-coverage';
+import { createXaiClient, newApiStats } from '../lib/xai-client';
+
+export interface BackfillCursor {
+  /** next title/summary page starts below this id; null = phase exhausted */
+  titleBeforeId: number | null;
+  contentBeforeId: number | null;
+  repairBeforeId: number | null;
+}
 
 export interface BackfillStats {
   titlesScanned: number;
+  /** rows whose title and/or summary was healed */
   titlesFixed: number;
+  /** rows still untranslated / summary-less after this attempt */
+  titlesFailed: number;
+  /** echo titles reset to NULL because the model refused them again */
+  titlesCleared: number;
   contentScanned: number;
   contentFixed: number;
+  contentFailed: number;
+  /** truncated bodies re-translated completely */
+  repaired: number;
+  /** truncated bodies reset to NULL (could not be re-translated completely) */
+  repairReset: number;
+  apiCalls: number;
+  apiFailures: number;
   remainingTitles: number;
   remainingContent: number;
+  remainingSummaries: number;
+  remainingTruncated: number;
+  /** null when every enabled phase has walked to the end of its backlog */
+  nextCursor: BackfillCursor | null;
 }
 
-const MISSING_TITLE_WHERE: Prisma.ArticleWhereInput = {
-  isActive: true,
-  OR: [{ titleKo: null }, { titleKo: '' }],
-};
+export interface BackfillOptions {
+  titleLimit?: number;
+  contentLimit?: number;
+  /** > 0 enables the truncated-body repair phase (operator CLI only). */
+  repairLimit?: number;
+  /**
+   * Continue a previous pass. A field that is undefined starts from the newest
+   * row; null means that phase is already exhausted and is skipped.
+   */
+  cursor?: Partial<BackfillCursor>;
+  /** Pause between bodies (default 500ms). */
+  articlePauseMs?: number;
+}
 
-const MISSING_CONTENT_WHERE: Prisma.ArticleWhereInput = {
-  isActive: true,
-  AND: [
-    { OR: [{ contentKo: null }, { contentKo: '' }] },
-    { contentOriginal: { not: null } },
-  ],
-};
+const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+
+/** Cursor for the next page: null when this page was the last one. */
+function nextBeforeId(ids: number[], take: number): number | null {
+  if (ids.length < take || ids.length === 0) return null;
+  return Math.min(...ids);
+}
+
+function warnUpdate(id: number, err: unknown) {
+  console.warn(`[backfill] Update failed for article ${id}:`, err instanceof Error ? err.message : err);
+}
 
 export async function backfillTranslations(
   prisma: PrismaClient,
-  opts: { titleLimit?: number; contentLimit?: number } = {},
+  opts: BackfillOptions = {},
 ): Promise<BackfillStats> {
-  const titleLimit = opts.titleLimit ?? 200;
-  const contentLimit = opts.contentLimit ?? 20;
+  const titleLimit = Math.max(0, opts.titleLimit ?? 200);
+  const contentLimit = Math.max(0, opts.contentLimit ?? 20);
+  const repairLimit = Math.max(0, opts.repairLimit ?? 0);
+  const cursor = opts.cursor ?? {};
+  const articlePauseMs = opts.articlePauseMs ?? 500;
+  const api = newApiStats();
+  const next: BackfillCursor = { titleBeforeId: null, contentBeforeId: null, repairBeforeId: null };
 
   // ── Phase 1: titles + summaries + categories ──────────────────────────────
-  const allRows = titleLimit > 0
-    ? await prisma.article.findMany({
-        where: MISSING_TITLE_WHERE,
-        orderBy: { createdAt: 'desc' },
-        take: titleLimit,
-        select: { id: true, titleOriginal: true, summaryKo: true, categoryPrimary: true, language: true },
-      })
-    : [];
-
-  // Korean-language articles need no API call — pass the title through
-  const koRows = allRows.filter((r) => r.language === 'ko');
-  const rows = allRows.filter((r) => r.language !== 'ko');
-
+  let titlesScanned = 0;
   let titlesFixed = 0;
-  for (const r of koRows) {
-    try {
-      await prisma.article.update({ where: { id: r.id }, data: { titleKo: r.titleOriginal } });
-      titlesFixed++;
-    } catch (err) {
-      console.warn(`[backfill] ko pass-through failed for ${r.id}:`, err instanceof Error ? err.message : err);
-    }
-  }
-  if (koRows.length > 0) {
-    console.log(`[backfill] Passed through ${koRows.length} Korean-language title(s) without API calls`);
-  }
+  let titlesFailed = 0;
+  let titlesCleared = 0;
 
-  if (rows.length > 0) {
-    console.log(`[backfill] Re-translating ${rows.length} article title(s)…`);
-    const results = await translateTitleBatch(rows.map((r) => r.titleOriginal));
+  if (titleLimit > 0 && cursor.titleBeforeId !== null) {
+    const ids = await selectBacklogIds(prisma, 'titleOrSummary', {
+      beforeId: cursor.titleBeforeId,
+      take: titleLimit,
+    });
+    next.titleBeforeId = nextBeforeId(ids, titleLimit);
+    const rows = ids.length
+      ? await prisma.article.findMany({
+          where: { id: { in: ids } },
+          orderBy: { id: 'desc' },
+          select: {
+            id: true,
+            titleOriginal: true,
+            titleKo: true,
+            summaryKo: true,
+            categoryPrimary: true,
+            language: true,
+          },
+        })
+      : [];
+    titlesScanned = rows.length;
 
-    for (let i = 0; i < rows.length; i++) {
-      const t = results[i];
-      if (!t?.titleKo) continue; // chunk failed — picked up again next run
+    // Korean-language articles need no API call — pass the title through
+    const koRows = rows.filter((r) => isKoreanLanguage(r.language));
+    const foreign = rows.filter((r) => !isKoreanLanguage(r.language));
 
-      const data: Record<string, unknown> = { titleKo: t.titleKo };
-      if (t.summaryKo && !rows[i].summaryKo) data.summaryKo = t.summaryKo;
-      if (
-        t.primary && t.primary !== 'general' &&
-        (!rows[i].categoryPrimary || rows[i].categoryPrimary === 'general')
-      ) {
-        data.categoryPrimary = t.primary;
-      }
-
+    for (const r of koRows) {
+      if (!isUntranslatedTitle(r.titleKo, r.titleOriginal, r.language)) continue;
       try {
-        await prisma.article.update({ where: { id: rows[i].id }, data });
+        await prisma.article.update({ where: { id: r.id }, data: { titleKo: r.titleOriginal } });
         titlesFixed++;
       } catch (err) {
-        console.warn(
-          `[backfill] Update failed for article ${rows[i].id}:`,
-          err instanceof Error ? err.message : err,
-        );
+        warnUpdate(r.id, err);
       }
     }
-    console.log(`[backfill] Titles healed: ${titlesFixed}/${allRows.length}`);
-  }
+    if (koRows.length > 0) {
+      console.log(`[backfill] Passed through ${koRows.length} Korean-language title(s) without API calls`);
+    }
 
-  // ── Phase 2: body content (small batch — one API call per article) ───────
-  let contentFixed = 0;
-  let contentTargets: Array<{ id: number; titleOriginal: string; contentOriginal: string | null }> = [];
-
-  if (contentLimit > 0) {
-    const candidates = await prisma.article.findMany({
-      where: MISSING_CONTENT_WHERE,
-      orderBy: { createdAt: 'desc' },
-      take: contentLimit * 2,
-      select: { id: true, titleOriginal: true, contentOriginal: true },
-    });
-    contentTargets = candidates
-      .filter((c) => (c.contentOriginal?.length ?? 0) > 30)
-      .slice(0, contentLimit);
-
-    if (contentTargets.length > 0) {
-      console.log(`[backfill] Re-translating ${contentTargets.length} article bodies…`);
-      // translateContent only reads titleOriginal/contentOriginal and writes contentKo
-      const items = contentTargets.map(
-        (c) =>
-          ({
-            titleOriginal: c.titleOriginal,
-            contentOriginal: c.contentOriginal,
-          }) as unknown as TranslatableArticle,
+    if (foreign.length > 0) {
+      console.log(`[backfill] Re-translating ${foreign.length} article title(s)/summaries…`);
+      const results = await translateTitleBatch(
+        foreign.map((r) => r.titleOriginal),
+        { stats: api },
       );
-      await translateContent(items);
 
-      for (let i = 0; i < contentTargets.length; i++) {
-        const contentKo = items[i].contentKo;
-        if (!contentKo) continue;
+      for (let i = 0; i < foreign.length; i++) {
+        const r = foreign[i];
+        const t = results[i];
+        const titleWasUntranslated = isUntranslatedTitle(r.titleKo, r.titleOriginal, r.language);
+        const summaryWasMissing = !hasHangul(r.summaryKo);
+        const data: { titleKo?: string | null; summaryKo?: string; categoryPrimary?: string } = {};
+
+        if (t?.titleKo) {
+          if (titleWasUntranslated) data.titleKo = t.titleKo;
+          if (summaryWasMissing && hasHangul(t.summaryKo)) data.summaryKo = t.summaryKo;
+          const current = r.categoryPrimary;
+          if (!current || !isStandardCategory(current)) {
+            data.categoryPrimary = t.primary; // already normalized to a standard slug
+          } else if (current === 'general' && t.primary !== 'general') {
+            data.categoryPrimary = t.primary;
+          }
+        } else if (
+          t?.failure === 'rejected' &&
+          titleWasUntranslated &&
+          r.titleKo !== null &&
+          r.titleKo.trim() !== ''
+        ) {
+          // An English echo the model refuses to translate again: the honest
+          // state is "no Korean title" (S4 shows the original with its lang).
+          data.titleKo = null;
+          titlesCleared++;
+        }
+
+        const healedTitle = typeof data.titleKo === 'string';
+        const healedSummary = data.summaryKo !== undefined;
+        if ((titleWasUntranslated && !healedTitle) || (summaryWasMissing && !healedSummary)) titlesFailed++;
+        if (Object.keys(data).length === 0) continue;
+
         try {
-          await prisma.article.update({
-            where: { id: contentTargets[i].id },
-            data: { contentKo },
-          });
-          contentFixed++;
+          await prisma.article.update({ where: { id: r.id }, data });
+          if (healedTitle || healedSummary) titlesFixed++;
         } catch (err) {
-          console.warn(
-            `[backfill] Content update failed for article ${contentTargets[i].id}:`,
-            err instanceof Error ? err.message : err,
-          );
+          warnUpdate(r.id, err);
         }
       }
-      console.log(`[backfill] Bodies healed: ${contentFixed}/${contentTargets.length}`);
+      console.log(
+        `[backfill] Titles/summaries healed: ${titlesFixed}/${rows.length}` +
+          (titlesCleared ? ` (${titlesCleared} echo title(s) reset to NULL)` : ''),
+      );
     }
   }
 
-  // ── Remaining work counts (for progress reporting) ───────────────────────
-  const [remainingTitles, remainingContent] = await Promise.all([
-    prisma.article.count({ where: MISSING_TITLE_WHERE }),
-    prisma.article.count({ where: MISSING_CONTENT_WHERE }),
-  ]);
+  // ── Phase 2 / 3 need a client ─────────────────────────────────────────────
+  const wantsBodies = contentLimit > 0 && cursor.contentBeforeId !== null;
+  const wantsRepair = repairLimit > 0 && cursor.repairBeforeId !== null;
+  const client = wantsBodies || wantsRepair ? createXaiClient('text') : null;
+  if ((wantsBodies || wantsRepair) && !client) {
+    console.warn('[backfill] XAI_API_KEY not set — skipping body translation');
+  }
+
+  // ── Phase 2: untranslated bodies ──────────────────────────────────────────
+  let contentScanned = 0;
+  let contentFixed = 0;
+  let contentFailed = 0;
+
+  if (wantsBodies && client) {
+    const ids = await selectBacklogIds(prisma, 'body', {
+      beforeId: cursor.contentBeforeId,
+      take: contentLimit,
+    });
+    next.contentBeforeId = nextBeforeId(ids, contentLimit);
+    const rows = ids.length
+      ? await prisma.article.findMany({
+          where: { id: { in: ids } },
+          orderBy: { id: 'desc' },
+          select: { id: true, titleOriginal: true, contentOriginal: true, contentKo: true, language: true },
+        })
+      : [];
+    contentScanned = rows.length;
+    if (rows.length > 0) console.log(`[backfill] Translating ${rows.length} article bodies…`);
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const original = r.contentOriginal ?? '';
+      if (!isUntranslatedContent(r.contentKo, original, r.language)) continue;
+
+      let contentKo: string | null = null;
+      let reset = false;
+      if (isMostlyKorean(original)) {
+        contentKo = original; // already Korean — no API call
+      } else {
+        const res = await translateLongText(original, { client, language: r.language, stats: api });
+        if (res.ok) {
+          contentKo = res.text;
+        } else {
+          console.warn(`[backfill] Body ${r.id} not translated: ${res.reason}`);
+          // A Hangul-less contentKo (echo) is dishonest — clear it unless the API was just down
+          reset = !res.http && r.contentKo !== null;
+        }
+        if (i < rows.length - 1) await sleep(articlePauseMs);
+      }
+
+      if (contentKo === null) contentFailed++;
+      if (contentKo === null && !reset) continue;
+      try {
+        await prisma.article.update({ where: { id: r.id }, data: { contentKo } });
+        if (contentKo !== null) contentFixed++;
+      } catch (err) {
+        warnUpdate(r.id, err);
+      }
+    }
+    if (rows.length > 0) console.log(`[backfill] Bodies healed: ${contentFixed}/${rows.length}`);
+  }
+
+  // ── Phase 3: repair bodies truncated by the old 6000-char cut (opt-in) ────
+  let repaired = 0;
+  let repairReset = 0;
+
+  if (wantsRepair && client) {
+    const ids = await selectBacklogIds(prisma, 'truncated', {
+      beforeId: cursor.repairBeforeId,
+      take: repairLimit,
+    });
+    next.repairBeforeId = nextBeforeId(ids, repairLimit);
+    const rows = ids.length
+      ? await prisma.article.findMany({
+          where: { id: { in: ids } },
+          orderBy: { id: 'desc' },
+          select: { id: true, contentOriginal: true, contentKo: true, language: true },
+        })
+      : [];
+    if (rows.length > 0) console.log(`[backfill] Repairing ${rows.length} truncated body translation(s)…`);
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!isTruncatedTranslation(r.contentKo, r.contentOriginal)) continue;
+      const res = await translateLongText(r.contentOriginal ?? '', { client, language: r.language, stats: api });
+      if (!res.ok && res.http) {
+        // API outage: keep the row as is, the next run picks it up again
+        console.warn(`[backfill] Repair of ${r.id} skipped (API failure): ${res.reason}`);
+      } else {
+        try {
+          if (res.ok) {
+            await prisma.article.update({ where: { id: r.id }, data: { contentKo: res.text } });
+            repaired++;
+          } else {
+            // Model could not produce a complete translation: drop the partial
+            // one so the page shows summary + original honestly.
+            await prisma.article.update({ where: { id: r.id }, data: { contentKo: null } });
+            repairReset++;
+            console.warn(`[backfill] Repair of ${r.id} failed (${res.reason}) — contentKo reset to NULL`);
+          }
+        } catch (err) {
+          warnUpdate(r.id, err);
+        }
+      }
+      if (i < rows.length - 1) await sleep(articlePauseMs);
+    }
+    if (rows.length > 0) console.log(`[backfill] Truncated bodies repaired: ${repaired}, reset: ${repairReset}`);
+  }
+
+  // ── Remaining work counts (same definition as /api/admin/health) ─────────
+  const backlog = await countTranslationBacklog(prisma);
+  const exhausted =
+    next.titleBeforeId === null && next.contentBeforeId === null && next.repairBeforeId === null;
 
   return {
-    titlesScanned: allRows.length,
+    titlesScanned,
     titlesFixed,
-    contentScanned: contentTargets.length,
+    titlesFailed,
+    titlesCleared,
+    contentScanned,
     contentFixed,
-    remainingTitles,
-    remainingContent,
+    contentFailed,
+    repaired,
+    repairReset,
+    apiCalls: api.apiCalls,
+    apiFailures: api.apiFailures,
+    remainingTitles: backlog.untranslatedTitles,
+    remainingContent: backlog.untranslatedBodies,
+    remainingSummaries: backlog.missingSummaries,
+    remainingTruncated: backlog.truncatedBodies,
+    nextCursor: exhausted ? null : next,
   };
 }

@@ -1,36 +1,65 @@
 /**
  * backfill-cli.ts
- * Standalone bulk translation healer — clears the ENTIRE untranslated backlog
- * in one run, instead of the 100-per-4h trickle the collector does.
- *
- * This is the "Harness Loop" for translations:
- *   RUN backfill → MEASURE remaining → REPEAT until 0 or no progress.
+ * Standalone bulk translation healer — walks the WHOLE untranslated backlog
+ * once (id cursor, newest first), instead of the one-batch-per-4h trickle the
+ * collector does. A row that fails is not retried in the same run.
  *
  * Usage:
- *   npm run backfill:translations                 # titles only (fast/cheap)
- *   npm run backfill:translations -- --content    # titles + bodies (slow/costly)
- *   npm run backfill:translations -- --max-rounds=50 --round-size=200
+ *   npm run backfill:translations                                   # titles + summaries (cheap)
+ *   npm run backfill:translations -- --content                      # + untranslated bodies (costly)
+ *   npm run backfill:translations -- --content --repair-truncated   # + one-off repair of bodies cut at 6000 chars
+ *   npm run backfill:translations -- --round-size=150 --content-per-round=20 --max-rounds=200
  *
- * If it makes ZERO progress for two consecutive rounds it aborts and tells you
- * the likely cause (XAI_API_KEY missing / invalid, or wrong XAI_MODEL) — so a
- * silent translation outage can no longer masquerade as "just a big backlog".
+ * Exit codes: 0 done · 1 config/fatal error · 2 the translation API itself is
+ * failing (a whole round of requests failed at the HTTP level). Rows the model
+ * merely refuses (echo, unusable output) are reported, not treated as an outage.
  */
 
 import { PrismaClient } from '@prisma/client';
-import { backfillTranslations } from './backfill';
+import { backfillTranslations, type BackfillCursor } from './backfill';
+import { countTranslationBacklog } from '../lib/translation-coverage';
+import { describeXaiEndpoint } from '../lib/xai-client';
+import { parseIntParam } from '../lib/utils';
 
-function parseArgs(argv: string[]) {
-  const opts = {
+interface CliOptions {
+  content: boolean;
+  repairTruncated: boolean;
+  roundSize: number;
+  contentPerRound: number;
+  maxRounds: number;
+}
+
+function parseArgs(argv: string[]): CliOptions {
+  const opts: CliOptions = {
     content: false,
-    roundSize: 150,        // titles per round (15 API calls of 10)
-    contentPerRound: 20,   // bodies per round (one API call each)
+    repairTruncated: false,
+    roundSize: 150,       // titles per round (15 API calls of 10)
+    contentPerRound: 20,  // bodies per round
     maxRounds: 200,
   };
   for (const arg of argv) {
-    if (arg === '--content') opts.content = true;
-    else if (arg.startsWith('--round-size=')) opts.roundSize = Math.max(10, parseInt(arg.split('=')[1], 10) || 150);
-    else if (arg.startsWith('--content-per-round=')) opts.contentPerRound = Math.max(1, parseInt(arg.split('=')[1], 10) || 20);
-    else if (arg.startsWith('--max-rounds=')) opts.maxRounds = Math.max(1, parseInt(arg.split('=')[1], 10) || 200);
+    const eq = arg.indexOf('=');
+    const key = eq === -1 ? arg : arg.slice(0, eq);
+    const value = eq === -1 ? undefined : arg.slice(eq + 1);
+    switch (key) {
+      case '--content':
+        opts.content = true;
+        break;
+      case '--repair-truncated':
+        opts.repairTruncated = true;
+        break;
+      case '--round-size':
+        opts.roundSize = parseIntParam(value, { min: 10, max: 1000, fallback: 150 });
+        break;
+      case '--content-per-round':
+        opts.contentPerRound = parseIntParam(value, { min: 1, max: 200, fallback: 20 });
+        break;
+      case '--max-rounds':
+        opts.maxRounds = parseIntParam(value, { min: 1, max: 10000, fallback: 200 });
+        break;
+      default:
+        console.warn(`[backfill-cli] Unknown argument ignored: ${arg}`);
+    }
   }
   return opts;
 }
@@ -38,8 +67,10 @@ function parseArgs(argv: string[]) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const prisma = new PrismaClient();
+  const model = process.env.XAI_MODEL || 'grok-4-1-fast';
+  const endpoint = describeXaiEndpoint();
 
-  if (!process.env.XAI_API_KEY) {
+  if (!process.env.XAI_API_KEY?.trim()) {
     console.error('[backfill-cli] ✗ XAI_API_KEY is not set. Translation cannot run.');
     console.error('               Set XAI_API_KEY in .env and retry.');
     await prisma.$disconnect();
@@ -47,71 +78,97 @@ async function main() {
   }
 
   console.log('[backfill-cli] ── Translation backfill started ──');
-  console.log(`[backfill-cli] model=${process.env.XAI_MODEL || 'grok-4-1-fast'} content=${opts.content} roundSize=${opts.roundSize}`);
+  console.log(
+    `[backfill-cli] endpoint=${endpoint} model=${model} content=${opts.content} ` +
+      `repairTruncated=${opts.repairTruncated} roundSize=${opts.roundSize}`,
+  );
 
-  let round = 0;
-  let dryRounds = 0;
-  let totalTitles = 0;
-  let totalBodies = 0;
+  const totals = {
+    titlesFixed: 0,
+    titlesFailed: 0,
+    contentFixed: 0,
+    contentFailed: 0,
+    repaired: 0,
+    repairReset: 0,
+  };
+  let remaining = { titles: 0, bodies: 0, summaries: 0, truncated: 0 };
 
   try {
-    // Initial snapshot
-    const before = await prisma.article.count({
-      where: { isActive: true, OR: [{ titleKo: null }, { titleKo: '' }] },
-    });
-    console.log(`[backfill-cli] Untranslated titles at start: ${before}`);
-    if (before === 0 && !opts.content) {
-      console.log('[backfill-cli] Nothing to do — all active articles already have Korean titles.');
-      await prisma.$disconnect();
-      return;
+    const before = await countTranslationBacklog(prisma);
+    remaining = {
+      titles: before.untranslatedTitles,
+      bodies: before.untranslatedBodies,
+      summaries: before.missingSummaries,
+      truncated: before.truncatedBodies,
+    };
+    console.log(`[backfill-cli] Untranslated titles at start: ${before.untranslatedTitles}`);
+    console.log(`[backfill-cli] Missing Korean summaries at start: ${before.missingSummaries}`);
+    console.log(`[backfill-cli] Untranslated bodies at start: ${before.untranslatedBodies}`);
+    if (opts.repairTruncated) {
+      console.log(`[backfill-cli] Truncated bodies to repair: ${before.truncatedBodies}`);
+    } else {
+      console.log(`[backfill-cli] Truncated bodies (repair with --repair-truncated): ${before.truncatedBodies}`);
     }
 
-    while (round < opts.maxRounds) {
+    // undefined = start at the newest row, null = phase disabled / exhausted
+    let cursor: Partial<BackfillCursor> = {
+      titleBeforeId: before.untranslatedTitles + before.missingSummaries > 0 ? undefined : null,
+      contentBeforeId: opts.content && before.untranslatedBodies > 0 ? undefined : null,
+      repairBeforeId: opts.repairTruncated && before.truncatedBodies > 0 ? undefined : null,
+    };
+
+    let round = 0;
+    while (
+      round < opts.maxRounds &&
+      (cursor.titleBeforeId !== null || cursor.contentBeforeId !== null || cursor.repairBeforeId !== null)
+    ) {
       round++;
       const stats = await backfillTranslations(prisma, {
-        titleLimit: opts.roundSize,
-        contentLimit: opts.content ? opts.contentPerRound : 0,
+        titleLimit: cursor.titleBeforeId === null ? 0 : opts.roundSize,
+        contentLimit: cursor.contentBeforeId === null ? 0 : opts.contentPerRound,
+        repairLimit: cursor.repairBeforeId === null ? 0 : opts.contentPerRound,
+        cursor,
       });
-      totalTitles += stats.titlesFixed;
-      totalBodies += stats.contentFixed;
+      totals.titlesFixed += stats.titlesFixed;
+      totals.titlesFailed += stats.titlesFailed;
+      totals.contentFixed += stats.contentFixed;
+      totals.contentFailed += stats.contentFailed;
+      totals.repaired += stats.repaired;
+      totals.repairReset += stats.repairReset;
+      remaining = {
+        titles: stats.remainingTitles,
+        bodies: stats.remainingContent,
+        summaries: stats.remainingSummaries,
+        truncated: stats.remainingTruncated,
+      };
 
       console.log(
-        `[backfill-cli] Round ${round}: +${stats.titlesFixed} titles, +${stats.contentFixed} bodies ` +
-        `(remaining: ${stats.remainingTitles} titles, ${stats.remainingContent} bodies)`,
+        `[backfill-cli] Round ${round}: titles +${stats.titlesFixed}/-${stats.titlesFailed}, ` +
+          `bodies +${stats.contentFixed}/-${stats.contentFailed}, repaired ${stats.repaired}/reset ${stats.repairReset}, ` +
+          `api ${stats.apiCalls - stats.apiFailures}/${stats.apiCalls} ok`,
       );
 
-      const titlesDone = stats.remainingTitles === 0;
-      const contentDone = !opts.content || stats.remainingContent === 0;
-      if (titlesDone && contentDone) {
-        console.log('[backfill-cli] ✓ Backlog cleared.');
+      // Outage detection: every request of the round failed at the HTTP level.
+      // (A round where the model only refused some rows is NOT an outage.)
+      if (stats.apiCalls > 0 && stats.apiFailures === stats.apiCalls) {
+        console.error(`[backfill-cli] ✗ All ${stats.apiCalls} translation request(s) in this round failed.`);
+        console.error('               The translation API is not reachable or rejects requests. Check:');
+        console.error('               1) XAI_API_KEY is valid and has quota');
+        console.error(`               2) XAI_MODEL ("${model}") is a real model id`);
+        console.error(`               3) Network egress to ${endpoint} is allowed (XAI_BASE_URL)`);
+        process.exitCode = 2;
         break;
       }
 
-      // No-progress detection → likely an API/config outage, not a backlog
-      if (stats.titlesFixed === 0 && stats.contentFixed === 0) {
-        dryRounds++;
-        if (dryRounds >= 2) {
-          console.error('[backfill-cli] ✗ Two consecutive rounds healed 0 items.');
-          console.error('               The translation API is likely failing. Check:');
-          console.error('               1) XAI_API_KEY is valid and has quota');
-          console.error(`               2) XAI_MODEL ("${process.env.XAI_MODEL || 'grok-4-1-fast'}") is a real model id`);
-          console.error('               3) Network egress to https://api.x.ai is allowed');
-          process.exitCode = 2;
-          break;
-        }
-      } else {
-        dryRounds = 0;
-      }
-
-      // Small breather between rounds
-      await new Promise((r) => setTimeout(r, 500));
+      cursor = stats.nextCursor ?? { titleBeforeId: null, contentBeforeId: null, repairBeforeId: null };
+      if (stats.nextCursor) await new Promise((r) => setTimeout(r, 500));
     }
 
     if (round >= opts.maxRounds) {
       console.warn(`[backfill-cli] Reached max rounds (${opts.maxRounds}) — run again to continue.`);
     }
 
-    // Clear cached pages so healed titles show immediately
+    // Clear cached pages so healed titles show immediately (S4 contract A)
     try {
       const { redis } = await import('../lib/redis');
       if (redis) {
@@ -124,13 +181,19 @@ async function main() {
       console.warn('[backfill-cli] Cache clear skipped:', err instanceof Error ? err.message : err);
     }
 
-    console.log(`[backfill-cli] ── Done. Total healed: ${totalTitles} titles, ${totalBodies} bodies. ──`);
+    console.log(
+      `[backfill-cli] Done: titles healed=${totals.titlesFixed} failed=${totals.titlesFailed}; ` +
+        `bodies healed=${totals.contentFixed} failed=${totals.contentFailed}; ` +
+        `repaired=${totals.repaired} reset=${totals.repairReset}; ` +
+        `remaining titles=${remaining.titles} bodies=${remaining.bodies} ` +
+        `summaries=${remaining.summaries} truncated=${remaining.truncated}`,
+    );
   } finally {
     await prisma.$disconnect();
   }
 }
 
 main().catch((err) => {
-  console.error('[backfill-cli] Fatal error:', err);
+  console.error('[backfill-cli] Fatal error:', err instanceof Error ? err.message : err);
   process.exit(1);
 });

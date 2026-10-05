@@ -1,6 +1,16 @@
-export default function Loading() {
+// Page-level loading skeleton (moved from src/app/loading.tsx).
+// Used ONLY by segment loading.tsx files of routes that never call notFound()
+// (breaking, ranking, category/[slug]) — a loading boundary above a notFound() call
+// makes the response a soft-404 (HTTP 200). Never re-create a root loading.tsx.
+export default function PageSkeleton() {
   return (
-    <div className="mx-auto max-w-screen-xl px-4 py-8 animate-fade-in">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="mx-auto max-w-screen-xl px-4 py-8 animate-fade-in"
+    >
+      <span className="sr-only">뉴스를 불러오는 중입니다</span>
       {/* Hero skeleton */}
       <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 h-72 rounded-card bg-surface-card shimmer" />

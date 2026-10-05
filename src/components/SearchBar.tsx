@@ -28,6 +28,7 @@ export default function SearchBar({
         {/* Search icon */}
         <span className="pointer-events-none absolute left-3 flex items-center text-text-muted">
           <svg
+            aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             className="h-4 w-4"
             fill="none"
@@ -49,6 +50,7 @@ export default function SearchBar({
           name="q"
           defaultValue={defaultValue}
           placeholder={placeholder}
+          aria-label="뉴스 검색"
           autoComplete="off"
           className="w-full rounded-pill border border-border bg-surface-elevated py-2 pl-9 pr-20 text-sm text-text outline-none placeholder:text-text-muted
             focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"

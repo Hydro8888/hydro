@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AdminNav from '@/components/AdminNav';
 
 const adminMenu = [
   { href: '/admin', label: '대시보드' },
@@ -7,29 +8,21 @@ const adminMenu = [
   { href: '/admin/logs', label: '수집 로그' },
 ];
 
+// The site Header / Footer / bottom tab bar are not rendered under /admin (see isAdminPath),
+// so this bar is the only navigation here. Kept as a <div> (not <header>) on purpose.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-surface">
-      {/* Admin Header */}
-      <div className="bg-surface-card border-b border-border py-3 px-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/admin" className="font-bold text-lg text-accent">
+      {/* Admin bar — same max-w-7xl + px-4 box as the content, so the logo and content align */}
+      <div className="bg-surface-card border-b border-border py-3">
+        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/admin" className="whitespace-nowrap font-bold text-lg text-accent">
               LiveNews Admin
             </Link>
-            <nav className="flex flex-wrap gap-2 sm:gap-4">
-              {adminMenu.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-sm text-text-secondary hover:text-text transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <AdminNav items={adminMenu} />
           </div>
-          <Link href="/" className="text-sm text-text-muted hover:text-text">
+          <Link href="/" className="whitespace-nowrap text-sm text-text-muted hover:text-text">
             사이트로 돌아가기
           </Link>
         </div>

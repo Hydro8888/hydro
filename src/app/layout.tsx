@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Suspense } from 'react';
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import Loading from './loading';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -39,14 +37,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-surface text-text min-h-screen flex flex-col overflow-x-hidden">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-card focus:bg-accent focus:text-white focus:text-sm focus:font-semibold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-card focus:bg-accent focus:text-surface focus:text-sm focus:font-semibold"
         >
           본문 바로가기
         </a>
         <Header />
-        <Suspense fallback={<Loading />}>
-          <main id="main" className="flex-1">{children}</main>
-        </Suspense>
+        {/* No streaming boundary / root loading.tsx here: any boundary above a notFound() call
+            flushes the shell first and turns every 404 into HTTP 200 (see SPEC-S2 contract D). */}
+        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+          {children}
+        </main>
         <Footer />
       </body>
     </html>

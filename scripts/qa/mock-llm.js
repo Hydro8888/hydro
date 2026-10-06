@@ -34,6 +34,11 @@ http.createServer((req, res) => {
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     if (!req.url.endsWith('/chat/completions')) { res.writeHead(404); return res.end('{}'); }
+    if (process.env.MOCK_BILLING === '1') {
+      // Same refusal xAI sends when the team is out of credits
+      res.writeHead(403, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ code: 'Some requested entity was not found', error: 'Your team mock has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.' }));
+    }
     const j = JSON.parse(body || '{}');
     const sys = j.messages?.find((m) => m.role === 'system')?.content || '';
     const user = j.messages?.find((m) => m.role === 'user')?.content || '';

@@ -88,16 +88,29 @@ if [ -n "$OTHER_APPS" ]; then
 fi
 
 # ---- 1. 코드 업데이트 (롤백용 커밋 기록) ----
-PREV_COMMIT=$(git rev-parse HEAD)
-echo -e "${YELLOW}[1/6] 코드 업데이트  (현재 ${PREV_COMMIT:0:8})${NC}"
+# Compare against the commit that was last *deployed* (built + reloaded), not the
+# pre-pull HEAD: a manual `git pull` before this script must not skip the deploy.
+DEPLOYED_FILE="$DEPLOY_PATH/.deployed-commit"
+DEPLOYED_COMMIT=$(cat "$DEPLOYED_FILE" 2>/dev/null || true)
 git fetch origin "$BRANCH"
+if [ -n "$DEPLOYED_COMMIT" ] && git cat-file -e "${DEPLOYED_COMMIT}^{commit}" 2>/dev/null; then
+    PREV_COMMIT="$DEPLOYED_COMMIT"
+else
+    DEPLOYED_COMMIT=""
+    PREV_COMMIT=$(git rev-parse HEAD)
+fi
+echo -e "${YELLOW}[1/6] 코드 업데이트  (배포된 버전 ${DEPLOYED_COMMIT:0:8}${DEPLOYED_COMMIT:+ }${DEPLOYED_COMMIT:-기록 없음})${NC}"
 git reset --hard "origin/$BRANCH"
 NEW_COMMIT=$(git rev-parse HEAD)
 echo -e "${GREEN}      ${PREV_COMMIT:0:8} → ${NEW_COMMIT:0:8}${NC}"
 
-if [ "$PREV_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" = "0" ]; then
-    echo -e "${GREEN}      변경 없음 → 배포 생략 (강제: --force)${NC}"
+if [ -n "$DEPLOYED_COMMIT" ] && [ "$DEPLOYED_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE" = "0" ]; then
+    echo -e "${GREEN}      이미 배포된 버전과 동일 → 배포 생략 (강제: --force)${NC}"
     exit 0
+fi
+if [ -z "$DEPLOYED_COMMIT" ]; then
+    echo -e "${YELLOW}      배포 기록이 없어 전체 배포를 진행합니다${NC}"
+    FORCE=1
 fi
 
 # ---- 2. 소유권 정리 (프로젝트 폴더 한정) ----
@@ -145,6 +158,10 @@ echo -e "${YELLOW}[5/6] PM2 반영 (--only ${ONLY_APPS})...${NC}"
 # startOrReload: 실행 중이면 무중단 reload, 없으면 start. 다른 앱은 손대지 않음.
 pm2 startOrReload ecosystem.config.js --only "$ONLY_APPS" --update-env
 pm2 save   # 현재 목록 저장만 — 어떤 프로세스도 중단하지 않음
+# 웹+수집기를 모두 반영했을 때만 "배포 완료 버전"으로 기록 (부분 배포는 다음 실행에서 다시 반영)
+if [ "$DEPLOY_WEB" = "1" ] && [ "$DEPLOY_COLLECTOR" = "1" ]; then
+    echo "$NEW_COMMIT" > "$DEPLOYED_FILE"
+fi
 
 # ---- 6. 헬스체크 (웹 배포 시에만) ----
 if [ "$DEPLOY_WEB" = "1" ]; then

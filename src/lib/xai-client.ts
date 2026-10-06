@@ -13,7 +13,7 @@
  */
 
 import OpenAI from 'openai';
-import { xaiTextBreaker } from './circuit-breaker';
+import { xaiTextBreaker, CircuitOpenError } from './circuit-breaker';
 import { retryWithBackoff } from './retry';
 
 export type XaiKind = 'text' | 'image';
@@ -100,10 +100,25 @@ export interface ChatClient {
 export interface ApiStats {
   apiCalls: number;
   apiFailures: number;
+  /** Last failure message (no secrets — provider error text only). */
+  lastError?: string;
+  /** The provider refused because of credits / spending limit — retrying cannot help. */
+  billingBlocked?: boolean;
 }
 
 export function newApiStats(): ApiStats {
   return { apiCalls: 0, apiFailures: 0 };
+}
+
+/**
+ * True for errors that mean "account out of credits / over its spending limit"
+ * (xAI answers 403 with that text; other providers use 402 or 429 + quota).
+ */
+export function isBillingError(err: unknown): boolean {
+  const status = (err as { status?: unknown })?.status;
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (status === 402) return true;
+  return /credit|spending limit|insufficient[_ ]quota|billing/i.test(msg);
 }
 
 export interface ChatResult {
@@ -136,7 +151,18 @@ export async function chatCompletion(
       finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
     };
   } catch (err) {
-    if (stats) stats.apiFailures++;
+    if (stats) {
+      stats.apiFailures++;
+      const billing = isBillingError(err);
+      if (billing) stats.billingBlocked = true;
+      // Keep the root cause: once the breaker is open every later call only says
+      // "Circuit OPEN", which must not overwrite e.g. the credits refusal.
+      if (billing || !(err instanceof CircuitOpenError) || !stats.lastError) {
+        if (!stats.billingBlocked || billing) {
+          stats.lastError = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+        }
+      }
+    }
     throw err;
   }
 }

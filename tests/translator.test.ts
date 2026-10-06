@@ -157,5 +157,6 @@ test('HTTP 503 every time → 3 attempts, no split re-requests, empty results', 
   const r = await translateTitleBatch(titles(10), { client, stats, pauseMs: 0 });
   assert.equal(calls.length, 3);
   assert.ok(r.every((x) => x.titleKo === '' && x.failure === 'http'));
-  assert.deepEqual(stats, { apiCalls: 1, apiFailures: 1 });
+  assert.deepEqual({ apiCalls: stats.apiCalls, apiFailures: stats.apiFailures }, { apiCalls: 1, apiFailures: 1 });
+  assert.equal(stats.billingBlocked, undefined); // a 503 is an outage, not a billing refusal
 });

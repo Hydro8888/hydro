@@ -61,3 +61,17 @@ test('describeXaiEndpoint shows only the origin, never the key', () => {
   assert.equal(describeXaiEndpoint({}), 'https://api.x.ai');
   assert.ok(!describeXaiEndpoint(env).includes('secret'));
 });
+
+test('isBillingError: credits / spending-limit refusals are recognised', async () => {
+  const { isBillingError } = await import('../src/lib/xai-client');
+  const xai403 = Object.assign(
+    new Error('403 "Your team x has either used all available credits or reached its monthly spending limit."'),
+    { status: 403 },
+  );
+  assert.equal(isBillingError(xai403), true);
+  assert.equal(isBillingError(Object.assign(new Error('Payment Required'), { status: 402 })), true);
+  assert.equal(isBillingError(Object.assign(new Error('429 insufficient_quota'), { status: 429 })), true);
+  assert.equal(isBillingError(Object.assign(new Error('401 Incorrect API key'), { status: 401 })), false);
+  assert.equal(isBillingError(Object.assign(new Error('503 upstream unavailable'), { status: 503 })), false);
+  assert.equal(isBillingError(new Error('Circuit OPEN — 300s until half-open probe')), false);
+});

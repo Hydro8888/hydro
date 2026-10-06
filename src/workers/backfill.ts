@@ -61,6 +61,9 @@ export interface BackfillStats {
   repairKept: number;
   apiCalls: number;
   apiFailures: number;
+  /** last API failure text and whether it was a credits / spending-limit refusal */
+  apiLastError?: string;
+  billingBlocked?: boolean;
   remainingTitles: number;
   remainingContent: number;
   remainingSummaries: number;
@@ -342,6 +345,8 @@ export async function backfillTranslations(
     repairKept,
     apiCalls: api.apiCalls,
     apiFailures: api.apiFailures,
+    apiLastError: api.lastError,
+    billingBlocked: api.billingBlocked === true,
     remainingTitles: backlog.untranslatedTitles,
     remainingContent: backlog.untranslatedBodies,
     remainingSummaries: backlog.missingSummaries,

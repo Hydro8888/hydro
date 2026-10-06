@@ -11,7 +11,8 @@
  *   npm run backfill:translations -- --round-size=150 --content-per-round=20 --max-rounds=200
  *
  * Exit codes: 0 done · 1 config/fatal error · 2 the translation API itself is
- * failing (a whole round of requests failed at the HTTP level). Rows the model
+ * failing (a whole round of requests failed at the HTTP level) · 3 the API
+ * account is out of credits / over its spending limit. Rows the model
  * merely refuses (echo, unusable output) are reported, not treated as an outage.
  */
 
@@ -154,6 +155,14 @@ async function main() {
       // (A round where the model only refused some rows is NOT an outage.)
       if (stats.apiCalls > 0 && stats.apiFailures === stats.apiCalls) {
         console.error(`[backfill-cli] ✗ All ${stats.apiCalls} translation request(s) in this round failed.`);
+        if (stats.apiLastError) console.error(`               Last API error: ${stats.apiLastError}`);
+        if (stats.billingBlocked) {
+          console.error('               ➜ The xAI account is out of credits or over its monthly spending limit.');
+          console.error('                 Add credits / raise the limit in the xAI console, then rerun this command.');
+          console.error('                 (Nothing was changed in the database.)');
+          process.exitCode = 3;
+          break;
+        }
         console.error('               The translation API is not reachable or rejects requests. Check:');
         console.error('               1) XAI_API_KEY is valid and has quota');
         console.error(`               2) XAI_MODEL ("${model}") is a real model id`);

@@ -99,7 +99,8 @@ else
     DEPLOYED_COMMIT=""
     PREV_COMMIT=$(git rev-parse HEAD)
 fi
-echo -e "${YELLOW}[1/6] 코드 업데이트  (배포된 버전 ${DEPLOYED_COMMIT:+${DEPLOYED_COMMIT:0:8}}${DEPLOYED_COMMIT:-기록 없음})${NC}"
+DEPLOYED_LABEL="${DEPLOYED_COMMIT:0:8}"; [ -n "$DEPLOYED_LABEL" ] || DEPLOYED_LABEL="기록 없음"
+echo -e "${YELLOW}[1/6] 코드 업데이트  (배포된 버전 ${DEPLOYED_LABEL})${NC}"
 git reset --hard "origin/$BRANCH"
 NEW_COMMIT=$(git rev-parse HEAD)
 echo -e "${GREEN}      ${PREV_COMMIT:0:8} → ${NEW_COMMIT:0:8}${NC}"

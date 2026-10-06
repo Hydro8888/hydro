@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Source {
+  id              Int       @id @default(autoincrement())
+  sourceName      String
+  sourceType      String    // API, RSS, SITEMAP, HTML
+  country         String    // global, us, japan, china
+  language        String    // en, ja, zh, ko
+  baseUrl         String
+  feedUrl         String?
+  crawlInterval   Int       @default(180)
+  isEnabled       Boolean   @default(true)
+  robotsCheckedAt DateTime?
+  createdAt       DateTime  @default(now())
+  articles        Article[]
+  collectionLogs  CollectionLog[]
+}
+
+model Article {
+  id                Int       @id @default(autoincrement())
+  sourceId          Int
+  source            Source    @relation(fields: [sourceId], references: [id])
+  originalUrl       String    @unique
+  titleOriginal     String
+  titleKo           String?
+  summaryKo         String?
+  contentOriginal   String?
+  contentKo         String?
+  publishedAt       DateTime?
+  fetchedAt         DateTime  @default(now())
+  language          String
+  country           String
+  categoryPrimary   String?
+  categorySecondary String?
+  imageUrl          String?
+  author            String?
+  tags              String[]  @default([])
+  clusterId         Int?
+  cluster           Cluster?  @relation(fields: [clusterId], references: [id])
+  isActive          Boolean   @default(true)
+  viewCount         Int       @default(0)
+  createdAt         DateTime  @default(now())
+
+  @@index([country, categoryPrimary, publishedAt(sort: Desc)])
+  @@index([publishedAt(sort: Desc)])
+  @@index([clusterId])
+  @@index([sourceId])
+}
+
+model Cluster {
+  id              Int       @id @default(autoincrement())
+  clusterTitle    String
+  clusterSummary  String?
+  mainKeywords    String[]  @default([])
+  articleCount    Int       @default(0)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  articles        Article[]
+}
+
+model SearchLog {
+  id          Int      @id @default(autoincrement())
+  keyword     String
+  resultCount Int      @default(0)
+  searchedAt  DateTime @default(now())
+
+  @@index([keyword])
+  @@index([searchedAt(sort: Desc)])
+}
+
+model CollectionLog {
+  id            Int       @id @default(autoincrement())
+  sourceId      Int
+  source        Source    @relation(fields: [sourceId], references: [id])
+  status        String    // success, failed, partial
+  articlesFound Int       @default(0)
+  articlesNew   Int       @default(0)
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([sourceId, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+}

@@ -214,10 +214,14 @@ echo ""
 echo -e "${BLUE}==================================================${NC}"
 echo -e "${GREEN}   재배포 완료 (${ONLY_APPS})${NC}"
 echo -e "${BLUE}==================================================${NC}"
-pm2 list | grep -E "id|${APP_NAME}" || true
+pm2 list | grep -E "│ id |│ ${APP_NAME}" || true   # header + livenews rows only (plain "id" also matched idc-*)
 echo ""
 echo -e "변경 내역 : ${YELLOW}git log --oneline ${PREV_COMMIT:0:8}..${NEW_COMMIT:0:8}${NC}"
-echo -e "롤백 방법 : ${YELLOW}git reset --hard ${PREV_COMMIT:0:8} && rm -rf .next && npm run build && pm2 reload ${APP_NAME}${NC}"
+if [ "$DEPLOY_WEB" = "1" ]; then
+    echo -e "롤백 방법 : ${YELLOW}git reset --hard ${PREV_COMMIT:0:8} && rm -rf .next && npm run build && pm2 reload ${ONLY_APPS//,/ }${NC}"
+else
+    echo -e "롤백 방법 : ${YELLOW}git reset --hard ${PREV_COMMIT:0:8} && pm2 reload ${COLLECTOR_NAME}${NC}"
+fi
 
 }
 

@@ -12,7 +12,7 @@
 
 import type { TranslatableArticle } from './translator';
 import { aiImageBreaker, CircuitOpenError } from '../lib/circuit-breaker';
-import { createAiClient, isImageGenerationEnabled, resolveImageModel } from '../lib/ai-client';
+import { createAiClient, isImageGenerationEnabled, resolveImageModel, type ApiStats } from '../lib/ai-client';
 import { getErrorStatus, isBillingError } from '../lib/retry';
 import { saveGeneratedImage } from '../lib/generated-image-store';
 
@@ -27,6 +27,8 @@ export interface ImageGenerationOptions {
   force?: boolean;
   dir?: string;
   pauseMs?: number;
+  /** Accumulates request / failure counts (and billing refusals) for the caller's report. */
+  stats?: ApiStats;
 }
 
 /**
@@ -69,6 +71,7 @@ export async function generateImages(
   );
 
   for (const article of articlesWithoutImage) {
+    if (opts.stats) opts.stats.apiCalls++;
     try {
       const b64 = await aiImageBreaker.execute(async () => {
         const res = await client.images.generate({
@@ -94,6 +97,11 @@ export async function generateImages(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[image-generator] Image generation failed: ${msg}`);
+      if (opts.stats) {
+        opts.stats.apiFailures++;
+        opts.stats.lastError = msg.slice(0, 300);
+        if (isBillingError(err)) opts.stats.billingBlocked = true;
+      }
 
       // Stop trying if the model / key / account is not usable
       if (isFatalImageError(err)) {

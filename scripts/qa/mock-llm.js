@@ -14,6 +14,7 @@
  *   MOCK_BILLING=1               → every chat request: 429 insufficient_quota
  *   MOCK_REJECT_PARAMS=a,b       → 400 unsupported_parameter for these params
  *   MOCK_LOG_DIR=/path           → where mock-llm-requests.jsonl goes (default ./qa-out)
+ *   MOCK_IMAGE_FILE=/path.jpg    → image returned (base64) by POST /images/generations
  *
  *   node scripts/qa/mock-llm.js [port=4010]
  *   OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content
@@ -58,6 +59,15 @@ http.createServer((req, res) => {
     const model = req.url.match(/\/models\/([^/?]+)/);
     if (req.method === 'GET' && model) {
       return send(res, 200, { id: decodeURIComponent(model[1]), object: 'model', owned_by: 'mock' });
+    }
+    if (req.method === 'POST' && req.url.endsWith('/images/generations')) {
+      if (process.env.MOCK_BILLING === '1') {
+        return apiError(res, 429, 'You exceeded your current quota, please check your plan and billing details.', 'insufficient_quota', 'insufficient_quota');
+      }
+      const j = JSON.parse(body || '{}');
+      fs.appendFileSync(LOG, JSON.stringify({ t: Date.now(), kind: 'image', model: j.model, size: j.size, quality: j.quality, output_format: j.output_format, head: String(j.prompt || '').slice(0, 60) }) + '\n');
+      const img = process.env.MOCK_IMAGE_FILE ? fs.readFileSync(process.env.MOCK_IMAGE_FILE) : Buffer.alloc(400, 7);
+      return send(res, 200, { created: Math.floor(Date.now() / 1000), data: [{ b64_json: img.toString('base64') }] });
     }
     if (!req.url.endsWith('/chat/completions')) return apiError(res, 404, 'Not found', 'invalid_request_error', 'not_found');
 

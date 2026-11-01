@@ -14,7 +14,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "collect": "tsx src/workers/scheduler.ts",
     "collect:once": "tsx src/workers/collector.ts",
-    "backfill:translations": "tsx src/workers/backfill-cli.ts"
+    "backfill:translations": "tsx src/workers/backfill-cli.ts",
+    "ai:recent": "tsx src/workers/process-recent-cli.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

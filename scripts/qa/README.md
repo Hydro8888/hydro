@@ -54,3 +54,12 @@ echo 'OPENAI_BASE_URL="http://127.0.0.1:4010/v1"' >> .env   # 로컬 복제 환�
 bash set-ai-key.sh --no-reload      # 입력 창 → 확인 → .env 저장
 bash set-ai-key.sh --check
 ```
+
+## 6. 최근 기사만 AI 처리 (`npm run ai:recent`)
+```bash
+npm run ai:recent -- --dry-run     # 할 일과 예상 요청 수만 표시 (요청 0건)
+npm run ai:recent                  # 최근 30건: 제목·요약·본문 번역 + 사진 없는 기사 AI 이미지
+npm run ai:recent -- --limit=50 --no-images
+```
+이미 처리된 항목은 다시 요청하지 않으므로 재실행 비용은 0입니다. 종료 코드: 0 완료, 1 키 없음,
+2 모든 요청 실패(키 확인), 3 크레딧 부족. 로컬 검증은 가짜 서버에 `MOCK_IMAGE_FILE=<jpg>`를 주면 실제 이미지가 저장됩니다.

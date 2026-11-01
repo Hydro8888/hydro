@@ -84,3 +84,17 @@ test('generated image paths: strict names, valid for the image chain, no travers
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('generateImages reports requests, failures and billing refusals through stats', async () => {
+  const { newApiStats } = await import('../src/lib/ai-client');
+  const stats = newApiStats();
+  const client: ImageClient = {
+    images: {
+      async generate() {
+        throw Object.assign(new Error('429 You exceeded your current quota, please check your plan and billing details.'), { status: 429, code: 'insufficient_quota' });
+      },
+    },
+  };
+  await generateImages([article(), article({ originalUrl: 'u2' })], { client, force: true, pauseMs: 0, stats });
+  assert.deepEqual({ calls: stats.apiCalls, failures: stats.apiFailures, billing: stats.billingBlocked }, { calls: 1, failures: 1, billing: true });
+});

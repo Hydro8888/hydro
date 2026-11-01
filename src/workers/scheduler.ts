@@ -11,6 +11,7 @@
  *   - Disconnects Prisma and Redis cleanly on SIGTERM / SIGINT.
  */
 
+import './quiet-deprecations'; // must stay first: hides the harmless punycode warning from openai's deps
 import cron from 'node-cron';
 import { collectAll, prisma, redis } from './collector';
 

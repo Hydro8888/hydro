@@ -14,6 +14,7 @@
  * 3 the OpenAI account is out of credits.
  */
 
+import './quiet-deprecations'; // must stay first: hides the harmless punycode warning from openai's deps
 import { PrismaClient } from '@prisma/client';
 import { describeAiEndpoint, isImageGenerationEnabled, resolveImageModel, resolveTextModel } from '../lib/ai-client';
 import { parseIntParam } from '../lib/utils';

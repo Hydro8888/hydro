@@ -16,6 +16,7 @@
  * merely refuses (echo, unusable output) are reported, not treated as an outage.
  */
 
+import './quiet-deprecations'; // must stay first: hides the harmless punycode warning from openai's deps
 import { PrismaClient } from '@prisma/client';
 import { backfillTranslations, type BackfillCursor } from './backfill';
 import { countTranslationBacklog } from '../lib/translation-coverage';

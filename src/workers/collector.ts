@@ -15,6 +15,7 @@
  * Sources are processed in parallel with a concurrency limit of 3.
  */
 
+import './quiet-deprecations'; // must stay first: hides the harmless punycode warning from openai's deps
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { parseRssFeed } from './rss-parser';

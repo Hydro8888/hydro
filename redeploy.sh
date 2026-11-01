@@ -168,6 +168,12 @@ fi
 
 # ---- 5. PM2 반영 (선택된 livenews 앱만!) ----
 echo -e "${YELLOW}[5/6] PM2 반영 (--only ${ONLY_APPS})...${NC}"
+# PM2 의 reload 는 실행 모드를 바꾸지 않는다. 수집기가 cluster 모드로 떠 있으면(로그가 안 남는 상태)
+# 수집기 "하나만" 지운 뒤 아래 startOrReload 가 fork 모드로 새로 띄운다. 다른 앱은 손대지 않음.
+if [ "$DEPLOY_COLLECTOR" = "1" ] && pm2 describe "$COLLECTOR_NAME" 2>/dev/null | grep -qE "exec mode[^a-z]*cluster_mode"; then
+    echo -e "${YELLOW}      수집기가 cluster 모드 → fork 모드로 다시 시작합니다 (로그 기록 복구, livenews-collector 만)${NC}"
+    pm2 delete "$COLLECTOR_NAME" >/dev/null
+fi
 # startOrReload: 실행 중이면 무중단 reload, 없으면 start. 다른 앱은 손대지 않음.
 pm2 startOrReload ecosystem.config.js --only "$ONLY_APPS" --update-env
 pm2 save   # 현재 목록 저장만 — 어떤 프로세스도 중단하지 않음

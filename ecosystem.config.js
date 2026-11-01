@@ -20,6 +20,10 @@ module.exports = {
       script: 'node_modules/.bin/tsx',
       args: 'src/workers/scheduler.ts',
       cwd: '/home/ubuntu/livenews',
+      // fork, not cluster: tsx runs the scheduler in a CHILD process, and in
+      // cluster mode that child's output never reaches the PM2 log files
+      // (logs were empty from Apr 20 while collection kept running).
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       restart_delay: 60000,

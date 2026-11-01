@@ -60,10 +60,21 @@ const BLOCKED_IMAGE_DOMAIN_NAMES = [
   'www.chinadaily.com.cn',
 ];
 
+/** Public path of AI-generated images (served by /api/generated-image/[file]). */
+export const GENERATED_IMAGE_PATH_PREFIX = '/livenews/api/generated-image/';
+export const GENERATED_IMAGE_FILE_RE = /^[a-f0-9]{32}\.(jpg|png|webp)$/;
+
+/** True for an Article.imageUrl that points at our own stored AI-generated image. */
+export function isGeneratedImagePath(url: string | null | undefined): boolean {
+  if (typeof url !== 'string' || !url.startsWith(GENERATED_IMAGE_PATH_PREFIX)) return false;
+  return GENERATED_IMAGE_FILE_RE.test(url.slice(GENERATED_IMAGE_PATH_PREFIX.length));
+}
+
 /** Check whether a URL looks like a real article image vs. site logo/placeholder */
 export function isValidArticleImage(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim();
+  if (isGeneratedImagePath(trimmed)) return true;
   if (!trimmed || trimmed.length < 10) return false;
 
   // Check blocked patterns against full URL

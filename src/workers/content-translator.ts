@@ -13,11 +13,12 @@
 import type { TranslatableArticle } from './translator';
 import {
   chatCompletion,
-  createXaiClient,
+  createAiClient,
   newApiStats,
+  resolveTextModel,
   type ApiStats,
   type ChatClient,
-} from '../lib/xai-client';
+} from '../lib/ai-client';
 import {
   hasHangul,
   isMostlyKorean,
@@ -156,7 +157,7 @@ export async function translateLongText(text: string, opts: LongTextOptions): Pr
   try {
     const translated = await translateSegments(text, opts.maxChars ?? CONTENT_CHUNK_CHARS, 0, {
       client: opts.client,
-      model: opts.model || process.env.XAI_MODEL || 'grok-4-1-fast',
+      model: opts.model || resolveTextModel(),
       chunkPauseMs: opts.chunkPauseMs ?? 300,
       language: opts.language,
       stats: opts.stats ?? newApiStats(),
@@ -188,9 +189,9 @@ export async function translateContent(
   articles: TranslatableArticle[],
   opts: ContentTranslateOptions = {},
 ): Promise<TranslatableArticle[]> {
-  const client = opts.client === undefined ? createXaiClient('text') : opts.client;
+  const client = opts.client === undefined ? createAiClient('text') : opts.client;
   if (!client) {
-    console.warn('[content-translator] XAI_API_KEY not set — skipping content translation');
+    console.warn('[content-translator] OPENAI_API_KEY not set — skipping content translation');
     return articles;
   }
 

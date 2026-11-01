@@ -9,8 +9,9 @@
  */
 
 import prisma from '@/lib/db';
-import { xaiTextBreaker, xaiImageBreaker } from '@/lib/circuit-breaker';
+import { aiTextBreaker, aiImageBreaker } from '@/lib/circuit-breaker';
 import { countTranslationBacklog, type TranslationBacklog } from '@/lib/translation-coverage';
+import { getAiConfig, isImageGenerationEnabled, resolveImageModel, resolveTextModel } from '@/lib/ai-client';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -95,9 +96,17 @@ export async function GET() {
         })),
       },
       translation,
+      // Which AI is configured — model names and booleans only, never the key
+      ai: {
+        provider: 'openai',
+        model: resolveTextModel(),
+        keyConfigured: getAiConfig() !== null,
+        imageGeneration: isImageGenerationEnabled(),
+        imageModel: resolveImageModel(),
+      },
       circuitBreakers: {
-        xaiText: xaiTextBreaker.getState(),
-        xaiImage: xaiImageBreaker.getState(),
+        aiText: aiTextBreaker.getState(),
+        aiImage: aiImageBreaker.getState(),
       },
     });
   } catch (err) {
@@ -109,8 +118,8 @@ export async function GET() {
         latencyMs: Date.now() - startMs,
         error: 'database_unavailable',
         circuitBreakers: {
-          xaiText: xaiTextBreaker.getState(),
-          xaiImage: xaiImageBreaker.getState(),
+          aiText: aiTextBreaker.getState(),
+          aiImage: aiImageBreaker.getState(),
         },
       },
       { status: 503 },

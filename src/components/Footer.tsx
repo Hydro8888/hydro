@@ -158,7 +158,7 @@ function SiteFooter({ pathname }: { pathname: string }) {
             <div className="flex items-start gap-2 p-2.5 rounded-card bg-accent-blue/5 border border-accent-blue/10">
               <AiIcon className="h-4 w-4 text-accent-blue shrink-0 mt-0.5" />
               <p className="text-caption text-accent-blue/80 leading-relaxed">
-                xAI Grok 기반 자동 번역 · 카테고리 분류 · 요약 시스템 운영 중
+                OpenAI GPT 기반 자동 번역 · 카테고리 분류 · 요약 시스템 운영 중
               </p>
             </div>
           </div>

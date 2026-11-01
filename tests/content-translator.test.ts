@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { translateLongText, translateContent } from '../src/workers/content-translator';
 import { countParagraphs } from '../src/workers/translation-text';
-import type { ChatClient } from '../src/lib/xai-client';
+import type { ChatClient } from '../src/lib/ai-client';
 
 const EN_PARA = [
   'The Federal Reserve said in a statement on Wednesday that inflation was cooling faster than many economists had predicted, opening the door to rate cuts later this year.',

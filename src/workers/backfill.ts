@@ -33,7 +33,7 @@ import {
   isUntranslatedTitle,
 } from './translation-text';
 import { countTranslationBacklog, selectBacklogIds } from '../lib/translation-coverage';
-import { createXaiClient, newApiStats, type ChatClient } from '../lib/xai-client';
+import { createAiClient, newApiStats, type ChatClient } from '../lib/ai-client';
 
 export interface BackfillCursor {
   /** next title/summary page starts below this id; null = phase exhausted */
@@ -84,7 +84,7 @@ export interface BackfillOptions {
   cursor?: Partial<BackfillCursor>;
   /** Pause between bodies (default 500ms). */
   articlePauseMs?: number;
-  /** Inject a chat client (tests). Default: createXaiClient('text'). */
+  /** Inject a chat client (tests). Default: createAiClient('text'). */
   client?: ChatClient | null;
 }
 
@@ -215,9 +215,9 @@ export async function backfillTranslations(
   const wantsBodies = contentLimit > 0 && cursor.contentBeforeId !== null;
   const wantsRepair = repairLimit > 0 && cursor.repairBeforeId !== null;
   const client =
-    wantsBodies || wantsRepair ? (opts.client === undefined ? createXaiClient('text') : opts.client) : null;
+    wantsBodies || wantsRepair ? (opts.client === undefined ? createAiClient('text') : opts.client) : null;
   if ((wantsBodies || wantsRepair) && !client) {
-    console.warn('[backfill] XAI_API_KEY not set — skipping body translation');
+    console.warn('[backfill] OPENAI_API_KEY not set — skipping body translation');
   }
 
   // ── Phase 2: untranslated bodies ──────────────────────────────────────────

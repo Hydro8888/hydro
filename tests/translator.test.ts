@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { translateTitleBatch, translateArticles } from '../src/workers/translator';
-import { newApiStats, type ChatClient } from '../src/lib/xai-client';
+import { newApiStats, type ChatClient } from '../src/lib/ai-client';
 
 interface Call {
   titles: string[];

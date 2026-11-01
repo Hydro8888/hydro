@@ -34,12 +34,23 @@ node scripts/qa/ui-audit.js after-fix   # 문제 0건이면 "ALL CLEAN", 아니�
 ## 4. 번역 파이프라인 E2E (API 키 없이)
 ```bash
 node scripts/qa/mock-llm.js 4010 &
-XAI_API_KEY=test XAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
+OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
 # 재실행(멱등성): 요청 거의 0건, "Truncated bodies to repair: 0"
-XAI_API_KEY=test XAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
+OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:4010/v1 npm run backfill:translations -- --content --repair-truncated
 curl -s http://127.0.0.1:4000/livenews/api/admin/health   # translation{untranslatedTitles,…}
 ```
-종료 코드: 0 = 완료, 2 = 한 라운드의 요청이 전부 HTTP 단계에서 실패(API 장애 — 진단 메시지에 엔드포인트 표시),
-1 = 설정 오류. 모델이 거부한 행(echo 등)은 장애로 보지 않고 미번역(NULL)으로 남깁니다.
-가짜 서버는 제목 echo(`ECHO`), JSON 잘림(`TRUNCJSON`), 토큰 한도 잘림(`LENGTHCUT`)을 재현합니다.
-요청 로그: `qa-out/mock-llm-requests.jsonl`.
+종료 코드: 0 = 완료, 1 = 설정 오류(키 없음 등), 2 = 한 라운드의 요청이 전부 HTTP 단계에서 실패(API 장애·잘못된 키 —
+진단 메시지에 엔드포인트와 마지막 오류 표시), 3 = OpenAI 크레딧 부족(`insufficient_quota`). 모델이 거부한 행(echo 등)은
+장애로 보지 않고 미번역(NULL)으로 남깁니다.
+가짜 서버는 실제 OpenAI처럼 `max_tokens`를 거부하고 OpenAI 오류 형식으로 답합니다. 제목 echo(`ECHO`),
+JSON 잘림(`TRUNCJSON`), 토큰 한도 잘림(`LENGTHCUT`)을 재현하고, 환경변수로 장애를 흉내 냅니다:
+`MOCK_BILLING=1`(크레딧 부족 429), `MOCK_VALID_KEY=sk-…`(다른 키는 401), `MOCK_REJECT_PARAMS=temperature`(파라미터 거부).
+요청 로그: `qa-out/mock-llm-requests.jsonl` (`MOCK_LOG_DIR`로 변경).
+
+## 5. API 키 입력 창 테스트
+```bash
+MOCK_VALID_KEY=sk-proj-test1234567890abcdefgh node scripts/qa/mock-llm.js 4010 &
+echo 'OPENAI_BASE_URL="http://127.0.0.1:4010/v1"' >> .env   # 로컬 복제 환경의 .env 에서만
+bash set-ai-key.sh --no-reload      # 입력 창 → 확인 → .env 저장
+bash set-ai-key.sh --check
+```

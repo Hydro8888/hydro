@@ -19,7 +19,7 @@
 import { PrismaClient } from '@prisma/client';
 import { backfillTranslations, type BackfillCursor } from './backfill';
 import { countTranslationBacklog } from '../lib/translation-coverage';
-import { describeXaiEndpoint } from '../lib/xai-client';
+import { describeAiEndpoint, resolveTextModel } from '../lib/ai-client';
 import { parseIntParam } from '../lib/utils';
 
 interface CliOptions {
@@ -68,12 +68,12 @@ function parseArgs(argv: string[]): CliOptions {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const prisma = new PrismaClient();
-  const model = process.env.XAI_MODEL || 'grok-4-1-fast';
-  const endpoint = describeXaiEndpoint();
+  const model = resolveTextModel();
+  const endpoint = describeAiEndpoint();
 
-  if (!process.env.XAI_API_KEY?.trim()) {
-    console.error('[backfill-cli] ✗ XAI_API_KEY is not set. Translation cannot run.');
-    console.error('               Set XAI_API_KEY in .env and retry.');
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    console.error('[backfill-cli] ✗ OPENAI_API_KEY is not set. Translation cannot run.');
+    console.error('               Enter it with:  bash set-ai-key.sh   (saves it to .env)');
     await prisma.$disconnect();
     process.exit(1);
   }
@@ -157,16 +157,17 @@ async function main() {
         console.error(`[backfill-cli] ✗ All ${stats.apiCalls} translation request(s) in this round failed.`);
         if (stats.apiLastError) console.error(`               Last API error: ${stats.apiLastError}`);
         if (stats.billingBlocked) {
-          console.error('               ➜ The xAI account is out of credits or over its monthly spending limit.');
-          console.error('                 Add credits / raise the limit in the xAI console, then rerun this command.');
+          console.error('               ➜ The OpenAI account has no credits left or hit its usage limit.');
+          console.error('                 Add credits / raise the limit at https://platform.openai.com/settings/organization/billing');
+          console.error('                 then rerun this command.');
           console.error('                 (Nothing was changed in the database.)');
           process.exitCode = 3;
           break;
         }
         console.error('               The translation API is not reachable or rejects requests. Check:');
-        console.error('               1) XAI_API_KEY is valid and has quota');
-        console.error(`               2) XAI_MODEL ("${model}") is a real model id`);
-        console.error(`               3) Network egress to ${endpoint} is allowed (XAI_BASE_URL)`);
+        console.error('               1) OPENAI_API_KEY is valid (re-enter it: bash set-ai-key.sh)');
+        console.error(`               2) OPENAI_MODEL ("${model}") is available to this API key`);
+        console.error(`               3) Network egress to ${endpoint} is allowed (OPENAI_BASE_URL)`);
         process.exitCode = 2;
         break;
       }

@@ -1,6 +1,6 @@
 /**
  * circuit-breaker.ts
- * Circuit breaker pattern for external API calls (e.g. xAI).
+ * Circuit breaker pattern for external API calls (e.g. the OpenAI API).
  * Prevents cascading failures by short-circuiting when an API is down.
  *
  * Wrap ONLY the network call with `execute` — response parsing / validation
@@ -105,8 +105,8 @@ export class CircuitBreaker {
 // Shared singleton instances — one per external API
 // ---------------------------------------------------------------------------
 
-/** Circuit breaker for xAI text API (translations, categorization) */
-export const xaiTextBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 5 * 60 * 1000 });
+/** Circuit breaker for the OpenAI text API (translations, categorization) */
+export const aiTextBreaker = new CircuitBreaker({ failureThreshold: 3, resetTimeout: 5 * 60 * 1000 });
 
-/** Circuit breaker for xAI image generation API */
-export const xaiImageBreaker = new CircuitBreaker({ failureThreshold: 2, resetTimeout: 10 * 60 * 1000 });
+/** Circuit breaker for the OpenAI image generation API */
+export const aiImageBreaker = new CircuitBreaker({ failureThreshold: 2, resetTimeout: 10 * 60 * 1000 });

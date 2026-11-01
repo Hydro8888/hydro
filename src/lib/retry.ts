@@ -53,7 +53,23 @@ const RETRYABLE_ERROR_CODES = new Set([
 const RETRYABLE_MESSAGE_RE = /fetch failed|socket hang up|network error|connection (?:error|reset|refused)|timed? ?out/i;
 
 /**
+ * True for errors that mean "account out of credits / over its spending limit".
+ * OpenAI answers 429 with code `insufficient_quota` ("You exceeded your current
+ * quota, please check your plan and billing details"); others use 402 or a
+ * credits / spending-limit message. Retrying cannot help.
+ */
+export function isBillingError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { status?: unknown; code?: unknown; message?: unknown };
+  if (e.status === 402) return true;
+  if (e.code === 'insufficient_quota' || e.code === 'billing_hard_limit_reached') return true;
+  const msg = typeof e.message === 'string' ? e.message : '';
+  return /credit|spending limit|insufficient[_ ]quota|exceeded your current quota|billing/i.test(msg);
+}
+
+/**
  * Default retry policy.
+ *  - billing / quota refusal → never (429 insufficient_quota looks like a rate limit but is not)
  *  - CircuitOpenError → never (the breaker already decided the API is down)
  *  - HTTP status present → only 408 / 409 / 429 / 5xx (400/401/403/404/422 are permanent)
  *  - no status: network / timeout errors → yes; anything else (programming
@@ -64,6 +80,7 @@ export function isRetryableError(err: unknown): boolean {
   if (typeof err !== 'object' || err === null) return false;
   const e = err as { name?: unknown; code?: unknown; message?: unknown; cause?: unknown };
   if (e.name === 'CircuitOpenError') return false;
+  if (isBillingError(err)) return false;
 
   const status = getErrorStatus(err);
   if (status !== undefined) {

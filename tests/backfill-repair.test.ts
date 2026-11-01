@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { backfillTranslations } from '../src/workers/backfill';
 import { legacyPrefixParagraphs } from '../src/workers/translation-text';
-import type { ChatClient } from '../src/lib/xai-client';
+import type { ChatClient } from '../src/lib/ai-client';
 
 const EN = 'Market analysts said the decision could mark a turning point for the broader economy, although risks remain elevated across several sectors.';
 const orig = Array.from({ length: 60 }, () => EN).join('\n');

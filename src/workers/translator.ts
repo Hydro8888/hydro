@@ -1,13 +1,13 @@
 /**
  * translator.ts
- * Phase 1: Translates and categorizes article titles using xAI Grok.
+ * Phase 1: Translates and categorizes article titles using the OpenAI API (OPENAI_MODEL, default gpt-6.1-terra).
  * Processes articles in chunks of 10 to stay within token limits.
  *
  * Phase 2 (content translation) → content-translator.ts
  * Phase 3 (image generation)    → image-generator.ts
  *
  * Failure handling (the honest-data rule: never save an incomplete translation):
- *  - Only the HTTP call goes through retry + circuit breaker (xai-client.chatCompletion).
+ *  - Only the HTTP call goes through retry + circuit breaker (ai-client.chatCompletion).
  *  - The response is salvaged object by object (translation-text.salvageTitleItems);
  *    a titleKo is accepted only when it contains Hangul and differs from the original.
  *  - Items the model dropped / echoed / cut off are re-requested in smaller
@@ -19,11 +19,12 @@
 import type { NormalizedArticle } from './normalizer';
 import {
   chatCompletion,
-  createXaiClient,
+  createAiClient,
   newApiStats,
+  resolveTextModel,
   type ApiStats,
   type ChatClient,
-} from '../lib/xai-client';
+} from '../lib/ai-client';
 import {
   hasHangul,
   isKoreanLanguage,
@@ -61,7 +62,7 @@ export function looksTranslated(titleKo: string, original: string): boolean {
 }
 
 export interface TitleBatchOptions {
-  /** Inject a client (tests). Default: createXaiClient('text'). */
+  /** Inject a client (tests). Default: createAiClient('text'). */
   client?: ChatClient | null;
   model?: string;
   /** Accumulates { apiCalls, apiFailures } across calls (backfill diagnostics). */
@@ -190,15 +191,15 @@ export async function translateTitleBatch(
 ): Promise<TranslationResult[]> {
   if (titles.length === 0) return [];
 
-  const client = opts.client === undefined ? createXaiClient('text') : opts.client;
+  const client = opts.client === undefined ? createAiClient('text') : opts.client;
   if (!client) {
-    console.warn('[translator] XAI_API_KEY not set — skipping translation');
+    console.warn('[translator] OPENAI_API_KEY not set — skipping translation');
     return titles.map(() => ({ ...EMPTY_RESULT, failure: 'http' as const }));
   }
 
   const ctx: ChunkContext = {
     client,
-    model: opts.model || process.env.XAI_MODEL || 'grok-4-1-fast',
+    model: opts.model || resolveTextModel(),
     stats: opts.stats ?? newApiStats(),
   };
   const pauseMs = opts.pauseMs ?? 300;

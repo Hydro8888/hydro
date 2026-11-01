@@ -11,6 +11,7 @@
 #    bash redeploy.sh --frontend --force                         # 변경 없어도 강제 재배포
 #    bash redeploy.sh --frontend --backfill                      # 배포 후 미번역 제목·영어 echo 제목·요약 결손 일괄 해소
 #    (본문 미번역 + 6000자 잘림 복구는 비용이 커서 수동: npm run backfill:translations -- --content --repair-truncated)
+#    bash set-ai-key.sh                                          # OpenAI API 키 입력 창 (키 변경 시)
 #
 #  ┌─────────────────────────────────────────────────────────────────────┐
 #  │  ★ 다른 서비스 영향 없음 보장                                          │
@@ -152,6 +153,17 @@ if [ "$DEPLOY_WEB" = "1" ]; then
     fi
 else
     echo -e "${YELLOW}[4/6] 수집기만 배포 → Next.js 빌드 생략${NC}"
+fi
+
+# ---- 4.5 OpenAI API 키 확인 (없으면 입력 창) ----
+if ! grep -qE '^[[:space:]]*(export[[:space:]]+)?OPENAI_API_KEY=["'"'"']?sk-' .env 2>/dev/null; then
+    if [ -t 0 ] && [ -t 1 ]; then
+        echo -e "${YELLOW}      .env 에 OpenAI API 키가 없습니다 → 입력 창을 엽니다${NC}"
+        bash "$DEPLOY_PATH/set-ai-key.sh" --no-reload || \
+            echo -e "${YELLOW}      키 입력을 건너뛰었습니다. 번역은 키를 넣기 전까지 멈춰 있습니다 → bash set-ai-key.sh${NC}"
+    else
+        echo -e "${YELLOW}      ⚠ OpenAI API 키가 없습니다. 배포 후 실행: bash set-ai-key.sh${NC}"
+    fi
 fi
 
 # ---- 5. PM2 반영 (선택된 livenews 앱만!) ----

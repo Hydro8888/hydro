@@ -11,6 +11,7 @@
  */
 
 import type { TranslatableArticle } from './translator';
+import { reflowParagraphs } from '../lib/paragraphs';
 import {
   chatCompletion,
   createAiClient,
@@ -164,7 +165,8 @@ export async function translateLongText(text: string, opts: LongTextOptions): Pr
       first: { value: true },
     });
     if (!translated || !hasHangul(translated)) return { ok: false, reason: 'no Korean output', http: false };
-    return { ok: true, text: translated };
+    // A body translated as one block (source had no paragraphs) is split at sentence ends
+    return { ok: true, text: reflowParagraphs(translated) };
   } catch (err) {
     if (err instanceof ChunkFailure) return { ok: false, reason: err.message, http: err.http };
     return { ok: false, reason: err instanceof Error ? err.message : String(err), http: false };

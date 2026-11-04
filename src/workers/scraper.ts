@@ -4,6 +4,7 @@
  * Enhanced with JSON-LD extraction and site-specific patterns.
  */
 
+import { reflowParagraphs } from '../lib/paragraphs';
 import type { NormalizedArticle } from './normalizer';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
@@ -153,6 +154,17 @@ function extractOgImage(html: string): string {
 }
 
 /**
+ * Final shape of a scraped body: HTML left in a JSON-LD articleBody is turned
+ * into lines, whitespace is normalised per line, and paragraph-less bodies (one
+ * huge line) are split at sentence boundaries — the translation keeps this shape.
+ */
+function toReadableParagraphs(content: string): string {
+  if (!content) return content;
+  const text = /<\/?(?:p|br|div)\b/i.test(content) ? stripHtml(content) : content;
+  return reflowParagraphs(text.replace(/[ \t\f\v\r]+/g, ' ')).slice(0, 8000);
+}
+
+/**
  * Extract article body from HTML page using multiple strategies.
  */
 function extractArticleContent(html: string): string {
@@ -255,7 +267,7 @@ export async function fetchArticlePage(url: string): Promise<ScrapedPage> {
 
     const html = await res.text();
     return {
-      content: extractArticleContent(html),
+      content: toReadableParagraphs(extractArticleContent(html)),
       imageUrl: normalizeImageUrl(extractOgImage(html)) || '',
     };
   } catch (e) {

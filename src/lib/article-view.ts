@@ -1,6 +1,7 @@
 // How an article's (possibly partial) translation is presented (slice S4).
 // Pure — no React / Prisma / next imports — unit-tested in tests/article-view.test.ts.
 import { getDisplayTitle, toLangTag } from './utils';
+import { reflowParagraphList } from './paragraphs';
 
 export type BodyMode = 'translated' | 'summary+original' | 'original' | 'summary' | 'empty';
 
@@ -18,13 +19,14 @@ export function languageLabel(lang: string | null | undefined): string {
   return Object.prototype.hasOwnProperty.call(LANGUAGE_LABELS, primary) ? LANGUAGE_LABELS[primary] : '원문';
 }
 
-/** Splits stored text into paragraphs: '\n'-separated, trimmed, blank lines dropped. */
+/**
+ * Splits stored text into paragraphs: '\n'-separated, trimmed, blank lines dropped,
+ * and over-long paragraphs (whole articles stored as one block) split at sentence
+ * boundaries so the page never shows a wall of text.
+ */
 export function splitParagraphs(text: string | null | undefined): string[] {
   if (typeof text !== 'string') return [];
-  return text
-    .split('\n')
-    .map((p) => p.trim())
-    .filter((p) => p !== '');
+  return reflowParagraphList(text.split('\n'));
 }
 
 const nonBlank = (v: string | null | undefined): string | null =>

@@ -3,6 +3,7 @@
  * Transforms a raw RSS feed item into a shape that matches the Prisma Article model.
  */
 
+import { reflowParagraphs } from '../lib/paragraphs';
 import type { RawFeedItem } from './rss-parser';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 import { normalizeLanguageTag } from './translation-text';
@@ -50,6 +51,28 @@ function stripHtml(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Article body HTML → plain text that KEEPS paragraphs ('\n' between blocks).
+ * stripHtml() collapses every newline, which stored whole articles as one block;
+ * long blocks are additionally split at sentence boundaries.
+ */
+export function htmlToParagraphs(html: string): string {
+  const text = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|li|h[1-6]|blockquote|section|article|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t\f\v\r]+/g, ' ');
+  return reflowParagraphs(text);
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +168,7 @@ export function normalizeArticle(
   // Extract and clean content text (max 8000 chars — scraper may replace with full page content)
   let contentOriginal: string | null = null;
   if (raw.content) {
-    const cleaned = stripHtml(raw.content);
+    const cleaned = htmlToParagraphs(raw.content);
     if (cleaned.length > 30) { // Only save meaningful content
       contentOriginal = cleaned.slice(0, 8000);
     }

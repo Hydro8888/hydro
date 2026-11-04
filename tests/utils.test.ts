@@ -16,6 +16,7 @@ import {
   parseIntParam,
   parsePage,
   proxyImageUrl,
+  DEFAULT_IMAGE_WIDTH,
   timeAgo,
   toIsoDateTime,
   toKstParts,
@@ -354,7 +355,7 @@ describe('getArticleImageSources', () => {
   test('valid original → [proxied original, Unsplash fallback, placeholder]', () => {
     const article = { id: 7, imageUrl: 'https://cdn.example.com/news/2026/photo.jpg', categoryPrimary: 'economy' };
     assert.deepEqual(getArticleImageSources(article), [
-      proxyImageUrl(normalizeImageUrl(article.imageUrl)!),
+      proxyImageUrl(normalizeImageUrl(article.imageUrl)!, DEFAULT_IMAGE_WIDTH),
       getDefaultImage('economy', 7),
       IMAGE_PLACEHOLDER_SRC,
     ]);
@@ -369,10 +370,10 @@ describe('getArticleImageSources', () => {
 
   test('protocol-relative and http originals are proxied as https', () => {
     const rel = getArticleImageSources({ id: 1, imageUrl: '//cdn.example.com/photos/abc.jpg', categoryPrimary: null });
-    assert.equal(rel[0], proxyImageUrl('https://cdn.example.com/photos/abc.jpg'));
-    assert.equal(rel[0], '/livenews/api/img?url=' + encodeURIComponent('https://cdn.example.com/photos/abc.jpg'));
+    assert.equal(rel[0], proxyImageUrl('https://cdn.example.com/photos/abc.jpg', DEFAULT_IMAGE_WIDTH));
+    assert.equal(rel[0], '/livenews/api/img/w960.webp?url=' + encodeURIComponent('https://cdn.example.com/photos/abc.jpg'));
     const http = getArticleImageSources({ id: 1, imageUrl: 'http://x.com/a.jpg' });
-    assert.equal(http[0], '/livenews/api/img?url=' + encodeURIComponent('https://x.com/a.jpg'));
+    assert.equal(http[0], '/livenews/api/img/w960.webp?url=' + encodeURIComponent('https://x.com/a.jpg'));
   });
 
   test('last entry is always the placeholder, no duplicates, deterministic', () => {

@@ -134,11 +134,32 @@ export function normalizeImageUrl(url: string | null | undefined): string | null
  * Only proxies external URLs — data URIs and same-origin paths ('/x.png') pass through.
  * Protocol-relative URLs ('//cdn/x.jpg') are external: they are upgraded to https and proxied.
  */
-export function proxyImageUrl(url: string): string {
+export function proxyImageUrl(url: string, width?: number): string {
   if (!url) return url;
-  if (url.startsWith('//')) return `/livenews/api/img?url=${encodeURIComponent('https:' + url)}`;
-  if (url.startsWith('data:') || url.startsWith('/')) return url;
-  return `/livenews/api/img?url=${encodeURIComponent(url)}`;
+  if (url.startsWith('data:') || (url.startsWith('/') && !url.startsWith('//'))) return url;
+  const absolute = url.startsWith('//') ? 'https:' + url : url;
+  if (width) return `/livenews/api/img/w${width}.webp?url=${encodeURIComponent(absolute)}`;
+  return `/livenews/api/img?url=${encodeURIComponent(absolute)}`;
+}
+
+/** Widths the image proxy produces (resized + WebP + cached); the browser picks one via srcset. */
+export const IMAGE_WIDTHS = [320, 480, 640, 960, 1280, 1600] as const;
+export const DEFAULT_IMAGE_WIDTH = 960;
+const UNSPLASH_WIDTHS = [480, 800, 1200] as const;
+
+/**
+ * srcset for an image source from getArticleImageSources: every proxy width for a
+ * proxied original, a few widths for an Unsplash fallback; undefined otherwise
+ * (stored AI images, the inline placeholder).
+ */
+export function imageSrcSet(src: string): string | undefined {
+  if (/^\/livenews\/api\/img\/w\d+\.webp\?url=/.test(src)) {
+    return IMAGE_WIDTHS.map((w) => `${src.replace(/\/w\d+\.webp\?/, `/w${w}.webp?`)} ${w}w`).join(', ');
+  }
+  if (src.startsWith('https://images.unsplash.com/') && /[?&]w=\d+/.test(src)) {
+    return UNSPLASH_WIDTHS.map((w) => `${src.replace(/([?&])w=\d+/, `$1w=${w}`)} ${w}w`).join(', ');
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -463,7 +484,7 @@ export function getArticleImageSources(article: {
 }): string[] {
   const sources: string[] = [];
   const original = normalizeImageUrl(article.imageUrl);
-  if (original && isValidArticleImage(original)) sources.push(proxyImageUrl(original));
+  if (original && isValidArticleImage(original)) sources.push(proxyImageUrl(original, DEFAULT_IMAGE_WIDTH));
   sources.push(getDefaultImage(article.categoryPrimary, article.id));
   sources.push(IMAGE_PLACEHOLDER_SRC);
   return sources.filter((src, i) => sources.indexOf(src) === i);

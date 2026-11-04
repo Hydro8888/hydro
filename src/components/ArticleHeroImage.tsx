@@ -42,7 +42,8 @@ export default function ArticleHeroImage({ sources, src, fallback, alt, category
       <ArticleImage
         sources={list}
         alt={alt ?? ''}
-        loading="eager"
+        priority
+        sizes="(min-width: 920px) 896px, 100vw"
         onSettled={setNoImage}
         className={cn('absolute inset-0 h-full w-full', noImage ? 'object-contain' : 'object-cover')}
       />

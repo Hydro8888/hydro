@@ -85,7 +85,7 @@ export default async function HomePage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* Main hero + breaking list below */}
               <div className="lg:col-span-2 flex flex-col gap-5">
-                <NewsCardLarge article={hero} />
+                <NewsCardLarge article={hero} priority />
 
                 {/* Latest headlines below hero (articles 4–11) — these are not repeated
                     in the category / latest grids further down. */}

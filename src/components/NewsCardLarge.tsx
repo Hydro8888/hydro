@@ -6,7 +6,7 @@ import type { Article } from '@/lib/types';
 import BookmarkButton from './BookmarkButton';
 import ArticleImage from './ArticleImage';
 
-export default function NewsCardLarge({ article }: { article: Article }) {
+export default function NewsCardLarge({ article, priority = false }: { article: Article; /** above the fold: load first */ priority?: boolean }) {
   const t = getDisplayTitle(article);
   const summary = article.summaryKo;
   const catStyle = getCategoryStyle(article.categoryPrimary || 'general');
@@ -28,6 +28,8 @@ export default function NewsCardLarge({ article }: { article: Article }) {
         >
           <ArticleImage
             sources={sources}
+            sizes="(min-width: 1024px) 840px, 100vw"
+            priority={priority}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {/* Gradient overlay from dark surface */}

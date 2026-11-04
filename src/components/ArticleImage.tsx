@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, imageSrcSet } from '@/lib/utils';
 import { IMAGE_PLACEHOLDER_SRC } from '@/lib/constants';
 import { nextImageIndex, resolveImageSources } from '@/lib/image-chain';
 
@@ -13,6 +13,10 @@ interface ArticleImageProps {
   /** Sizing is the parent's job, e.g. 'absolute inset-0 h-full w-full object-cover' inside a relative box. */
   className?: string;
   loading?: 'lazy' | 'eager';
+  /** Rendered width hint for srcset, e.g. '(min-width: 1024px) 33vw, 100vw'. Default 100vw. */
+  sizes?: string;
+  /** Above-the-fold image: load eagerly with high fetch priority. */
+  priority?: boolean;
   /** Called once the chain settles: true = ended on the placeholder, false = a real image loaded. */
   onSettled?: (isPlaceholder: boolean) => void;
 }
@@ -24,12 +28,23 @@ interface ArticleImageProps {
  * `complete && naturalWidth === 0` after mount. The <img> carries `data-placeholder` when it
  * shows the placeholder.
  */
-export default function ArticleImage({ sources, alt = '', className, loading = 'lazy', onSettled }: ArticleImageProps) {
+export default function ArticleImage({ sources, alt = '', className, loading = 'lazy', sizes = '100vw', priority = false, onSettled }: ArticleImageProps) {
   const list = resolveImageSources({ sources });
   // A new source list (e.g. the same instance reused for another article) restarts the chain.
   // The placeholder data URI is always the last entry, so it is left out of the key.
   const key = list.slice(0, -1).join('\n');
-  return <ImageChain key={key} list={list} alt={alt} className={className} loading={loading} onSettled={onSettled} />;
+  return (
+    <ImageChain
+      key={key}
+      list={list}
+      alt={alt}
+      className={className}
+      loading={priority ? 'eager' : loading}
+      sizes={sizes}
+      priority={priority}
+      onSettled={onSettled}
+    />
+  );
 }
 
 function ImageChain({
@@ -37,12 +52,16 @@ function ImageChain({
   alt,
   className,
   loading,
+  sizes,
+  priority,
   onSettled,
 }: {
   list: string[];
   alt: string;
   className?: string;
   loading: 'lazy' | 'eager';
+  sizes: string;
+  priority: boolean;
   onSettled?: (isPlaceholder: boolean) => void;
 }) {
   const [idx, setIdx] = useState(0);
@@ -51,6 +70,9 @@ function ImageChain({
   settledRef.current = onSettled;
   const src = list[Math.min(idx, list.length - 1)];
   const isPlaceholder = src === IMAGE_PLACEHOLDER_SRC;
+  const srcSet = isPlaceholder ? undefined : imageSrcSet(src);
+  // React 18 has no fetchPriority prop; the lowercase attribute passes through to the DOM.
+  const priorityAttr = priority ? ({ fetchpriority: 'high' } as Record<string, string>) : {};
   const advance = () => setIdx((i) => nextImageIndex(i, list.length));
 
   useEffect(() => {
@@ -72,6 +94,9 @@ function ImageChain({
     <img
       ref={ref}
       src={src}
+      srcSet={srcSet}
+      sizes={srcSet ? sizes : undefined}
+      {...priorityAttr}
       alt={alt}
       loading={loading}
       decoding="async"

@@ -2,6 +2,7 @@
 // Pure — no React / Prisma / next imports — unit-tested in tests/article-view.test.ts.
 import { getDisplayTitle, toLangTag } from './utils';
 import { reflowParagraphList } from './paragraphs';
+import { isExcerptBody } from './excerpt';
 
 export type BodyMode = 'translated' | 'summary+original' | 'original' | 'summary' | 'empty';
 
@@ -56,6 +57,12 @@ export interface ArticleView {
   originalParagraphs: string[];
   originalLang: string | undefined;
   originalLabel: string;
+  /**
+   * The stored original is only the publisher's teaser (feed excerpt ending in
+   * "…", or too short for an article) — the page says so instead of passing
+   * it off as the full story.
+   */
+  isExcerpt: boolean;
 }
 
 export function getArticleView(a: ArticleViewInput): ArticleView {
@@ -83,5 +90,6 @@ export function getArticleView(a: ArticleViewInput): ArticleView {
     originalParagraphs: splitParagraphs(contentOriginal),
     originalLang,
     originalLabel: languageLabel(a.language),
+    isExcerpt: contentOriginal !== null && isExcerptBody(contentOriginal),
   };
 }

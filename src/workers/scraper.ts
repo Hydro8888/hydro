@@ -5,6 +5,7 @@
  */
 
 import { reflowParagraphs } from '../lib/paragraphs';
+import { MAX_ARTICLE_CHARS, capAtParagraph, extractJsonLdBody, extractReadableText, shouldReplaceBody } from './article-extract';
 import type { NormalizedArticle } from './normalizer';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 
@@ -39,48 +40,6 @@ function stripHtml(html: string): string {
     .filter(l => l.length > 15)
     .join('\n')
     .trim();
-}
-
-/**
- * Extract article body from JSON-LD structured data.
- * Most modern news sites embed article content in JSON-LD.
- */
-function extractFromJsonLd(html: string): string {
-  const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match;
-  let bestContent = '';
-  while ((match = jsonLdRegex.exec(html)) !== null) {
-    try {
-      const data = JSON.parse(match[1]);
-      const items = Array.isArray(data) ? data : [data];
-
-      const checkNode = (node: Record<string, unknown>) => {
-        if (!node || typeof node !== 'object') return;
-        const type = String(node['@type'] || '');
-        if (!/Article|NewsArticle|ReportageNewsArticle|BlogPosting|WebPage|Report/i.test(type)) return;
-
-        // Try multiple content fields in priority order
-        const fields = ['articleBody', 'text', 'description', 'abstract'];
-        for (const field of fields) {
-          const val = node[field];
-          if (typeof val === 'string' && val.length > bestContent.length && val.length > 50) {
-            bestContent = val.slice(0, 8000);
-          }
-        }
-      };
-
-      for (const item of items) {
-        checkNode(item as Record<string, unknown>);
-        // Check @graph structure
-        if (item['@graph'] && Array.isArray(item['@graph'])) {
-          for (const node of item['@graph']) {
-            checkNode(node as Record<string, unknown>);
-          }
-        }
-      }
-    } catch { /* Invalid JSON, skip */ }
-  }
-  return bestContent;
 }
 
 /**
@@ -161,19 +120,34 @@ function extractOgImage(html: string): string {
 function toReadableParagraphs(content: string): string {
   if (!content) return content;
   const text = /<\/?(?:p|br|div)\b/i.test(content) ? stripHtml(content) : content;
-  return reflowParagraphs(text.replace(/[ \t\f\v\r]+/g, ' ')).slice(0, 8000);
+  return capAtParagraph(reflowParagraphs(text.replace(/[ \t\f\v\r]+/g, ' ')), MAX_ARTICLE_CHARS);
 }
 
 /**
- * Extract article body from HTML page using multiple strategies.
+ * Full article text from a page:
+ *   1. publisher's JSON-LD articleBody when it is about as complete as the page text
+ *   2. Mozilla Readability (main article content, paragraphs kept)
+ *   3. the old regex strategies, as a last resort
  */
-function extractArticleContent(html: string): string {
-  // Strategy 1: JSON-LD structured data (most reliable)
-  const jsonLdContent = extractFromJsonLd(html);
-  if (jsonLdContent.length > 50) {
-    console.log(`[scraper] Got content from JSON-LD (${jsonLdContent.length} chars)`);
-    return jsonLdContent;
+export function extractArticleContent(html: string): string {
+  const readable = extractReadableText(html);
+  const jsonLd = extractJsonLdBody(html);
+  // A single-block JSON-LD body loses the paragraphs; the page text of about the same length keeps them
+  const readableKeepsParagraphs = readable.split('\n').length >= 3 && readable.length >= jsonLd.length * 0.8;
+  if (jsonLd.length >= 500 && jsonLd.length >= readable.length * 0.8 && !(readableKeepsParagraphs && !jsonLd.includes('\n'))) {
+    console.log(`[scraper] Got content from JSON-LD articleBody (${jsonLd.length} chars)`);
+    return jsonLd;
   }
+  if (readable.length >= 200) {
+    console.log(`[scraper] Got content from Readability (${readable.length} chars)`);
+    return readable;
+  }
+  const legacy = legacyExtractArticleContent(html);
+  return [jsonLd, readable, legacy].reduce((a, b) => (b.length > a.length ? b : a), '');
+}
+
+/** The previous regex strategies (site patterns, all <p>, meta description). */
+function legacyExtractArticleContent(html: string): string {
 
   // Strategy 2: Site-specific and semantic HTML patterns
   const patterns = [
@@ -203,7 +177,7 @@ function extractArticleContent(html: string): string {
       const text = stripHtml(match[1]);
       if (text.length > 100) {
         console.log(`[scraper] Got content from HTML pattern (${text.length} chars)`);
-        return text.slice(0, 8000);
+        return text;
       }
     }
   }
@@ -222,7 +196,7 @@ function extractArticleContent(html: string): string {
   if (paragraphs.length >= 1) {
     const joined = paragraphs.join('\n');
     console.log(`[scraper] Got content from <p> tags (${joined.length} chars, ${paragraphs.length} paragraphs)`);
-    return joined.slice(0, 8000);
+    return joined;
   }
 
   // Strategy 4: og:description meta tag as absolute last resort
@@ -299,7 +273,7 @@ export async function scrapeArticleContents(
   for (const article of needsScraping) {
     const { content, imageUrl } = await fetchArticlePage(article.originalUrl);
 
-    if (content && content.length > 100 && content.length > (article.contentOriginal?.length || 0)) {
+    if (shouldReplaceBody(article.contentOriginal, content)) {
       article.contentOriginal = content;
       scrapedContent++;
     }

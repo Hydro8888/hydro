@@ -2,7 +2,7 @@
  * content-translator.ts
  * Phase 2: Translates full article content (contentOriginal → contentKo).
  *
- * The whole original (≤ 8000 chars from the scraper/normalizer) is translated —
+ * The whole original (up to MAX_ARTICLE_CHARS from the scraper/normalizer) is translated —
  * no more silent cut at 6000 chars (D18). Long bodies are split into chunks of
  * ≤ 3000 chars along paragraph / sentence boundaries; a chunk answered with
  * finish_reason "length" is split further and re-requested (D19). If any chunk

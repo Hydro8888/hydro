@@ -235,6 +235,15 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
 
           {(view.bodyMode === 'summary+original' || view.bodyMode === 'original') && originalBlock(false)}
 
+          {view.isExcerpt && view.bodyMode !== 'empty' && (
+            <p data-body-excerpt className="border-l-2 border-border pl-3 text-caption text-text-muted">
+              {article.source.sourceName}이(가) 기사 앞부분만 제공해 여기에는 요약 분량만 실려 있습니다 ·{' '}
+              <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                전체 기사 원문 보기
+              </a>
+            </p>
+          )}
+
           {view.bodyMode === 'empty' && (
             <p className="text-text-muted">
               본문이 제공되지 않는 기사입니다 · 아래 &apos;원문 보기&apos;로 원문 사이트에서 확인하세요

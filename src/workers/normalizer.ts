@@ -4,6 +4,7 @@
  */
 
 import { reflowParagraphs } from '../lib/paragraphs';
+import { MAX_ARTICLE_CHARS, capAtParagraph } from './article-extract';
 import type { RawFeedItem } from './rss-parser';
 import { isValidArticleImage, normalizeImageUrl } from '../lib/utils';
 import { normalizeLanguageTag } from './translation-text';
@@ -165,12 +166,12 @@ export function normalizeArticle(
     return null;
   }
 
-  // Extract and clean content text (max 8000 chars — scraper may replace with full page content)
+  // Extract and clean content text (scraper may replace it with the full page content)
   let contentOriginal: string | null = null;
   if (raw.content) {
     const cleaned = htmlToParagraphs(raw.content);
     if (cleaned.length > 30) { // Only save meaningful content
-      contentOriginal = cleaned.slice(0, 8000);
+      contentOriginal = capAtParagraph(cleaned, MAX_ARTICLE_CHARS);
     }
   }
 

@@ -15,11 +15,14 @@
     "collect": "tsx src/workers/scheduler.ts",
     "collect:once": "tsx src/workers/collector.ts",
     "backfill:translations": "tsx src/workers/backfill-cli.ts",
-    "ai:recent": "tsx src/workers/process-recent-cli.ts"
+    "ai:recent": "tsx src/workers/process-recent-cli.ts",
+    "content:refetch": "tsx src/workers/refetch-bodies-cli.ts"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@prisma/client": "^5.22.0",
     "ioredis": "^5.4.1",
+    "linkedom": "^0.18.15",
     "next": "14.2.18",
     "node-cron": "^3.0.3",
     "openai": "^4.73.0",

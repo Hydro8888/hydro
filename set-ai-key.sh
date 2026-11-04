@@ -6,9 +6,10 @@
 #    cd /home/ubuntu/livenews && bash set-ai-key.sh          # 입력 창 → 확인 → 저장 → 재시작
 #    bash set-ai-key.sh --check                              # 저장된 키로 연결 확인만
 #    bash set-ai-key.sh --no-reload                          # 저장만 (redeploy.sh 가 사용)
+#    bash set-ai-key.sh --model=gpt-6-luna                   # 번역 모델만 변경 (키 재입력 없음)
 #
 #  - 키는 화면에 표시되지 않고, 명령 기록(history)·프로세스 목록에도 남지 않습니다.
-#  - 저장 전에 OpenAI 에 직접 확인합니다: 키 유효성, 모델(gpt-6.1-terra) 권한, 크레딧.
+#  - 저장 전에 OpenAI 에 직접 확인합니다: 키 유효성, 모델(OPENAI_MODEL, 기본 gpt-6-luna) 권한, 크레딧.
 #  - 프로젝트 폴더의 .env 에 OPENAI_API_KEY 로 저장합니다 (권한 600, git 에 올라가지 않음).
 #  - 재시작은 livenews / livenews-collector 두 개만 합니다 (다른 PM2 서비스 영향 없음).
 # =============================================================================
@@ -22,12 +23,13 @@ ENV_FILE="$DEPLOY_PATH/.env"
 TITLE="LiveNews · OpenAI API 키"
 ONLY_APPS="livenews,livenews-collector"
 
-RELOAD=1; CHECK_ONLY=0
+RELOAD=1; CHECK_ONLY=0; NEW_MODEL=""
 for arg in "$@"; do
     case "$arg" in
         --no-reload) RELOAD=0 ;;
+        --model=*)   NEW_MODEL="${arg#--model=}" ;;
         --check)     CHECK_ONLY=1 ;;
-        -h|--help)   grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -16; return 0 ;;
+        -h|--help)   grep -E '^#( |$)' "${BASH_SOURCE[0]}" | head -17; return 0 ;;
         *) echo -e "${RED}알 수 없는 옵션: $arg${NC}"; return 1 ;;
     esac
 done
@@ -41,7 +43,7 @@ env_get() {
         | sed -E "s/^[[:space:]]*(export[[:space:]]+)?$1=//; s/^[\"']//; s/[\"'][[:space:]]*$//"
 }
 
-MODEL="$(env_get OPENAI_MODEL)"; MODEL="${MODEL:-gpt-6.1-terra}"
+MODEL="$(env_get OPENAI_MODEL)"; MODEL="${MODEL:-gpt-6-luna}"
 BASE_URL="$(env_get OPENAI_BASE_URL)"; BASE_URL="${BASE_URL:-https://api.openai.com/v1}"; BASE_URL="${BASE_URL%/}"
 
 VERIFY_TMP=$(mktemp); trap 'rm -f "$VERIFY_TMP"' EXIT
@@ -96,6 +98,46 @@ verify_key() {
     if [ "$code" = "400" ]; then VERIFY_STATUS="ok"; VERIFY_DETAIL="키·모델 정상 (요청 형식은 프로그램이 자동으로 맞춥니다)"; return; fi
     VERIFY_STATUS="unknown"; VERIFY_DETAIL="테스트 요청 응답 HTTP $code"
 }
+
+reload_apps() {   # livenews 두 앱만 재시작 (다른 PM2 서비스는 그대로)
+    if ! command -v pm2 >/dev/null 2>&1; then
+        export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    fi
+    if ! command -v pm2 >/dev/null 2>&1; then
+        echo -e "${YELLOW}pm2 를 찾지 못했습니다. 적용하려면: pm2 startOrReload ecosystem.config.js --only $ONLY_APPS --update-env${NC}"
+        return 0
+    fi
+    OTHER_APPS=$(grep -oE "name:\s*'[^']+'" ecosystem.config.js | grep -v "livenews" || true)
+    if [ -n "$OTHER_APPS" ]; then
+        echo -e "${RED}ecosystem.config.js 에 livenews 외 앱이 있어 재시작을 생략합니다. 수동으로 적용하세요.${NC}"
+        return 0
+    fi
+    echo -e "${BLUE}livenews / livenews-collector 재시작 (다른 서비스는 그대로)...${NC}"
+    pm2 startOrReload ecosystem.config.js --only "$ONLY_APPS" --update-env
+    echo -e "${GREEN}완료. 번역 상태 확인: curl -s http://localhost:4000/livenews/api/admin/health${NC}"
+}
+
+# ---- 모델만 변경 (--model=…) ----
+if [ -n "$NEW_MODEL" ]; then
+    if ! [[ "$NEW_MODEL" =~ ^[A-Za-z0-9._-]{3,64}$ ]]; then echo -e "${RED}모델 이름 형식이 아닙니다: $NEW_MODEL${NC}"; return 1; fi
+    KEY="$(env_get OPENAI_API_KEY)"
+    if [ -z "$KEY" ]; then echo -e "${RED}.env 에 OPENAI_API_KEY 가 없습니다. 먼저 실행: bash set-ai-key.sh${NC}"; return 1; fi
+    MODEL="$NEW_MODEL"
+    verify_key "$KEY"
+    if [ "$VERIFY_STATUS" = "no_model" ] || [ "$VERIFY_STATUS" = "bad_key" ]; then
+        echo -e "${RED}변경하지 않았습니다: $VERIFY_DETAIL${NC}"; return 1
+    fi
+    umask 077
+    cp -p "$ENV_FILE" "$DEPLOY_PATH/.env.backup" && chmod 600 "$DEPLOY_PATH/.env.backup"
+    TMP_ENV=$(mktemp "$DEPLOY_PATH/.env.tmp.XXXXXX")
+    grep -vE '^[[:space:]]*(export[[:space:]]+)?OPENAI_MODEL=' "$ENV_FILE" > "$TMP_ENV" || true
+    [ -s "$TMP_ENV" ] && [ -n "$(tail -c1 "$TMP_ENV")" ] && echo >> "$TMP_ENV"
+    printf 'OPENAI_MODEL="%s"\n' "$NEW_MODEL" >> "$TMP_ENV"
+    chmod 600 "$TMP_ENV"; mv -f "$TMP_ENV" "$ENV_FILE"; unset KEY
+    echo -e "${GREEN}번역 모델을 $NEW_MODEL 로 바꿨습니다 (확인 결과: $VERIFY_DETAIL)${NC}"
+    if [ "$RELOAD" = "1" ]; then reload_apps; fi
+    return 0
+fi
 
 if [ "$CHECK_ONLY" = "1" ]; then
     KEY="$(env_get OPENAI_API_KEY)"
@@ -164,21 +206,7 @@ echo -e "${GREEN}저장 완료: $ENV_FILE (OPENAI_API_KEY, 모델 $MODEL, 이미
 
 # ---- 4. livenews 앱만 재시작 ----
 if [ "$RELOAD" = "0" ]; then return 0; fi
-if ! command -v pm2 >/dev/null 2>&1; then
-    export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-fi
-if ! command -v pm2 >/dev/null 2>&1; then
-    echo -e "${YELLOW}pm2 를 찾지 못했습니다. 적용하려면: pm2 startOrReload ecosystem.config.js --only $ONLY_APPS --update-env${NC}"
-    return 0
-fi
-OTHER_APPS=$(grep -oE "name:\s*'[^']+'" ecosystem.config.js | grep -v "livenews" || true)
-if [ -n "$OTHER_APPS" ]; then
-    echo -e "${RED}ecosystem.config.js 에 livenews 외 앱이 있어 재시작을 생략합니다. 수동으로 적용하세요.${NC}"
-    return 0
-fi
-echo -e "${BLUE}livenews / livenews-collector 재시작 (다른 서비스는 그대로)...${NC}"
-pm2 startOrReload ecosystem.config.js --only "$ONLY_APPS" --update-env
-echo -e "${GREEN}완료. 번역 상태 확인: curl -s http://localhost:4000/livenews/api/admin/health${NC}"
+reload_apps
 }
 
 main "$@"

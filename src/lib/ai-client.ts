@@ -4,7 +4,7 @@
  * categorization, image generation).
  *
  *  - OPENAI_API_KEY           → required (set it with `bash set-ai-key.sh`)
- *  - OPENAI_MODEL             → text model (default gpt-6.1-terra)
+ *  - OPENAI_MODEL             → text model (default gpt-6-luna — cheapest; gpt-6.1-terra is 10× the price)
  *  - OPENAI_REASONING_EFFORT  → none (default) | low | medium | high | xhigh | max | default
  *                                `none` = no hidden reasoning tokens: translation needs none,
  *                                and they would eat the output budget and cost.
@@ -26,7 +26,7 @@ export { isBillingError };
 export type AiKind = 'text' | 'image';
 
 export const DEFAULT_AI_BASE_URL = 'https://api.openai.com/v1';
-export const DEFAULT_TEXT_MODEL = 'gpt-6.1-terra';
+export const DEFAULT_TEXT_MODEL = 'gpt-6-luna';
 export const DEFAULT_IMAGE_MODEL = 'gpt-image-2.5-flare';
 export const DEFAULT_AI_TIMEOUT_MS: Record<AiKind, number> = { text: 60_000, image: 120_000 };
 const MIN_TIMEOUT_MS = 1_000;

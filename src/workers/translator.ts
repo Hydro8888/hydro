@@ -1,6 +1,6 @@
 /**
  * translator.ts
- * Phase 1: Translates and categorizes article titles using the OpenAI API (OPENAI_MODEL, default gpt-6.1-terra).
+ * Phase 1: Translates and categorizes article titles using the OpenAI API (OPENAI_MODEL, default gpt-6-luna).
  * Processes articles in chunks of 10 to stay within token limits.
  *
  * Phase 2 (content translation) → content-translator.ts

@@ -78,9 +78,9 @@ test('describeAiEndpoint shows only the origin, never the key', () => {
   assert.ok(!describeAiEndpoint(env).includes('secret'));
 });
 
-test('models: gpt-6.1-terra by default, overridable; image generation opt-in', () => {
-  assert.equal(DEFAULT_TEXT_MODEL, 'gpt-6.1-terra');
-  assert.equal(resolveTextModel({}), 'gpt-6.1-terra');
+test('models: gpt-6-luna by default, overridable; image generation opt-in', () => {
+  assert.equal(DEFAULT_TEXT_MODEL, 'gpt-6-luna');
+  assert.equal(resolveTextModel({}), 'gpt-6-luna');
   assert.equal(resolveTextModel({ OPENAI_MODEL: ' gpt-6.1-sol ' }), 'gpt-6.1-sol');
   assert.equal(resolveImageModel({}), 'gpt-image-2.5-flare');
   assert.equal(isImageGenerationEnabled({}), false);

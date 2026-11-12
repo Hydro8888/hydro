@@ -19,7 +19,6 @@ import {
   parsePage,
   proxyImageUrl,
   DEFAULT_IMAGE_WIDTH,
-  timeAgo,
   toIsoDateTime,
   toKstParts,
   toLangTag,
@@ -133,43 +132,6 @@ describe('toIsoDateTime / toKstParts', () => {
   });
 });
 
-describe('timeAgo(t, NOW)', () => {
-  const ago = (seconds: number) => timeAgo(NOW - seconds * SEC, NOW);
-
-  test('relative buckets and their boundaries', () => {
-    assert.equal(timeAgo(NOW, NOW), '방금 전');
-    assert.equal(ago(59), '방금 전');
-    assert.equal(ago(60), '1분 전');
-    assert.equal(ago(3599), '59분 전');
-    assert.equal(ago(3600), '1시간 전');
-    assert.equal(ago(86399), '23시간 전');
-    assert.equal(ago(86400), '1일 전');
-    assert.equal(ago(604799), '6일 전');
-  });
-
-  test('7 days or more → KST date', () => {
-    assert.equal(ago(604800), '2026.09.28');
-    assert.equal(timeAgo('2026-09-01T20:30:00Z', NOW), '2026.09.02');
-  });
-
-  test('future: ±60s clock skew reads 방금 전, further ahead shows the absolute time', () => {
-    assert.equal(ago(-30), '방금 전');
-    assert.equal(ago(-60), '방금 전');
-    assert.equal(ago(-61), formatDate(NOW + 61 * SEC));
-    assert.equal(timeAgo(NOW + 5 * 3600 * SEC, NOW), '2026.10.05 17:00');
-  });
-
-  test('invalid input → empty string', () => {
-    for (const bad of INVALID_DATES) assert.equal(timeAgo(bad, NOW), '', `input ${String(bad)}`);
-  });
-
-  test('now accepts a Date as well as a number; default is the current time', () => {
-    assert.equal(timeAgo(NOW - 3600 * SEC, new Date(NOW)), timeAgo(NOW - 3600 * SEC, NOW));
-    assert.equal(timeAgo(new Date(NOW - 7200 * SEC), new Date(NOW)), '2시간 전');
-    assert.equal(timeAgo(new Date(Date.now() - 5 * 60 * SEC)), '5분 전');
-  });
-});
-
 describe('formatWireTime(t, NOW) — wire time, KST', () => {
   // NOW = 2026-10-05 12:00 KST
   const TIME = /^\d{2}:\d{2}$/;
@@ -266,8 +228,7 @@ describe('date output does not depend on the process time zone', () => {
     'Thu Oct 01 2026 17:03:00 GMT+0900 (Korean Standard Time)',
   ];
   const snapshot = () =>
-    INPUTS.map((d) => [formatDate(d), formatDateOnly(d), timeAgo(d, NOW), toIsoDateTime(d) ?? '(none)'].join(' | '))
-      .concat([timeAgo(NOW - 3 * 3600 * SEC, NOW), timeAgo(NOW + 5 * 3600 * SEC, NOW)])
+    INPUTS.map((d) => [formatDate(d), formatDateOnly(d), toIsoDateTime(d) ?? '(none)'].join(' | '))
       .concat(INPUTS.map((d) => formatWireTime(d, NOW)), [formatWireTime(NOW - 3 * 3600 * SEC, NOW)]);
 
   test('the TZ switch is effective in this runtime (sanity check)', () => {
@@ -279,9 +240,9 @@ describe('date output does not depend on the process time zone', () => {
 
   test('identical results in UTC, Asia/Seoul, America/Los_Angeles, Pacific/Kiritimati', () => {
     const expected = withTZ('UTC', snapshot);
-    assert.equal(expected[0], '2026.10.01 17:03 | 2026.10.01 | 3일 전 | 2026-10-01T08:03:00.000Z');
-    assert.equal(expected[3], '2026.09.02 05:30 | 2026.09.02 | 2026.09.02 | 2026-09-01T20:30:00.000Z');
-    assert.equal(expected[4], ' |  |  | (none)'); // '2026/10/01 08:03' is invalid in every TZ
+    assert.equal(expected[0], '2026.10.01 17:03 | 2026.10.01 | 2026-10-01T08:03:00.000Z');
+    assert.equal(expected[3], '2026.09.02 05:30 | 2026.09.02 | 2026-09-01T20:30:00.000Z');
+    assert.equal(expected[4], ' |  | (none)'); // '2026/10/01 08:03' is invalid in every TZ
     assert.equal(expected[5], expected[0]);
     assert.equal(expected[6], expected[0]);
     for (const tz of ZONES) assert.deepEqual(withTZ(tz, snapshot), expected, `TZ=${tz}`);

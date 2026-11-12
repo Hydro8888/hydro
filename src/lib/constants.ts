@@ -89,34 +89,8 @@ export const BREAKING_ITEMS_PER_PAGE = 30;
 export const MAX_PAGE = 10_000;
 
 // ---------------------------------------------------------------------------
-// Category label style — neutral (Slice S1)
+// Image placeholder (Slice S1)
 // ---------------------------------------------------------------------------
-
-/**
- * Tailwind classes for a category label.
- * - text:      label color. Categories are plain text labels: apply this alone.
- * - bg:        neutral surface, only where a label needs one (e.g. over a photo)
- * - border:    hairline on the left (`border-l-*`, used with `border-l-2`)
- * - borderAll: hairline on all four sides (`border-*`, used with `border`)
- */
-export type CategoryStyle = { border: string; text: string; bg: string; borderAll: string };
-
-/**
- * The one category style. Complete class literals: Tailwind generates only names it finds
- * verbatim in the files under `content` (tailwind.config.ts, which includes src/lib). Never
- * build these names by string concatenation or `.replace()`.
- */
-const NEUTRAL_CATEGORY_STYLE: CategoryStyle = Object.freeze({
-  border: 'border-l-border',
-  text: 'text-text-secondary',
-  bg: 'bg-surface-elevated',
-  borderAll: 'border-border',
-});
-
-/** slug → style for the 16 categories. Categories are not color-coded: every value is the same neutral style. */
-export const CATEGORY_COLORS: Record<string, CategoryStyle> = Object.freeze(
-  Object.fromEntries(CATEGORIES.map((c) => [c.slug, NEUTRAL_CATEGORY_STYLE])),
-);
 
 /**
  * Last-resort article image: an inline SVG data URI, so it needs no network and can never fail.

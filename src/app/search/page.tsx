@@ -36,7 +36,8 @@ export default function SearchPageWrapper() {
 function SearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const q = searchParams.get('q') || '';
+  // A query of spaces only is no query: the same screen as an empty one, and no request
+  const q = (searchParams.get('q') || '').trim();
   const country = searchParams.get('country') || '';
   const category = searchParams.get('category') || '';
   // Garbage / out-of-range ?page= never reaches the API as NaN
@@ -207,6 +208,8 @@ function SearchPage() {
         </div>
       ) : (
         <>
+          {/* Heading level between the page title (h1) and the card titles (h3) */}
+          {articles.length > 0 && <h2 className="sr-only">검색 결과</h2>}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {articles.map((article) => (
               <NewsCard key={article.id} article={{ ...article, language: article.language ?? undefined }} />

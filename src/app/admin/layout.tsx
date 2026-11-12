@@ -34,7 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
         </div>
       </div>
-      <div className={cn(CONTAINER, 'py-6')}>{children}</div>
+      <div className={cn(CONTAINER, 'py-8')}>{children}</div>
     </div>
   );
 }

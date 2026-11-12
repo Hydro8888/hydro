@@ -33,19 +33,23 @@ export default async function RankingPage({
       {/* Every rank is printed, above its card (nothing sits on the photo). The top three are in
           the text color, the rest muted. */}
       {articles.length > 0 && (
-        <ol className="mt-8 grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
-          {articles.map((article, idx) => (
-            <li key={article.id} className="flex flex-col">
-              <p className={cn('mb-2 text-headline-sm', NUM, idx < 3 ? 'text-text' : 'text-text-muted')}>
-                {idx + 1}
-                <span className="sr-only">위</span>
-              </p>
-              <div className="grid flex-1">
-                <NewsCard article={article} />
-              </div>
-            </li>
-          ))}
-        </ol>
+        <>
+          {/* Heading level between the page title (h1) and the card titles (h3) */}
+          <h2 className="sr-only">순위</h2>
+          <ol className="mt-8 grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
+            {articles.map((article, idx) => (
+              <li key={article.id} className="flex flex-col">
+                <p className={cn('mb-2 text-headline-sm', NUM, idx < 3 ? 'text-text' : 'text-text-muted')}>
+                  {idx + 1}
+                  <span className="sr-only">위</span>
+                </p>
+                <div className="grid flex-1">
+                  <NewsCard article={article} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
       )}
 
       {articles.length === 0 && (

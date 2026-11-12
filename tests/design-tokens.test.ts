@@ -13,15 +13,8 @@ import path from 'node:path';
 import postcss, { type Root } from 'postcss';
 import tailwindcss from 'tailwindcss';
 import config from '../tailwind.config';
-import {
-  BREAKING_ITEMS_PER_PAGE,
-  CATEGORIES,
-  CATEGORY_COLORS,
-  IMAGE_PLACEHOLDER_SRC,
-  ITEMS_PER_PAGE,
-  MAX_PAGE,
-} from '../src/lib/constants';
-import { getCategoryStyle } from '../src/lib/utils';
+import * as constants from '../src/lib/constants';
+import * as utils from '../src/lib/utils';
 import * as ui from '../src/lib/ui';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -33,7 +26,7 @@ const extend = (config.theme?.extend ?? {}) as unknown as {
   fontSize: Record<string, [string, Tokens]>;
 };
 
-const NEUTRAL = { border: 'border-l-border', text: 'text-text-secondary', bg: 'bg-surface-elevated', borderAll: 'border-border' };
+const { BREAKING_ITEMS_PER_PAGE, CATEGORIES, IMAGE_PLACEHOLDER_SRC, ITEMS_PER_PAGE, MAX_PAGE } = constants;
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const theme = (config.theme ?? {}) as unknown as Record<string, Record<string, unknown>>;
 const readSrc = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -57,12 +50,14 @@ const HUE_CLASS_RE =
 
 // ---------------------------------------------------------------------------
 
-describe('category styles — neutral (unslop pass 2/3)', () => {
+describe('categories — plain labels, no style per category (unslop pass 2/3)', () => {
   const slugs = CATEGORIES.map((c) => c.slug);
 
-  test('CATEGORY_COLORS covers exactly the 16 categories', () => {
+  test('16 categories; no style map or style helper is exported any more', () => {
     assert.equal(slugs.length, 16);
-    assert.deepEqual(Object.keys(CATEGORY_COLORS).sort(), [...slugs].sort());
+    assert.equal(new Set(slugs).size, 16);
+    for (const name of ['CATEGORY_COLORS', 'NEUTRAL_CATEGORY_STYLE']) assert.ok(!(name in constants), name);
+    for (const name of ['getCategoryStyle', 'timeAgo', 'estimateReadingTime']) assert.ok(!(name in utils), name);
   });
 
   test('CATEGORIES carry slug + label only: no icon field, no emoji', () => {
@@ -73,27 +68,12 @@ describe('category styles — neutral (unslop pass 2/3)', () => {
     assert.doesNotMatch(readSrc('src/lib/constants.ts'), EMOJI_RE);
   });
 
-  test('every slug — known, unknown or prototype key — gets the same neutral style', () => {
-    for (const slug of [...slugs, 'quantum-weird-category', 'international-politics', '', 'constructor', '__proto__']) {
-      assert.deepEqual(getCategoryStyle(slug), NEUTRAL, JSON.stringify(slug));
-      assert.deepEqual(Object.keys(getCategoryStyle(slug)).sort(), ['bg', 'border', 'borderAll', 'text']);
-    }
-    for (const slug of slugs) assert.deepEqual(CATEGORY_COLORS[slug], NEUTRAL, slug);
-    assert.ok(Object.isFrozen(CATEGORY_COLORS) && Object.isFrozen(getCategoryStyle('politics')));
-    assert.equal(new Set(Object.values(CATEGORY_COLORS).flatMap((s) => Object.values(s))).size, 4);
-  });
-
   test('constants.ts and utils.ts hold no hue classes, deleted tokens or animation classes', () => {
     for (const rel of ['src/lib/constants.ts', 'src/lib/utils.ts']) {
       const src = readSrc(rel);
       assert.doesNotMatch(src, HUE_CLASS_RE, rel);
       assert.doesNotMatch(src, /accent-(?:blue|red|green)|animate-/, rel);
     }
-  });
-
-  test('every class is a complete string literal in constants.ts', () => {
-    const src = readSrc('src/lib/constants.ts');
-    for (const cls of Object.values(NEUTRAL)) assert.ok(src.includes(`'${cls}'`), `${cls} is not a literal`);
   });
 });
 
@@ -229,6 +209,12 @@ describe('src/lib/ui.ts — shared control and table classes', () => {
     }
     for (const name of ['BTN_PRIMARY', 'BTN_SECONDARY', 'BTN_SECONDARY_SM', 'BTN_GHOST_SM']) assert.ok(has(strings[name], 'font-medium'), name);
     assert.ok(has(ui.TAG, 'rounded-tag') && has(ui.TAG, 'h-6'));
+    // Field text: 16px below lg (iOS Safari zooms the page on focus under 16px), 14px from lg.
+    for (const name of ['FIELD', 'FIELD_SM']) {
+      assert.deepEqual(strings[name].split(' ').filter((c) => /^(\w+:)?text-(base|body-\w+|headline-\w+|caption|meta|xs|sm|lg)$/.test(c)), ['text-base', 'lg:text-body-md'], name);
+    }
+    // Table cells: fixed height, no vertical padding of their own or the browser's.
+    for (const name of ['TH', 'TH_NUM', 'TD', 'TD_MAIN', 'TD_NUM', 'TD_TIME']) assert.ok(has(strings[name], 'py-0') && has(strings[name], 'px-4'), name);
   });
 
   test('primary = text-colored surface + accent-ink label; the accent is never a fill', () => {
@@ -362,9 +348,9 @@ async function topLevelSelectors(): Promise<Set<string>> {
 }
 
 describe('generated CSS (globals.css + tailwind.config.ts)', () => {
-  test('the neutral category classes and every contract class exist', async () => {
+  test('every contract class exists', async () => {
     const selectors = await topLevelSelectors();
-    const classes = [...Object.values(NEUTRAL), ...CONTRACT_CLASSES.split(' ')];
+    const classes = CONTRACT_CLASSES.split(' ');
     const missing = classes.filter((cls) => !selectors.has(classSelector(cls)));
     assert.deepEqual(missing, [], `not generated: ${missing.join(' ')}`);
   });

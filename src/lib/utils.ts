@@ -1,10 +1,8 @@
-import { CATEGORY_COLORS, IMAGE_PLACEHOLDER_SRC, MAX_PAGE, type CategoryStyle } from './constants';
+import { IMAGE_PLACEHOLDER_SRC, MAX_PAGE } from './constants';
 
 // NOTE: shared by the browser, the Next server and the Node workers (src/workers/* import
 // '../lib/utils'). Keep it free of DOM/Node-only APIs, and never format dates with the ICU
 // locale APIs (output would depend on the server time zone and ICU build → hydration mismatches).
-
-export type { CategoryStyle };
 
 /** Own-property lookup, so slugs like 'constructor' or '__proto__' never hit Object.prototype. */
 function hasOwn(obj: object, key: string): boolean {
@@ -320,30 +318,6 @@ export function toIsoDateTime(input: DateInput): string | undefined {
 }
 
 /**
- * Relative time in Korean: '방금 전' / 'N분 전' / 'N시간 전' / 'N일 전', then 'YYYY.MM.DD' (KST) after 7 days.
- * More than 60s in the future → absolute formatDate() (a ±60s clock skew still reads '방금 전').
- * Invalid input → ''.
- *
- * HYDRATION: the result depends on `now`, so server HTML and the first client render can differ.
- * In client components wrap it with suppressHydrationWarning on the DIRECT parent of the text:
- *   <time dateTime={toIsoDateTime(d)} suppressHydrationWarning>{timeAgo(d)}</time>
- */
-export function timeAgo(input: DateInput, now?: Date | number): string {
-  const t = toEpochMs(input);
-  if (t === null) return '';
-  const nowMs = toEpochMs(now) ?? Date.now();
-  const diff = Math.floor((nowMs - t) / 1000);
-
-  if (diff < -60) return formatDate(t);
-  if (diff < 60) return '방금 전';
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}일 전`;
-
-  return formatDateOnly(t);
-}
-
-/**
  * Wire time in KST, the dateline printed on every article:
  *   same KST calendar date as `now` → 'HH:mm'        ('14:02')
  *   another date in the same KST year → 'MM.DD HH:mm' ('10.04 23:59')
@@ -517,14 +491,6 @@ export function getArticleImageSources(article: {
 // ---------------------------------------------------------------------------
 // Design System helpers (Slice S1)
 // ---------------------------------------------------------------------------
-
-/**
- * Classes for a category label. Categories are not color-coded: every slug (known or not)
- * gets the same neutral style. Name and signature kept for the existing callers.
- */
-export function getCategoryStyle(_slug: string): CategoryStyle {
-  return CATEGORY_COLORS.general;
-}
 
 /** Merges class names, filtering out falsy values */
 export function cn(...classes: (string | false | null | undefined)[]): string {

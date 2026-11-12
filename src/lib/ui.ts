@@ -16,10 +16,12 @@ export const BTN_SECONDARY = `${CONTROL} h-10 px-4 border border-border bg-surfa
 export const BTN_SECONDARY_SM = `${CONTROL} h-8 px-3 border border-border bg-surface-elevated text-text hover:border-text-muted`;
 export const BTN_GHOST_SM = `${CONTROL} h-8 px-2 text-text-secondary hover:bg-surface-elevated hover:text-text`;
 
+// Field text is 16px below lg and 14px from lg: iOS Safari zooms the page when a field with text
+// under 16px takes focus, and a phone held sideways is up to about 960px wide.
 export const FIELD =
-  'h-10 w-full rounded-control border border-border bg-surface-elevated px-3 text-body-md text-text placeholder:text-text-muted transition-colors';
+  'h-10 w-full rounded-control border border-border bg-surface-elevated px-3 text-base text-text placeholder:text-text-muted transition-colors lg:text-body-md';
 export const FIELD_SM =
-  'h-8 rounded-control border border-border bg-surface-elevated px-2 text-body-md text-text transition-colors';
+  'h-8 rounded-control border border-border bg-surface-elevated px-2 text-base text-text transition-colors lg:text-body-md';
 
 export const CHIP =
   'inline-flex h-8 items-center whitespace-nowrap rounded-control border border-border px-3 text-body-md text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text';
@@ -31,17 +33,17 @@ export const TAG =
 /** Figures: fixed-width digits. Size and color come from the surrounding text. */
 export const NUM = 'font-mono tabular-nums';
 
-// Tables (admin)
+// Tables (admin). py-0 takes off the 1px a browser puts above and below every cell.
 export const PANEL = 'rounded-card border border-border bg-surface-card';
 export const TABLE_WRAP = 'overflow-x-auto rounded-card border border-border bg-surface-card';
-export const TH = 'h-10 px-4 text-left text-caption font-medium text-text-muted whitespace-nowrap';
-export const TH_NUM = 'h-10 px-4 text-right text-caption font-medium text-text-muted whitespace-nowrap';
+export const TH = 'h-10 px-4 py-0 text-left text-caption font-medium text-text-muted whitespace-nowrap';
+export const TH_NUM = 'h-10 px-4 py-0 text-right text-caption font-medium text-text-muted whitespace-nowrap';
 export const TR = 'transition-colors hover:bg-surface-elevated/50 focus-within:bg-surface-elevated/50';
 export const TR_SELECTED = 'bg-surface-elevated';
-export const TD = 'h-11 px-4 text-text-secondary';
-export const TD_MAIN = 'h-11 px-4 text-text';
-export const TD_NUM = 'h-11 px-4 text-right font-mono tabular-nums text-text';
-export const TD_TIME = 'h-11 px-4 font-mono tabular-nums text-text-secondary whitespace-nowrap';
+export const TD = 'h-11 px-4 py-0 text-text-secondary';
+export const TD_MAIN = 'h-11 px-4 py-0 text-text';
+export const TD_NUM = 'h-11 px-4 py-0 text-right font-mono tabular-nums text-text';
+export const TD_TIME = 'h-11 px-4 py-0 font-mono tabular-nums text-text-secondary whitespace-nowrap';
 export const STATUS_DOT = 'h-2 w-2 shrink-0 rounded-full';
 /** Collection log status. The meaning color goes on the dot only; `partial` is neither success nor failure, so it stays neutral. */
 export const LOG_STATUS: Record<string, { label: string; dot: string }> = {

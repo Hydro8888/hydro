@@ -92,11 +92,13 @@ export default async function HomePage() {
 
   // Three category columns and the count panel make four cells: two by two from md, one row at xl.
   // With fewer cells the section keeps the three-column grid of the rest of the page.
+  // The 32px between two lines of cells is each cell's own pb-8, and -mb-8 takes the last one back:
+  // a row gap would also open in front of the empty fourth row the count panel spans (see below).
   const categoryCells = categorySections.length + (trendingKw.length > 0 ? 1 : 0);
   const categoryGrid =
     categoryCells === 4
-      ? 'grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 xl:grid-cols-4'
-      : 'grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 lg:grid-cols-3';
+      ? '-mb-8 grid grid-cols-1 gap-x-5 md:grid-cols-2 xl:grid-cols-4'
+      : '-mb-8 grid grid-cols-1 gap-x-5 md:grid-cols-2 lg:grid-cols-3';
 
   return (
     <div className={cn(CONTAINER, 'py-8')}>
@@ -177,12 +179,16 @@ export default async function HomePage() {
         <section className="mt-12">
           <h2 className={SECTION_TITLE}>카테고리별 뉴스</h2>
 
+          {/* A column is three rows of this grid (name, card, wire rows): subgrid puts the three parts of
+              neighbouring columns on the same row tracks, so cards side by side are equally tall and their
+              meta lines and the lists below start level. Without subgrid a column keeps its own heights
+              (content-start). */}
           <div className={categoryGrid}>
             {categorySections.map(({ slug, label, featured, secondary }) => (
-              <div key={slug} className="flex flex-col border-t border-border pt-4">
+              <div key={slug} className="row-span-3 grid grid-rows-subgrid content-start border-t border-border pb-8 pt-4">
                 <Link
                   href={`/category/${slug}`}
-                  className="mb-4 inline-flex items-center gap-2 self-start text-headline-sm text-text transition-colors hover:text-text-secondary"
+                  className="mb-4 inline-flex items-center gap-2 justify-self-start text-headline-sm text-text transition-colors hover:text-text-secondary"
                 >
                   {label}
                   <span className="text-text-muted">
@@ -190,9 +196,9 @@ export default async function HomePage() {
                   </span>
                 </Link>
 
-                {/* The card takes the height the column has left, so the lists below end on one line. */}
+                {/* The card fills its row, which is as tall as the tallest card beside it. */}
                 {featured && (
-                  <div className="grid flex-1">
+                  <div className="grid">
                     <NewsCard article={featured} />
                   </div>
                 )}
@@ -208,10 +214,12 @@ export default async function HomePage() {
               </div>
             ))}
 
-            {/* Article count per category — the index of this section, in the same grid.
-                The wrapper keeps the panel at its own height when the row is taller. */}
+            {/* Article count per category — the index of this section, in the same grid. It spans the
+                three rows of the columns beside it and one more that nothing else is in: when the panel
+                is the taller one, that empty row takes the difference and the three rows keep the
+                heights of their content. */}
             {trendingKw.length > 0 && (
-              <div>
+              <div className="row-span-4 pb-8">
                 <TrendingKeywords keywords={trendingKw} />
               </div>
             )}

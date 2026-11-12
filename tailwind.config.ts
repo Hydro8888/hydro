@@ -22,7 +22,7 @@ const config: Config = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    // Shared modules hold class strings too (src/lib/ui.ts, CATEGORY_COLORS, …).
+    // Shared modules hold class strings too (src/lib/ui.ts, …).
     // Tailwind only generates classes it finds in these files.
     './src/lib/**/*.{js,ts,jsx,tsx}',
     './src/hooks/**/*.{js,ts,jsx,tsx}',

@@ -139,3 +139,60 @@
 
 ## 실험 파일 (`qa-out/`, 소스 아님)
 `gen-s4-verify.js`·`gen-s4-s3-verify.js`(사본), `gen-s4-creds.cjs`, `gen-s4-e2e.cjs`, `gen-s4-measure.cjs`, `gen-s4-shots.cjs` → `gen-s4-shots/*.jpg`, `gen-s4-before/`·`gen-s4-after/`(메타·상태 비교), `audit-gen-s4.json`·`shots-gen-s4/`, 각 `.log`.
+
+## QA 피드백 반영 (2회차)
+
+대상: `QA_REPORT-S4.md`(합격 7.9) "구체적 개선 지시". 방향 유지, 새 장식·기능·주장 없음. 마지막 빌드 기준으로 전부 다시 쟀다.
+
+### 항목별
+- [x] **P1-1 홈 카테고리 단 — subgrid** (`src/app/page.tsx`): 단 = `row-span-3 grid grid-rows-subgrid content-start … pb-8 pt-4`, 단 이름 링크 `justify-self-start`, 카드 래퍼 `grid`. 카드 높이 **373 / 373 / 393 → 373 / 373 / 373**(1440·1280), 메타 줄 y 1672 × 3(전 1672 / 1672 / 1692), 행 목록 시작 y 1733 × 3(전 1733 / 1733 / 1753). 768px 윗줄 373 / 393 → 373 / 373. 1024px 윗줄 350 / 350(그대로), 390px 334 × 3(그대로). 단 이름↔카드 16, 카드↔행 8, 섹션 사이 48은 다섯 폭 모두 그대로. 설치된 Tailwind 3.4.19가 `.grid-rows-subgrid{grid-template-rows:subgrid}`를 만든다(빌드된 CSS에서 확인).
+  - **보고서 제안과 다르게 한 점 하나**: 기사 수 패널 래퍼는 `row-span-3`이 아니라 **`row-span-4 pb-8`**, 줄 사이 32px은 격자의 `gap-y-8` 대신 칸의 `pb-8` + 격자 `-mb-8`. 제안대로(`row-span-3`) 빌드해 재 보니 패널이 옆 단보다 높은 줄(1024px 아랫줄: 패널 467 vs 단 456)에서 남는 11px이 세 행에 3.67px씩 나뉘어 단 이름 상자 23 → 27px, 카드 안 빈 띠 4px, 목록 아래 4px이 생겼다. 패널만 걸치는 빈 넷째 행을 두면 그 행이 차이를 전부 가져간다: 같은 줄에서 단 이름 23px·카드 328px(빈 띠 0)·단 이름↔카드 16. 행 간격을 `gap`으로 두면 그 빈 행 앞에도 32px이 생기므로 칸의 아래 여백으로 옮겼다.
+  - 확인한 경우 둘(`qa-out/gen-s4b-fallback.cjs`, 실행 중인 화면에서 흉내): subgrid가 없는 브라우저 → 단마다 제 높이(373 / 373 / 350), 간격 16·8 유지(`content-start`). 패널이 모든 단보다 높을 때(700px) → 세 행 그대로, 넷째 행 179px, 다음 섹션은 패널 끝에서 48px.
+  - 남는 것: 같은 줄 카드를 같은 높이로 맞추므로 내용이 짧은 카드는 요약↔메타 사이가 23px 뜬다(전에는 그 카드만 20px 높고 43px 떴다). 다른 카드 격자의 행 맞춤과 같은 종류.
+- [x] **P1-2 검색 `q.trim()`** (`src/app/search/page.tsx`): `/search?q=%20%20` → "검색어를 입력하세요", alert 0, `/api/search` 요청 0, 화면 글자가 `/search`와 동일. `?q=%20AI%20` → `“AI” 검색 결과 52건`, 요청의 `q=AI`.
+- [x] **P1-3 놓친 변이 3개 잠금** (`tests/unslop-pages.test.ts`): ① `[가-힣]!` 금지 ② 관리자 화면별 `BTN_PRIMARY` 사용 수(대시보드 1, 기사·로그 0, 소스 2 = 닫힘 "소스 추가" / 열림 제출 버튼, 서로 배타) ③ 홈 `<section>` 4개가 정확히 `<section>` + `mt-12` × 3. 변이를 넣어 실패를 확인하고 되돌렸다: `qa-out/gen-s4b-mutate.py` **20 / 20 검출**(QA가 놓친 3종 5개 + 이번 수정 15개), 되돌린 뒤 3개 파일 통과.
+- [x] **P2-4 제목 계층**: `/ranking` `<h2 class="sr-only">순위</h2>`, `/search` 결과가 있을 때 `<h2 class="sr-only">검색 결과</h2>`. 수준 순서 1→2→3(건너뜀 0), h2 상자 1×1px, `<ol>`의 `mt-8` 그대로.
+- [x] **P2-5 입력 글자 16px** (`src/lib/ui.ts` `FIELD`·`FIELD_SM`): `text-base … lg:text-body-md`. 390px 계산값 **16px**: 헤더 검색 입력, 검색 페이지 입력 + select 2, 관리자 select(기사 2·로그 1), 소스 폼 6칸, 뉴스레터 배너·푸터 입력(플래그를 켠 빌드에서 따로 측정). 높이 40 / 32px, 옆 버튼 40px·간격 8px 그대로, 320px 넘침 0. 1024px부터 14px(전과 같음).
+  - **지시와 다르게 한 점**: 전환점이 `sm`이 아니라 **`lg`**. 가로로 든 아이폰은 폭이 667~956px이라 `sm`(640px)에서 14px로 돌아가면 그 방향에서 다시 확대된다(844×390, 932×430에서 16px 확인). 640~1023px에서 입력 글자가 16px인 것이 대가다. `sm`이 맞다면 두 줄의 `lg:`만 바꾸면 된다.
+  - 테스트: `chrome-unslop`의 크기 금지 규칙을 `text-(xs|sm)` 전체 금지 + `text-base`는 `ui.ts`의 두 필드에서만으로 나눔. `design-tokens`에 두 필드의 크기 클래스가 정확히 `text-base`, `lg:text-body-md`임을 추가.
+- [x] **P2-6 관리자 레이아웃** (`src/app/admin/layout.tsx`): 본문 `py-6` → `py-8`. 네 화면 × 1440·390·320px에서 제목 줄이 막대 아래 32px.
+  - **워드마크는 바꾸지 않았다.** 공개 헤더(`Header.tsx:244`)와 푸터(`Footer.tsx:150`)의 워드마크가 이미 같은 `text-lg font-semibold text-text`다(계산값 18px / 600 / `rgb(239, 233, 222)` / Pretendard — 관리자 = 헤더, 실측 일치). 600을 500으로 내리거나 세 곳이 한 상수를 쓰게 하려면 `Header.tsx`·`Footer.tsx`(이번 범위 밖)를 고쳐야 한다. 대신 `tests/chrome-unslop.test.ts`가 세 파일의 워드마크 클래스가 같은 문자열임을 잠근다(전에는 관리자 쪽만 따로 잠겨 있었다).
+- [x] **P2-8 죽은 export 삭제**: `grep -rn`으로 저장소 전체(src의 workers·api 포함, node_modules·.next·qa-out 제외) 호출 0 확인 후 삭제 — `utils.ts`의 `timeAgo`, `getCategoryStyle`, `CategoryStyle` 재수출 / `constants.ts`의 `CATEGORY_COLORS`, `NEUTRAL_CATEGORY_STYLE`, `CategoryStyle`. 테스트 정리: `utils.test.ts`의 `timeAgo` 묶음 5개와 시간대 스냅숏의 해당 열, `design-tokens.test.ts`의 카테고리 스타일 3개 → "스타일 맵·헬퍼가 export되지 않는다" 1개. `NewsCardCompact`의 `rank`는 계약(6절)대로 남김.
+  - 남긴 것: `formatDateOnly`는 `timeAgo`가 유일한 호출처였으므로 이제 src에서 호출 0이다(테스트만 사용). 지시 목록에 없어 지우지 않았다.
+  - 계약 문서와의 차이: UNSLOP-AUDIT 3절·6절은 "`getCategoryStyle`의 이름·시그니처 유지"라고 적고 있다(슬라이스 사이 빌드 유지용). 호출처가 0이 되어 통합 정리로 지웠다. 문서는 고치지 않았다.
+- [ ] **P3-9 홈 2열 전환 `lg:` → `xl:` — 채택하지 않음.** 1024·1200px에서 `xl:`과 같은 스타일을 넣어 비교했다(`qa-out/gen-s4b-p9.cjs`, 화면 `gen-s4b-shots/p9-*`). 1024px: 열 끝 90px 빈 자리는 없어지지만 ① 2·3번째 헤드라인이 통신 목록 아래로 내려가 첫 화면(1024×768)에 머리기사 하나만 남고(지금은 세 건) ② 헤드라인 블록이 1089 → 1423px로 334px 길어지며 ③ 머리기사 사진이 631×384 → 958×384(1200px에서는 1134×384, 약 3:1)로 띠처럼 잘린다. 1024px이 나아졌다고 볼 수 없어 되돌릴 것도 없이 적용하지 않았다(1280·1440px은 어느 쪽이든 같다).
+- [ ] P3-10: 지시대로 하지 않음(S3 컴포넌트 변형 필요).
+- [x] **P3-11 `TH`/`TD` `py-0`**: 여섯 상수 모두. 전 칸 위아래 여백 0px(전 1px), 행 44px·머리 40px 그대로(4화면 × 3폭).
+- [x] **P3-12 소스 폼의 "취소" 2개** (`src/app/admin/sources/page.tsx`): 머리 버튼은 폼이 닫혀 있을 때만 "소스 추가"로 보인다. 폼이 열리면 밝은 버튼은 폼의 제출 하나, "취소"는 폼의 것 하나. 키보드로 열고 Tab → 폼의 첫 칸(`#src-name`)으로 간다(Chromium). 취소하면 "소스 추가"가 돌아온다. 수정 → 제출 "수정" 하나 + 취소 하나.
+
+### 수정 파일 (12)
+- `src/app/page.tsx`, `src/app/search/page.tsx`, `src/app/ranking/page.tsx`, `src/app/admin/layout.tsx`, `src/app/admin/sources/page.tsx`
+- `src/lib/ui.ts`, `src/lib/utils.ts`, `src/lib/constants.ts`
+- `tests/unslop-pages.test.ts`, `tests/chrome-unslop.test.ts`, `tests/design-tokens.test.ts`, `tests/utils.test.ts`
+
+신규·삭제 파일 0. 의존성 변화 0.
+
+### 검증 (마지막 빌드)
+| 검사 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 오류 0 |
+| `npm test` | 416 / 416 (지운 케이스 8, 새 케이스 8 — 합계가 우연히 같다) |
+| `local-env.sh restart` | `APP UP (2s, css 200)` |
+| `node qa-out/gen-s4-verify.js` | ALL PASS (기대값 변경 없음 — 사본을 만들지 않았다) |
+| `node qa-out/gen-s4-s3-verify.js` | S3 VERIFY CLEAN |
+| `node qa-out/gen-s2b-check.js … qa-out/gen-s4b-s2` | 131 / 131 |
+| `ui-audit.js gen-s4b` | 3줄 모두 `overflow=0 brokenImgPages=0`. 콘솔은 415 541건·404 15건·502 5건(기준선과 같은 수), 그 밖의 콘솔 오류·페이지 오류 0. 159행이 `audit-integ.json`과 상태·오류 종류 동일 |
+| `node qa-out/gen-s4-e2e.cjs` | 50 / 50 |
+| `node qa-out/gen-s4b-check.cjs`(이번 항목 전용) | 118 / 118. 320~1440px 11개 폭 × 공개 8경로 가로 넘침 0, 관리자 4화면 × 3폭 넘침 0, 페이지·하이드레이션 오류 0 |
+| `node qa-out/gen-s4b-newsletter.cjs`(`NEXT_PUBLIC_NEWSLETTER_ENABLED=true` 빌드) | 30 / 30. 그 뒤 플래그 없이 다시 빌드해 위 검사를 돌렸다 |
+| `python3 qa-out/gen-s4b-mutate.py` | 20 / 20 검출 |
+
+직접 본 화면(`qa-out/gen-s4b-shots/`): 홈 1440·1024·390(전체 + 첫 화면), 카테고리 단 1440·1024·768·390, `/search?q=%20%20` 1440·390, `/ranking` 1440·390, `/admin` 1440·390, 소스 폼 열림 390, 헤더 검색 390, P3-9 비교 4장.
+
+### S1~S3 파일에서 본 것 (고치지 않음)
+1. `tailwind.config.ts:25` 주석이 지워진 `CATEGORY_COLORS`를 예로 든다.
+2. `Header.tsx:244`·`Footer.tsx:150`·`admin/layout.tsx:23` 워드마크 클래스가 세 곳에 문자열로 따로 있다(테스트로만 묶여 있음).
+3. `formatDateOnly`(`utils.ts`) — src 호출 0.
+
+### 실험 파일 (`qa-out/gen-s4b-*`, 소스 아님)
+`gen-s4b-measure.cjs`(+`-before.log`·`-after.log`), `gen-s4b-catshot.cjs`, `gen-s4b-p9.cjs`, `gen-s4b-check.cjs`(+`.log`), `gen-s4b-newsletter.cjs`(+`.log`), `gen-s4b-fallback.cjs`(+`.log`), `gen-s4b-mutate.py`(+`.log`), `gen-s4b-shots/`, `gen-s4b-s2/`, 각 검증 로그(`gen-s4b-restart.log`, `-verify.log`, `-s3verify.log`, `-s2check.log`, `-ui-audit.log`, `-e2e.log`, `-test.log`).

@@ -54,6 +54,7 @@ describe('S4 pages — signs that must not come back', () => {
     // (built with the constructor: the `u` flag is not allowed in a literal at this project's TS target)
     ['pictographs', new RegExp('[\\u{1F000}-\\u{1FAFF}\\u{2600}-\\u{27BF}]', 'u')],
     ['trailing ellipsis in interface text', /(중|세요|요)\.\.\./],
+    ['exclamation marks in interface text', /[가-힣]!/],
     ['inline icons (the set is src/components/icons.tsx)', /<svg\b/],
   ];
   for (const [name, re] of banned) {
@@ -170,15 +171,35 @@ describe('S4 pages — the signature and the two moments', () => {
     assert.match(home, /const SECTION_TITLE = 'mb-4 text-headline-md text-text';/);
     assert.match(home, /<div className="mb-8">\s*<BreakingTicker/);
     // category columns are open columns: the card inside is the only box
-    assert.match(home, /<div key=\{slug\} className="flex flex-col border-t border-border pt-4">/);
+    assert.match(home, /<div key=\{slug\} className="row-span-3 grid grid-rows-subgrid content-start border-t border-border pb-8 pt-4">/);
     // no card is stretched to match a neighbouring column (that opens an empty band inside it)
     assert.match(home, /<div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">/);
     assert.doesNotMatch(home, /gap-5[^'"]*grid-rows-/);
   });
 
+  test('home: a category column is three shared rows, so neighbouring cards are equally tall', () => {
+    // name / card / wire rows on the row tracks of the section grid
+    assert.match(home, /className="mb-4 inline-flex items-center gap-2 justify-self-start /);
+    assert.match(home, /<div className="grid">\s*<NewsCard article=\{featured\} \/>/);
+    // the count panel spans those three rows and an empty fourth, which takes what the panel is taller by
+    assert.match(home, /<div className="row-span-4 pb-8">\s*<TrendingKeywords keywords=\{trendingKw\} \/>/);
+    // lines of cells are 32px apart by the cells' own pb-8 (a row gap would open before the empty row too)
+    assert.equal((home.match(/'-mb-8 grid grid-cols-1 gap-x-5 md:grid-cols-2 (xl:grid-cols-4|lg:grid-cols-3)'/g) ?? []).length, 2);
+    assert.doesNotMatch(home, /gap-y-/);
+    // no card takes "the height that is left" of its own column
+    assert.doesNotMatch(home, /flex-1|flex-col border-t/);
+  });
+
+  test('home: sections are 48px apart', () => {
+    const sections = Array.from(home.matchAll(/<section\b[^>]*>/g), (m) => m[0]);
+    assert.deepEqual(sections, ['<section>', '<section className="mt-12">', '<section className="mt-12">', '<section className="mt-12">']);
+  });
+
   test('ranking: every rank is printed above its card, in fixed-width figures', () => {
     const src = read('src/app/ranking/page.tsx');
     assert.match(src, /<ol className="mt-8 grid /);
+    // h1 → h2 → the cards' h3
+    assert.match(src, /<h2 className="sr-only">순위<\/h2>\s*<ol /);
     assert.match(src, /\{idx \+ 1\}\s*<span className="sr-only">위<\/span>/);
     assert.doesNotMatch(src, /absolute|relative|idx < 3 &&/);
   });
@@ -208,6 +229,27 @@ describe('S4 pages — the signature and the two moments', () => {
     assert.match(src, /placeholder="검색어"/);
     assert.match(src, /검색 결과 <span className=\{cn\(NUM, 'text-text'\)\}>\{formatCount\(total\)\}<\/span>건/);
     assert.match(src, /<div role="status"/);
+    // a query of spaces only is no query
+    assert.match(src, /const q = \(searchParams\.get\('q'\) \|\| ''\)\.trim\(\);/);
+    // h1 → h2 → the cards' h3
+    assert.match(src, /\{articles\.length > 0 && <h2 className="sr-only">검색 결과<\/h2>\}/);
+  });
+
+  test('admin: one primary button on a screen at a time', () => {
+    // uses of BTN_PRIMARY outside the import line
+    const uses = (file: string) => (read(file).replace(/^import .*$/gm, '').match(/\bBTN_PRIMARY\b/g) ?? []).length;
+    assert.equal(uses('src/app/admin/page.tsx'), 1);
+    assert.equal(uses('src/app/admin/articles/page.tsx'), 0);
+    assert.equal(uses('src/app/admin/logs/page.tsx'), 0);
+    // sources: "소스 추가" while the form is closed, the form's submit button while it is open
+    const sources = read('src/app/admin/sources/page.tsx');
+    assert.equal(uses('src/app/admin/sources/page.tsx'), 2);
+    assert.match(sources, /\{!showForm && \(\s*<button type="button" onClick=\{[^\n]*\} className=\{BTN_PRIMARY\}>\s*소스 추가/);
+    assert.match(sources, /\{showForm && \(\s*<form onSubmit=\{handleSubmit\}/);
+    assert.match(sources, /<button type="submit" disabled=\{saving\} className=\{BTN_PRIMARY\}>/);
+    // one way out of the form
+    assert.equal((sources.match(/^\s*취소$/gm) ?? []).length, 1);
+    assert.doesNotMatch(sources, /\? '취소'|'취소' :/);
   });
 
   test('admin: counts wait for the data, statuses and codes are shown in Korean', () => {

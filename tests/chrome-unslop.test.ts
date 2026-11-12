@@ -72,7 +72,9 @@ const BANNED: { name: string; re: RegExp; except?: string[] }[] = [
     re: /\brounded(-[trblse]{1,2})?(-(sm|md|lg|xl|2xl|3xl))?(?![-\w])/,
   },
   // 14px text is text-body-md (one line height); 12px is text-caption / text-meta / text-overline.
-  { name: 'type sizes outside the tokens', re: /\btext-(xs|sm|base)\b/ },
+  { name: 'type sizes outside the tokens', re: /\btext-(xs|sm)\b/ },
+  // 16px is the size of field text below lg only (FIELD / FIELD_SM in ui.ts: under 16px iOS Safari zooms on focus).
+  { name: '16px text outside the fields', re: /\btext-base\b/, except: [UI] },
   // The one focus indicator is the global :focus-visible outline. main#main (programmatic focus target) may drop it.
   { name: 'local focus rings', re: new RegExp('focus:ring|\\bring-|(?<!focus:)outline-none') },
   { name: 'locale-dependent numbers', re: /toLocaleString/ },
@@ -188,7 +190,21 @@ describe('site chrome — wordmark, container, footer facts', () => {
     assert.equal(header.split('.co.kr').length - 1, 1);
     // Footer: the wordmark, and the mail address (href + label)
     assert.equal(footer.split('.co.kr').length - 1, 3);
-    assert.match(read('src/app/admin/layout.tsx'), /text-lg font-semibold text-text">\s*LiveNews Admin/);
+    // One size, weight and color for the wordmark in the header, the footer and the admin bar.
+    const type = 'text-lg font-semibold text-text';
+    assert.match(header, new RegExp(`className="[^"]* ${type}">\\s*LiveNews<span`));
+    assert.match(footer, new RegExp(`className="[^"]* ${type}">\\s*LiveNews<span`));
+    assert.match(read('src/app/admin/layout.tsx'), new RegExp(`className="whitespace-nowrap ${type}">\\s*LiveNews Admin`));
+  });
+
+  test('admin content starts 32px under its bar, like the public pages under the header', () => {
+    assert.match(read('src/app/admin/layout.tsx'), /<div className=\{cn\(CONTAINER, 'py-8'\)\}>\{children\}<\/div>/);
+  });
+
+  test('field text is text-base below lg and text-body-md from lg, nothing else', () => {
+    const ui = read(UI);
+    assert.equal(ui.split('text-base').length - 1, 2);
+    assert.equal((ui.match(/text-base text-text [^']*lg:text-body-md';/g) ?? []).length, 2);
   });
 
   test('one page container for header, footer, admin bar and skeleton: CONTAINER from src/lib/ui.ts (§7-6)', () => {

@@ -158,15 +158,14 @@ export default function AdminSourcesPage() {
 
   return (
     <div>
-      {/* While the form is open its submit button is the screen's one primary action. */}
+      {/* While the form is open its submit button is the screen's one primary action, and its
+          "취소" the one way out: the head button is not shown then. */}
       <PageHeading title="소스 관리" count={sources.length} unit="개">
-        <button
-          type="button"
-          onClick={() => { setShowForm(!showForm); setEditSource(null); }}
-          className={showForm ? BTN_SECONDARY : BTN_PRIMARY}
-        >
-          {showForm ? '취소' : '소스 추가'}
-        </button>
+        {!showForm && (
+          <button type="button" onClick={() => { setShowForm(true); setEditSource(null); }} className={BTN_PRIMARY}>
+            소스 추가
+          </button>
+        )}
       </PageHeading>
 
       {/* Add/Edit Form */}

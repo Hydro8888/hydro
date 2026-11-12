@@ -51,8 +51,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // scroll-padding: when focus scrolls an element into view, it stops clear of the sticky header
+  // (90px with the nav strip) and, below lg, of the fixed bottom tab bar (57px).
   return (
-    <html lang="ko" className="dark">
+    <html lang="ko" className="dark scroll-pt-24 scroll-pb-16 lg:scroll-pb-0">
       <head>
         {/* Font files come from cdn.jsdelivr.net (Pretendard) and fonts.gstatic.com; both are CORS fetches */}
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
@@ -67,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-surface text-text min-h-screen flex flex-col overflow-x-hidden">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded-control focus:bg-text focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-ink"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:inline-flex focus:h-10 focus:items-center focus:rounded-control focus:bg-text focus:px-4 focus:text-body-md focus:font-medium focus:text-accent-ink"
         >
           본문 바로가기
         </a>

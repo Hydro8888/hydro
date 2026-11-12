@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import AdminNav from '@/components/AdminNav';
+import { cn } from '@/lib/utils';
+import { CONTAINER } from '@/lib/ui';
 
 const adminMenu = [
   { href: '/admin', label: '대시보드' },
@@ -17,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="bg-surface-card border-b border-border py-3">
         {/* < sm: row 1 = brand + back link, row 2 = AdminNav (order + w-full).
             >= sm: order reset → brand · nav · (ml-auto) back link, as before. */}
-        <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className={cn(CONTAINER, 'flex flex-wrap items-center gap-x-6 gap-y-2')}>
           <Link href="/admin" className="whitespace-nowrap text-lg font-semibold text-text">
             LiveNews Admin
           </Link>
@@ -26,13 +28,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <Link
             href="/"
-            className="order-2 ml-auto inline-flex h-8 items-center whitespace-nowrap text-sm text-text-secondary transition-colors hover:text-text sm:order-none"
+            className="order-2 ml-auto inline-flex h-8 items-center whitespace-nowrap text-body-md text-text-secondary transition-colors hover:text-text sm:order-none"
           >
             사이트로 돌아가기
           </Link>
         </div>
       </div>
-      <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8 py-6">{children}</div>
+      <div className={cn(CONTAINER, 'py-6')}>{children}</div>
     </div>
   );
 }

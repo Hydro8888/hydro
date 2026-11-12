@@ -26,7 +26,7 @@ export default function AdminNav({ items }: { items: readonly AdminMenuItem[] })
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'inline-flex h-8 items-center whitespace-nowrap text-sm font-medium transition-colors',
+              'inline-flex h-8 items-center whitespace-nowrap text-body-md font-medium transition-colors',
               active ? 'text-accent' : 'text-text-secondary hover:text-text',
             )}
           >

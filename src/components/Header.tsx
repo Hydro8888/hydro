@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MAIN_MENU, COUNTRIES } from '@/lib/constants';
 import { cn, formatCount } from '@/lib/utils';
 import { formatKstClock, isAdminPath } from '@/lib/site';
-import { CHIP, CHIP_CURRENT, NUM } from '@/lib/ui';
+import { CHIP, CHIP_CURRENT, CONTAINER, NUM } from '@/lib/ui';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useSiteStats } from '@/hooks/useSiteStats';
 import SearchBar from './SearchBar';
@@ -72,14 +72,11 @@ const COUNTRY_LINKS = COUNTRIES.filter((c) => c.code !== 'all').map((c) => ({
   href: c.code === 'global' ? '/world' : `/${c.code}`,
 }));
 
-// Page container shared with the footer and every page (UNSLOP-AUDIT §7-6).
-const CONTAINER = 'mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8';
-
 // Desktop nav: every link is the same 40px box (the 2px bottom border is always there, only its
 // color changes), so the labels share one baseline. The accent marks the current page only.
 // The row scrolls sideways and would clip an outer focus outline, so it is drawn inside.
 const NAV_LINK =
-  'inline-flex h-10 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-colors focus-visible:-outline-offset-2';
+  'inline-flex h-10 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-body-md font-medium transition-colors focus-visible:-outline-offset-2';
 const NAV_IDLE = 'border-transparent text-text-secondary hover:text-text';
 const NAV_ACTIVE = 'border-accent text-accent';
 
@@ -231,9 +228,9 @@ function SiteHeader() {
       <header
         className={cn(
           'sticky top-0 z-50 w-full border-b border-border bg-surface transition-transform duration-200',
-          // Collapse by the exact tier-1 height (h-12): desktop keeps the nav strip
-          // pinned, mobile hides the header fully — no clipped sliver remains.
-          collapsed && '-translate-y-12',
+          // Below lg the whole header slides out (its own height, bottom hairline included).
+          // From lg up only tier 1 (h-12) goes, so the nav strip stays pinned at the top.
+          collapsed && '-translate-y-full lg:-translate-y-12',
         )}
         onFocus={(e) => setFocusWithin(isKeyboardFocus(e.target))}
         onBlur={(e) => {
@@ -381,9 +378,12 @@ function SiteHeader() {
               : 'invisible max-h-0 overflow-hidden opacity-0',
           )}
         >
+          {/* One left line: the section labels, the row labels and the chip boxes all start on the
+              page edge. -mx-3 cancels the rows' own px-3, as in the desktop nav strip; the rows then
+              reach 4px from the panel edge, so their focus outline is drawn inside (§7-19). */}
           <nav aria-label="모바일 메뉴" className={cn(CONTAINER, 'py-4')}>
             <p className="mb-2 text-overline text-text-muted">카테고리</p>
-            <ul className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+            <ul className="-mx-3 grid grid-cols-3 gap-1 sm:grid-cols-4">
               {MAIN_MENU.map((item) => {
                 const active = isActive(item.href);
                 return (
@@ -393,7 +393,7 @@ function SiteHeader() {
                       onClick={() => setMobileOpen(false)}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'flex h-10 items-center justify-center rounded-control px-3 text-sm font-medium transition-colors',
+                        'flex h-10 items-center rounded-control px-3 text-body-md font-medium transition-colors focus-visible:-outline-offset-2',
                         active
                           ? 'bg-surface-elevated text-accent'
                           : 'text-text-secondary hover:bg-surface-elevated hover:text-text',
@@ -412,7 +412,7 @@ function SiteHeader() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Hacker News (새 창)"
-              className="mt-2 flex h-10 items-center gap-2 rounded-control px-3 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text"
+              className="-mx-3 mt-2 flex h-10 items-center gap-2 rounded-control px-3 text-body-md font-medium text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text focus-visible:-outline-offset-2"
             >
               Hacker News
               <ExternalIcon />
@@ -481,8 +481,17 @@ function SiteHeader() {
               </Link>
             </li>
 
-            {/* Country picker */}
-            <li ref={countryRef} className="relative">
+            {/* Country picker. Closes when focus moves to an element outside it (Tab past the last row).
+                A blur with no next element (a click on empty space, the window losing focus) is left
+                to the outside-click handler, so a click on a row is never cut short. */}
+            <li
+              ref={countryRef}
+              className="relative"
+              onBlur={(e) => {
+                const next = e.relatedTarget as Node | null;
+                if (next && !e.currentTarget.contains(next)) setCountryOpen(false);
+              }}
+            >
               <button
                 ref={countryBtnRef}
                 type="button"
@@ -517,7 +526,7 @@ function SiteHeader() {
                           onClick={() => setCountryOpen(false)}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'flex h-10 items-center justify-between rounded-control px-3 text-sm transition-colors',
+                            'flex h-10 items-center justify-between rounded-control px-3 text-body-md transition-colors',
                             active
                               ? 'bg-surface-elevated text-accent'
                               : 'text-text-secondary hover:bg-surface-elevated hover:text-text',

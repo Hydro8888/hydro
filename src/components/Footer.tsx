@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { CATEGORIES, MAIN_MENU } from '@/lib/constants';
 import { cn, formatCount } from '@/lib/utils';
 import { isAdminPath, kstYear } from '@/lib/site';
-import { BTN_PRIMARY, FIELD, NUM } from '@/lib/ui';
+import { BTN_PRIMARY, CONTAINER, FIELD, NUM } from '@/lib/ui';
 import { NEWSLETTER_ENABLED, isNewsletterBannerPath, subscribeNewsletter } from '@/lib/newsletter';
 import { useSiteStats } from '@/hooks/useSiteStats';
 import { CheckIcon, MailIcon } from './icons';
@@ -16,12 +16,10 @@ import { CheckIcon, MailIcon } from './icons';
 /* ------------------------------------------------------------------ */
 const FOOTER_CATEGORIES = CATEGORIES.slice(0, 12);
 
+// Category pages are already in the list above; a link appears once per column.
 const QUICK_LINKS = MAIN_MENU.filter(
-  (m) => m.href !== '/' && m.href !== '/ranking' && m.href !== '/search',
-).slice(0, 6);
-
-// Page container shared with the header and every page (UNSLOP-AUDIT §7-6).
-const CONTAINER = 'mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8';
+  (m) => m.href !== '/' && m.href !== '/ranking' && m.href !== '/search' && !m.href.startsWith('/category/'),
+);
 
 // Section label (sentence case) and the one link shape of every footer list: a 32px row.
 const LABEL = 'mb-3 text-overline text-text-muted';
@@ -211,7 +209,7 @@ function SiteFooter({ pathname }: { pathname: string }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 flex-1">
             <p className="mb-3 max-w-2xl text-caption leading-5 text-text-muted">
-              본 서비스의 기사는 AI를 통해 번역 · 요약되었으며, 원문 저작권은 각 언론사에 있습니다.
+              본 서비스의 기사는 AI를 통해 번역·요약되었으며, 원문 저작권은 각 언론사에 있습니다.
               번역 과정에서 오류가 발생할 수 있으므로, 중요한 정보는 원문을 직접 확인하시기 바랍니다.
             </p>
             <FooterStats />

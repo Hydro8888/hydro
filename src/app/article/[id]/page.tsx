@@ -86,9 +86,12 @@ const BODY_PENDING_NOTICE = {
   summary: '본문 번역 준비 중 · 한국어 요약만 제공됩니다',
 } as const;
 
-function Sep() {
+// Dateline items are separated by a middle dot that sits in each item's 16px left padding.
+const DATELINE_ITEM = 'relative pl-4';
+
+function Dot() {
   return (
-    <span aria-hidden="true" className="text-text-muted">
+    <span aria-hidden="true" className="absolute left-0 w-4 text-center text-text-muted">
       ·
     </span>
   );
@@ -119,23 +122,30 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
   const dateTime = toIsoDateTime(article.publishedAt);
 
   // Dateline: source · time · author. Printed at the head and again at the foot of the article.
+  // The row is pulled 16px to the left and clipped, so the dot of whichever item starts a line
+  // (the first one, or one that wrapped) is not shown: no dot is left hanging at either end of a line.
   const dateline = (
-    <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-body-md text-text-secondary">
-      <span>{article.source.sourceName}</span>
-      {dateLabel && (
-        <>
-          <Sep />
-          <time dateTime={dateTime} className="dateline">
-            {dateLabel}
-          </time>
-        </>
-      )}
-      {article.author && (
-        <>
-          <Sep />
-          <span className="min-w-0 break-words text-text-muted">{article.author}</span>
-        </>
-      )}
+    <p className="min-w-0 overflow-hidden text-body-md text-text-secondary">
+      <span className="-ml-4 flex flex-wrap items-baseline gap-y-1">
+        <span className={DATELINE_ITEM}>
+          <Dot />
+          {article.source.sourceName}
+        </span>
+        {dateLabel && (
+          <span className={DATELINE_ITEM}>
+            <Dot />
+            <time dateTime={dateTime} className="dateline">
+              {dateLabel}
+            </time>
+          </span>
+        )}
+        {article.author && (
+          <span className={cn(DATELINE_ITEM, 'min-w-0 break-words text-text-muted')}>
+            <Dot />
+            {article.author}
+          </span>
+        )}
+      </span>
     </p>
   );
 

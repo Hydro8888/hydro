@@ -223,9 +223,10 @@ export default function AdminSourcesPage() {
       )}
 
       {/* Sources Table. The row being edited is the selected one: a full surface step and an accent
-          rule on its first cell; hover and keyboard focus are half a step. */}
+          rule on its first cell, and it keeps that under the pointer and with focus inside it.
+          On the other rows hover and keyboard focus are half a step. */}
       <div className={TABLE_WRAP}>
-        <table className="w-full text-body-md">
+        <table className="w-full whitespace-nowrap text-body-md">
           <thead>
             <tr className="border-b border-border">
               <th className={cn(TH, 'border-l-2 border-transparent')}>소스명</th>
@@ -241,8 +242,8 @@ export default function AdminSourcesPage() {
             {sources.map((source) => {
               const selected = showForm && editSource?.id === source.id;
               return (
-                <tr key={source.id} data-selected={selected ? '' : undefined} className={cn(TR, selected && TR_SELECTED)}>
-                  <td className={cn(TD_MAIN, 'whitespace-nowrap border-l-2', selected ? 'border-accent' : 'border-transparent')}>{source.sourceName}</td>
+                <tr key={source.id} data-selected={selected ? '' : undefined} className={selected ? TR_SELECTED : TR}>
+                  <td className={cn(TD_MAIN, 'border-l-2', selected ? 'border-accent' : 'border-transparent')}>{source.sourceName}</td>
                   <td className={cn(TD, 'hidden sm:table-cell')}>{source.sourceType}</td>
                   <td className={TD}>{countryLabel(source.country)}</td>
                   <td className={cn(TD, 'hidden sm:table-cell')}>{languageName(source.language)}</td>

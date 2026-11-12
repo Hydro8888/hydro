@@ -120,7 +120,7 @@ describe('S4 pages — shared pieces', () => {
     for (const file of ADMIN_PAGES) {
       const src = read(file);
       assert.match(src, /<div className=\{TABLE_WRAP\}/, file);
-      assert.match(src, /<table className="w-full text-body-md">/, file);
+      assert.match(src, /<table className="w-full whitespace-nowrap text-body-md">/, file);
       assert.match(src, /<tr className="border-b border-border">/, file);
       assert.doesNotMatch(src, /<thead className|px-4 py-3/, file);
     }
@@ -157,7 +157,7 @@ describe('S4 pages — the signature and the two moments', () => {
 
   test('home: wire lists print the time (no rank) and run newest first by that time', () => {
     assert.doesNotMatch(home, /rank=/);
-    assert.match(home, /byWireTime\(listItems\)\.map/);
+    assert.match(home, /const wireRows = byWireTime\(listItems\);/);
     assert.match(home, /byWireTime\(secondary\)\.map/);
     assert.match(home, /<span className="dateline">KST<\/span>/);
     // the queries keep their own order (§7-11)
@@ -170,7 +170,10 @@ describe('S4 pages — the signature and the two moments', () => {
     assert.match(home, /const SECTION_TITLE = 'mb-4 text-headline-md text-text';/);
     assert.match(home, /<div className="mb-8">\s*<BreakingTicker/);
     // category columns are open columns: the card inside is the only box
-    assert.match(home, /<div key=\{slug\} className="border-t border-border pt-4">/);
+    assert.match(home, /<div key=\{slug\} className="flex flex-col border-t border-border pt-4">/);
+    // no card is stretched to match a neighbouring column (that opens an empty band inside it)
+    assert.match(home, /<div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">/);
+    assert.doesNotMatch(home, /gap-5[^'"]*grid-rows-/);
   });
 
   test('ranking: every rank is printed above its card, in fixed-width figures', () => {

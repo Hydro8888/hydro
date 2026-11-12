@@ -191,7 +191,7 @@ export default function AdminDashboard() {
         </Link>
       </div>
       <div className={TABLE_WRAP}>
-        <table className="w-full text-body-md">
+        <table className="w-full whitespace-nowrap text-body-md">
           <thead>
             <tr className="border-b border-border">
               <th className={TH}>소스</th>
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
           <tbody className="divide-y divide-border-muted">
             {stats.recentLogs.map((log) => (
               <tr key={log.id} className={TR}>
-                <td className={cn(TD_MAIN, 'whitespace-nowrap')}>{log.source.sourceName}</td>
+                <td className={TD_MAIN}>{log.source.sourceName}</td>
                 <td className={TD}>
                   <LogStatus log={log} />
                 </td>

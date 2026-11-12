@@ -146,7 +146,7 @@ export default function AdminArticlesPage() {
       {ready && (
         <>
           <div className={TABLE_WRAP} aria-busy={refreshing}>
-            <table className="w-full text-body-md">
+            <table className="w-full whitespace-nowrap text-body-md">
               <thead>
                 <tr className="border-b border-border">
                   <th className={cn(TH_NUM, 'hidden sm:table-cell')}>ID</th>
@@ -167,8 +167,10 @@ export default function AdminArticlesPage() {
                       <td className={cn(TD_NUM, 'hidden sm:table-cell')}>
                         <span className="text-text-muted">{article.id}</span>
                       </td>
-                      <td className={cn(TD, 'max-w-md')}>
-                        <div className="flex min-w-0 items-baseline gap-2">
+                      {/* The one cell that may be cut: the title is clamped to a line. min-w-56 keeps it
+                          readable on a phone, where the table scrolls sideways instead. */}
+                      <td className={cn(TD, 'max-w-md whitespace-normal')}>
+                        <div className="flex min-w-56 items-baseline gap-2">
                           {article.isActive ? (
                             <Link href={`/article/${article.id}`} lang={t.lang} className="line-clamp-1 text-text underline-offset-4 hover:underline">
                               {t.text}
@@ -182,7 +184,7 @@ export default function AdminArticlesPage() {
                           )}
                         </div>
                       </td>
-                      <td className={cn(TD, 'whitespace-nowrap')}>{article.source.sourceName}</td>
+                      <td className={TD}>{article.source.sourceName}</td>
                       <td className={cn(TD, 'hidden sm:table-cell')}>{countryLabel(article.country)}</td>
                       <td className={cn(TD, 'hidden sm:table-cell')}>
                         {article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '-'}

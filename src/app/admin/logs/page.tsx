@@ -102,7 +102,7 @@ export default function AdminLogsPage() {
       ) : (
         <>
           <div className={TABLE_WRAP}>
-            <table className="w-full text-body-md">
+            <table className="w-full whitespace-nowrap text-body-md">
               <thead>
                 <tr className="border-b border-border">
                   <th className={TH_NUM}>ID</th>
@@ -123,7 +123,7 @@ export default function AdminLogsPage() {
                     <td className={TD_NUM}>
                       <span className="text-text-muted">{log.id}</span>
                     </td>
-                    <td className={cn(TD_MAIN, 'whitespace-nowrap')}>{log.source.sourceName}</td>
+                    <td className={TD_MAIN}>{log.source.sourceName}</td>
                     <td className={cn(TD, 'hidden sm:table-cell')}>{countryLabel(log.source.country)}</td>
                     <td className={TD}>
                       <LogStatus log={log} />

@@ -28,6 +28,14 @@ const COMPACT_LIST_SIZE = 8;
 
 const SECTION_TITLE = 'mb-4 text-headline-md text-text';
 
+/** Rows per column of the two-column wire list at lg, by the length of its first half (up to COMPACT_LIST_SIZE / 2). */
+const WIRE_GRID_ROWS: Partial<Record<number, string>> = {
+  1: 'lg:grid-rows-1',
+  2: 'lg:grid-rows-2',
+  3: 'lg:grid-rows-3',
+  4: 'lg:grid-rows-4',
+};
+
 const wireMs = (d: Date | string | null | undefined): number => {
   const t = d ? new Date(d).getTime() : 0;
   return Number.isNaN(t) ? 0 : t;
@@ -76,6 +84,12 @@ export default async function HomePage() {
 
   const latestNews = remaining.filter((a) => !usedIds.has(a.id));
 
+  // The wire list in publication order, split for its two columns at lg.
+  const wireRows = byWireTime(listItems);
+  const wireFirstHalf = wireRows.slice(0, Math.ceil(wireRows.length / 2));
+  const wireSecondHalf = wireRows.slice(wireFirstHalf.length);
+  const wireGridRows = WIRE_GRID_ROWS[wireFirstHalf.length];
+
   // Three category columns and the count panel make four cells: two by two from md, one row at xl.
   // With fewer cells the section keeps the three-column grid of the rest of the page.
   const categoryCells = categorySections.length + (trendingKw.length > 0 ? 1 : 0);
@@ -102,34 +116,53 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* ── Headlines: the lead story and the wire list on the left, two more stories on the right ── */}
+      {/* ── Headlines: the lead story and the wire list on the left, two more stories on the right.
+             Both columns keep the height of their content (items-start): a stretched card would
+             open an empty band between its summary and its meta line. ── */}
       {hero && (
         <section>
           <h2 className={SECTION_TITLE}>주요 헤드라인</h2>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
             <div className="flex flex-col gap-5 lg:col-span-2">
               <NewsCardLarge article={hero} priority lead />
 
               {/* Articles 4–11. They are not repeated in the category / remaining grids further down.
                   The rows hang 8px outside their own box, hence the 20px panel padding. */}
-              {listItems.length > 0 && (
-                <div className={cn(PANEL, 'flex-1 p-5')}>
+              {wireRows.length > 0 && (
+                <div className={cn(PANEL, 'p-5')}>
                   <div className="mb-2 flex items-baseline justify-between gap-3">
                     <h3 className="text-headline-sm text-text">최신 뉴스</h3>
                     {/* Unit of the time column */}
                     <span className="dateline">KST</span>
                   </div>
-                  {byWireTime(listItems).map((article) => (
-                    <NewsCardCompact key={article.id} article={article} />
-                  ))}
+                  {/* One list, read down: a single column below lg, two columns of equal length from lg
+                      (which also brings this column to about the height of the two cards beside it).
+                      At lg the two halves dissolve (contents) and their rows share the grid's rows, so a
+                      row is as tall on the left as on the right and the hairlines run level. */}
+                  <div className={wireGridRows ? cn('lg:grid lg:grid-flow-col lg:auto-cols-fr lg:gap-x-8', wireGridRows) : undefined}>
+                    {/* Below lg this half's bottom hairline is the divider before the next row; it is
+                        drawn on the same box as the rows' own hairlines (-mx-2 px-2). */}
+                    <div className={cn(wireSecondHalf.length > 0 && '-mx-2 border-b border-border-muted px-2', wireGridRows && 'lg:contents')}>
+                      {wireFirstHalf.map((article) => (
+                        <NewsCardCompact key={article.id} article={article} />
+                      ))}
+                    </div>
+                    {wireSecondHalf.length > 0 && (
+                      <div className={wireGridRows ? 'lg:contents' : undefined}>
+                        {wireSecondHalf.map((article) => (
+                          <NewsCardCompact key={article.id} article={article} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Side by side at md; at lg two rows of equal height, so the column ends level with the left one. */}
+            {/* Side by side at md, stacked at lg */}
             {subHeroes.length > 0 && (
-              <div className={subHeroes.length > 1 ? 'grid gap-5 md:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2' : 'grid gap-5'}>
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-1">
                 {subHeroes.map((article) => (
                   <NewsCardLarge key={article.id} article={article} />
                 ))}

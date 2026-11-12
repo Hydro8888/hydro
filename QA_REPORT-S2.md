@@ -1,8 +1,9 @@
-# QA 보고서 — 슬라이스 S2 (레이아웃 & 내비게이션), Round 5 결함 수정 라운드
+# QA 보고서 — 슬라이스 S2 (레이아웃 & 내비게이션), Unslop 재작업 라운드 1회차
 
-- 검수 대상: 커밋 `30fc446` (S2 구현), 기준 SPEC: `SPEC-S2.md`, 비교 기준: `audit-s1-eval.json`
-- Evaluator: Generator와 독립된 별도 서브에이전트. SELF_CHECK-S2.md의 주장은 아래처럼 모두 직접 실행해 확인했다.
-- `$SP` = `/tmp/claude-0/-home-user-hydro/0832edd1-f39e-53fc-97a8-a3a334add43a/scratchpad`
+- 검수 대상: 커밋 `bd5eedd` (S2 변경분 `55cce32..bd5eedd`), 설계서 `SPEC-S2.md`, 계약 `UNSLOP-AUDIT.md`(7절 우선), 규칙 `.claude/skills/unslop`(SKILL.md·signs.md·tokens.md)
+- Evaluator: Generator와 독립된 서브에이전트. `SELF_CHECK-S2.md`의 주장은 믿지 않고 아래처럼 모두 다시 실행·측정했다.
+- 격리: 작업 트리는 건드리지 않았다. `git worktree`로 `bd5eedd`를 두 벌 꺼내 ① 운영 빌드 `next start` :4102 ② `next dev` :4103(하이드레이션 경고·오류 화면·뉴스레터 폼 확인용, `NEXT_PUBLIC_NEWSLETTER_ENABLED=true`, 던지는 임시 라우트 1개 추가)로 띄웠다. DB·Redis는 읽기만.
+- 산출물(모두 `qa-out/eval-s2-*`): `eval-s2-check.js`(+`.log`), `eval-s2-probe.cjs`(+`.json`), `eval-s2-probe2.cjs`(+`-prod.json`), `eval-s2-probe3.cjs`, `eval-s2-probe4.cjs`, 화면 `eval-s2-{d,m}-*.jpg`, `eval-s2-w*-header.jpg`.
 
 ---
 
@@ -10,104 +11,188 @@
 
 | 검증 | 결과 |
 |---|---|
-| `npx tsc --noEmit` | 종료코드 0, 오류 0 |
-| `npm test` | tests 70 / pass 70 / fail 0 (site 4 + newsletter 3 포함) |
-| `TZ=America/Los_Angeles npm test` | 70 / 70 / fail 0 |
-| `qa-env.sh restart` (rm -rf .next → `next build` → 재기동) | `APP UP (2s, css 200)`, 빌드 성공(BUILD_ID 16:40 신규), `/api/stats` ƒ 동적 라우트 생성 |
-| `node planner-s2-verify.js` | **13/14** — T1, T2, T4~T14 PASS, T3만 "harness not running"(예상) (`$SP/eval-s2-verify.log`) |
-| 하네스 T3 (`planner-s2-harness.sh` :4001) | **PASS** — `status 500, h1 "문제가 발생했습니다", homeHref …/livenews → 200, recovered: true` |
-| 하네스 T2B (플래그 ON) | **PASS** — 배너 경로 푸터 폼 0, `/article/1` 폼 1·레이블·실제 POST·실패 문구, 가짜 성공 없음 |
-| `node audit.js s2-eval` vs `s1-eval` (`eval-s1-compare.js`) | 156/156 레코드. **신규 OVERFLOW 0**, 문서 scrollWidth 변화 0, main 빈 화면 변화 0, 스피너 변화 0. 신규 콘솔/페이지오류/실패요청 각 6건은 **모두 art-404·country-404 × 3뷰포트**(상태 200→404 의도된 변경) |
-| curl 상태 | `/nope`·`/article/999999`·`/article/abc`·`/article/99999999999`·`/admins`·`/a/b` = **404**, SSR `<title>페이지를 찾을 수 없습니다 \| LiveNews</title>`; `/livenews`·`/breaking`·`/article/1`·`/world`·`/ranking`·`/search`·`/category/economy`·`/breaking?page=abc` = 200; `/livenews/` = 308 → `/livenews`(Next trailing-slash 기본 동작, 정상); `/category/zzz` = 200(S4 범위, 계약 D-4) |
-| `/api/stats` | `200 application/json` `{"totalArticles":409,"articlesToday":0,"activeSources":30}` — 정확히 3키, 정수 |
-| SSR HTML 뉴스레터 | `''`, `/world`, `/us`, `/article/1`, `/breaking`, `/search`: `type="email"` 0, "구독" 0, `api/admin` 0 |
-| 클라이언트 DOM(홈) | 푸터 `input[type=email]` 0, 그리드 1440px `400px 400px 400px`(빈 트랙 없음). **단, main 안에 S3 `NewsletterBanner`의 email 입력 1개 존재**(아래 범위 밖 인계) |
-| 통계 요청 | 홈 → 속보 클라이언트 이동 2화면 동안 `/api/stats` 정확히 1회, `/api/admin/stats` 0회 |
-| 스크린샷 육안 | `peek/eval-s2-admin-0.jpg`(1440), `eval-s2-admin-m-0.jpg`(375), `eval-s2-home-0/1.jpg`(375), `eval-s2-home-d-0.jpg`(1440), `eval-s2-404-0.jpg`(375) |
+| `npx tsc --noEmit` | 종료 코드 0 |
+| `npm test` | **274 통과 / 실패 0** (`chrome-unslop.test.ts` 28개 포함) |
+| `NODE_ENV=production next build` | `Compiled successfully`, 종료 코드 0. `.next/static/media` 없음, 빌드 CSS에 `@font-face`·`@import` 0건 → 빌드가 글꼴을 내려받지 않음 |
+| 라우트 상태코드 (:4102) | `/livenews` 200, `/nope` 404, `/article/999999` 404, `/admin` 무인증 **401** / 인증 200, `/breaking` `/ranking` `/category/economy` `/search?q=AI` `/us` `/world` `/article/1` 200 |
+| Generator 체커의 :4102 사본 (`eval-s2-check.js`) | **131 / 131** |
+| Planner 원본 체커 (수정 없음) | 113 / 131 — 실패 18건은 워드마크·푸터 첫 줄·글꼴 링크 3종 × 6뿐 |
+| 독립 측정 (`eval-s2-probe*.cjs`) | 아래 2~4절 |
+| 정적 테스트 변이 13종 | 9종 잡힘, **4종 통과(구멍)** — 3절 T2 |
 
-### 0-1. "Pretendard 차단 환경의 Event 페이지 오류" 원인 규명 (`$SP/eval-s2-event.js`)
-`globals.css:4`의 `@import url('https://cdn.jsdelivr.net/…/pretendardvariable-dynamic-subset.min.css')`를 4가지 조건으로 재현:
+### Generator가 체커 사본에서 바꾼 기대값 3종 — 판정: 타당
+`diff planner-s2-check.js gen-s2-check.js`로 확인. 감사 함수(`audit`)는 한 글자도 바뀌지 않았다.
+1. 워드마크 `LiveNews.co.kr`, 색 2개 `[text, text-secondary]`, 굵기 600 → **7-16과 일치**.
+2. 푸터 첫 줄 `LiveNews.co.kr` → **7-16과 일치**.
+3. 글꼴 링크 2개(Pretendard·Google) 모두 non-blocking, preconnect 3개, jsDelivr도 모의·지연·차단 대상 → **7-8과 일치**(오히려 검사가 넓어졌다).
+그 밖은 스크린샷 파일명과 `CHROME_PATH` 기본값뿐. 기대값을 낮춰 통과시킨 흔적 없음.
 
-| 조건 | `/nope` | `/article/999999` | `/a/b` (루트 not-found) | `/breaking` |
+---
+
+## 1. SPEC 항목 검증
+
+- [PASS] 항목 1 웹폰트 비차단: 서버 HTML `<head>`에 preconnect 3 + 인라인 스크립트 + `<noscript>`(링크 2). 실제 네트워크(프록시)에서 스타일시트 2개 모두 `renderBlockingStatus: non-blocking`, 로드된 글꼴 `Pretendard Variable`·`IBM Plex Mono`, 렌더 차단 리소스는 자체 CSS 1개. 4절 참고.
+- [PASS] 항목 2 layout 크롬: `theme-color` `#161513`, 설명문 교체, 첫 Tab = 본문 바로가기(면 `rgb(239,233,222)` / 글자 `rgb(22,21,19)` / 모서리 8px / 500 / 36px), Enter → `main#main` 포커스.
+- [PASS] 항목 3 아이콘 한 벌: 다섯 파일 `<svg` 0건, `icons.tsx`의 `strokeWidth` 값 1종. 화면의 모든 svg가 16×16 / stroke 1.5 / `fill:none` / 부모 글자색(전 뷰포트·전 상태), 이모지 0.
+- [PASS] 항목 4 버튼 클래스: 7-7·15대로 `@/lib/ui`. `src/components/ui.ts` 없음. `bg-accent` 0건. 주요 버튼 40px / 8px / 500 / `text` 면 + `accent-ink`.
+- [PASS] 항목 5 워드마크(7-16): 헤더·푸터 `LiveNews`(`text`) + `.co.kr`(`text-secondary`) 18px/600, 빨간 점·펄스 없음. 관리자 `LiveNews Admin` `rgb(239,233,222)` 600.
+- [PASS] 항목 6 통계·시계: `오늘 88건 업데이트 · 전체 409건`(워드마크 오른쪽 16px), 숫자 `IBM Plex Mono` + `tabular-nums`. 시계 `11월 12일 (목) 11:27:17 KST`, 날짜는 Pretendard·시각은 mono. `toLocaleString` 0건. 워드마크·통계·시계·토글의 세로 중심이 모두 y=24.
+- [PASS] 항목 7 검색 토글·키캡·모바일 버튼: 토글 32px/8px, 열림 = `surface-elevated` 면(강조색 없음). 키캡 20×20 / 6px / Plex Mono 12px. 모바일 버튼 40×40, 아이콘 오른쪽 끝 x=374(가장자리 16px 선). 메뉴 아이콘 `M4 6h16…` ↔ `M6 6l12 12…`, `aria-expanded` 따라 바뀜.
+- [PASS] 항목 8 헤더 표면·검색 펼침: 헤더 `rgb(22,21,19)` 불투명, blur·gradient 0. 검색 영역 `transition: opacity 0.2s`, 열렸을 때 `overflow: visible`, 입력 포커스 링 네 변 모두 보임(`eval-s2-d-search-open.jpg`).
+- [PASS] 항목 9 데스크톱 내비: 링크 13개 모두 높이 40px·top 49. 첫 글자 x=112 = 워드마크 x=112, "랭킹" 끝 x=1328 = 검색 토글 오른쪽 x=1328. 주황은 현재 항목 1개(`/us`→`미국`, `/ranking`→`랭킹`, `/nope`·`/article/1`→0개). Hacker News `rgb(170,163,152)`. hover는 `text` 색만.
+- [PASS] 항목 10 모바일 메뉴: `transition: opacity 0.2s`, 라벨 12px/500/대문자·자간 없음(위 24 / 아래 8), 행 40px/8px, 칩 32px/8px, ESC → 메뉴 버튼 포커스 + `visibility: hidden`. (정렬 문제는 3절 D1)
+- [PASS] 항목 11 하단 탭·플라이아웃: 바 `rgb(18,17,15)`, 탭 97.5×56, 아이콘 16px가 칸 중앙, 라벨 12px. 주황 = `/`→홈, `/us`→국가, `/nope`→없음. 홈에서 플라이아웃을 열면 "국가"는 `text` 색(주황 아님). 플라이아웃 그림자 `rgba(0,0,0,0.35) 0 8px 24px`, 오른쪽 16px, 버튼 위 8px, 모서리 12 − 여백 4 = 행 8. ESC → 국가 버튼, 바깥 탭 → 닫힘.
+- [PASS] 항목 12 SearchBar: 입력 40px/8px + 버튼 40px/8px, 간격 8px. 포커스 `solid 2px rgb(240,136,62)` offset 2px, `box-shadow: none`. `/` → `AI` → Enter → `/livenews/search?q=AI`.
+- [PASS] 항목 13 푸터: `rgb(18,17,15)`, 평범한 문장 2줄(테두리·면·아이콘 없음), 이모지 0, `운영 중` 0, 라벨 대문자·자간 없음, 링크 19개 모두 32px, hover `text`.
+- [PASS] 항목 14 연락처(7-17): `github.com`·`twitter.com` 링크 0, `mailto:` 1. 남는 항목이 없어진 "소셜" 제목 제거는 타당.
+- [PASS] 항목 15 뉴스레터 폼: dev 빌드에서 플래그를 켜고 측정. 4열, 문구 `주요 뉴스를 이메일로 받아 보세요`, 입력 40px/8px + 버튼 40px/8px 간격 8px, 포커스 = 공통 링, 오류 문구 `rgb(234,93,97)` 12px(빈 상태 `display:none`), `label[for]` 있음.
+- [PASS] 항목 16 하단 바·통계: `<strong>` 0, 숫자 3개 모두 Plex Mono + tabular, 구분자 `·`, 형식 `전체 기사 409건 · 오늘 88건 · 활성 소스 30개`.
+- [PASS] 항목 17 error.tsx: dev에서 던지는 라우트로 실제 렌더. h1 28px/500, 문장 14px, 오류 코드 mono, 버튼 2개 40px/8px(간격 12px), svg·애니메이션·blur 0, "홈으로" href `/livenews`, 재시도 동작.
+- [PASS] 항목 18 not-found.tsx: HTTP 404, 제목 `페이지를 찾을 수 없습니다 | LiveNews`, `404` Plex Mono 12px muted, h1 28px/500, 버튼 40px/8px, 위반 0.
+- [PASS] 항목 19 관리자 바: 사이트 헤더·푸터·하단 탭 DOM에 없음(데스크톱·모바일), 주황 = `소스 관리` 하나, 내비·돌아가기 32px, 왼쪽 선 x=112, 가로 넘침 0.
+- [PASS] 항목 20 스켈레톤(7-18): `/breaking` 응답을 2.5초 붙잡아 실제로 띄워 측정. 애니메이션 0, `background-image` 0, 왼쪽 선 x=112, `role=status`·`aria-live=polite`·sr-only 문구 유지. (모서리 값은 3절 D4)
+- [PASS, 구멍 있음] 항목 21 정적 테스트: 28개 통과. 변이 `font-bold`·선 굵기 2·정적 `<link>`·GitHub 링크·이모지·`transition-all`·`py-2.5`·임의 hex·`hover:text-accent`는 잡는다. 못 잡는 4종은 3절 T2.
+
+### 7절 결정
+| 7절 | 판정 | 근거 |
+|---|---|---|
+| 6 컨테이너 | PASS | 1440px에서 헤더·내비·푸터·관리자 바·관리자 본문·스켈레톤 왼쪽 선이 모두 x=112 |
+| 7·15 `src/lib/ui.ts` | PASS | 6개 파일이 `@/lib/ui` import. 단 `CONTAINER`만은 쓰지 않음(3절 T1) |
+| 8 글꼴 3종 비차단 | PASS | 4절 |
+| 9 진입 애니메이션 0 | PASS | 크롬 전 요소 `animation-name: none` |
+| 16 워드마크 | PASS | 항목 5 |
+| 17 확인 불가 링크 삭제 | PASS | 항목 14 |
+| 18 스켈레톤 정지 | PASS | 항목 20 |
+| 19 스크롤 줄 안 포커스 링 | PASS | 내비 링크 13개·하단 탭 4개 `outline-offset: -2px`, 잘림 0 |
+| 20 구독 문구 | PASS | 푸터 폼. `NewsletterBanner`의 같은 문구는 S3 |
+| 21 icons.tsx | PASS | S2가 생성, `'use client'` 없음 |
+
+---
+
+## 2. unslop 9개 패스 — 독립 측정 (계산된 스타일)
+
+대상: 헤더(기본·검색 열림), 데스크톱 내비, 모바일 메뉴 열림, 하단 탭, 플라이아웃 열림, 푸터, 404, 오류 화면, 관리자 바, 스켈레톤. 1440px·390px.
+
+| 패스 | 측정 | 결과 |
+|---|---|---|
+| 1 간격 | padding·margin(4변)·gap, 컨트롤 높이 | 4px 배수가 아닌 값 **0건**(`ml-auto`의 자동 여백 제외). 높이 집합: 키캡 20 / 칩·행·토글 32 / 버튼·입력·내비 링크·메뉴 행 40 / 탭 56 |
+| 2 색 | 글자·면·테두리·그림자 색 고유값 | 글자 `#efe9de` `#aaa398` `#918b81` `#161513`(주요 버튼) `#f0883e`. 면 `#161513` `#12110f` `#1c1a18` `#262421` `#efe9de`. 테두리 헤어라인 10%·6% + 현재 내비 밑줄 `#f0883e`. 그림자 1종(플라이아웃). `negative`는 구독 오류 문구에만. **램프 밖 색 0** |
+| 2 색 | 강조색의 쓰임 | 현재 내비 항목(글자+밑줄), 현재 하단 탭, 모바일 메뉴의 현재 칸·현재 국가 칩, 플라이아웃 현재 행, 관리자 현재 메뉴, 포커스 링. hover·버튼 면·열림 상태·숫자·로고에는 **0건** |
+| 3 아이콘 | 모든 svg | 16×16 / 1.5 / 글자색 한 벌, 이모지 0 |
+| 4 문구 | 보이는 문자열 80개 + placeholder·aria-label | 느낌표 0, 말줄임 0, 과장어 0. 짧은 문자열 끝 마침표는 저작권 줄 1건(관용 표기) |
+| 5 서체 | 굵기·변환·자간·기울임 | 굵기 `400/500/600`(600은 워드마크뿐), uppercase 0, 0이 아닌 자간 0, italic 0, 12px 미만 0, 숫자만으로 된 조각은 모두 `tabular-nums` |
+| 7 디테일 | 모서리 | 크롬 `6/8/12px`. 스켈레톤에만 `4px`(D4) |
+| 7 디테일 | 포커스 링 | Tab 순회 데스크톱 140개·모바일 120개 + 메뉴 열림 18개 + 플라이아웃 4개: 크롬 요소는 모두 `2px accent`(offset 2 또는 −2), `box-shadow` 대체 링 0, **크롬 안에서 잘린 링 0** |
+| 9 모션 | transition·animation | `transition-property: all` **0**, 반복·진입 애니메이션 **0**, 지속 `0.15s`·`0.2s` 두 가지, easing `cubic-bezier(0.22,1,0.36,1)` 하나, 높이·패딩 전환 0 |
+
+가로 넘침: 320·360·390·480·640·768·820·1024·1100·1280·1440px × (`/`, `/nope`, `/us`) 33회 모두 `scrollWidth − clientWidth = 0`, 뷰포트 밖으로 나간 크롬 요소 0, 통계 잘림 0, 내비 줄 스크롤 없음(1024px 984/984).
+
+---
+
+## 3. 발견한 문제
+
+### 기능·접근성
+- **F1 (중요, 기존 결함·회귀 아님) 고정 크롬이 키보드 포커스를 완전히 가린다.** `html`의 `scroll-padding`이 `auto`다.
+  - 데스크톱 1440px, 푸터에서 Shift+Tab 70회: 본문 요소 **6개가 sticky 헤더(90px) 밑에 완전히 숨음**(예: `북마크 추가` top 48.8~80.8, 헤더 bottom 90 — `eval-s2-d-focus-under-header.jpg`).
+  - 모바일 390px, Tab 90회: 본문 요소 **5개가 하단 탭 바(57px) 밑에 완전히 숨음**(예: 카테고리 링크 top 790~832, 탭 바 top 787).
+  - WCAG 2.2 SC 2.4.11(AA). 지난 라운드에 "포커스가 헤더 안에 있을 때 접힘 방지"는 넣었지만 본문 쪽은 빠져 있다. S2 레이아웃의 몫이다.
+- **F2 (경미, 기존)** 국가 플라이아웃을 키보드로 연 뒤 Tab으로 빠져나가면 포커스는 본문으로 가는데 플라이아웃은 열린 채 남는다(`aria-expanded="true"`).
+- **F3 (경미)** 모바일에서 접힌 헤더가 1px 남는다: 헤더 49px(48 + 테두리 1), `-translate-y-12` = 48px → `bottom: 1`. `Header.tsx:234-235` 주석("no clipped sliver remains")과 실제가 다르다.
+
+### 디자인 (unslop 방향)
+- **D1 모바일 메뉴의 왼쪽 선이 세 개다**(`eval-s2-m-us-menu-open.jpg`): 라벨 x=16, Hacker News 글자 x=28(`px-3`), 카테고리 칸은 3열 가운데 정렬 + `랭킹` 혼자 남는 줄. 스킬 패스 1 "Things line up — labels start on one line" 위반. (SPEC이 준 클래스 그대로이긴 하나 결과가 어긋난다.)
+- **D2 푸터 같은 열에 `경제` 링크가 두 번**(카테고리 `/category/economy`와 바로가기 `/category/economy`). SPEC이 패스 6에서 GitHub·이메일 중복은 고치고 이것은 남겼다. 3열 구성에서 3열은 메일 한 줄(높이 304px 중 32px 사용)이라 균형도 약하다.
+- **D3 같은 푸터 안에서 가운뎃점 표기가 다르다**: `번역·요약해`(`Footer.tsx:155`) vs `번역 · 요약되었으며`(`:214`).
+- **D4 스켈레톤 막대 7곳이 `rounded`(4px)** — 계약 모서리 집합(6/8/12/16) 밖(`PageSkeleton.tsx:23,24,33,43-46`).
+- **D5 14px 글자에 줄 높이가 둘**: `text-sm`(14/20 — 내비 링크, 모바일 메뉴 행, Hacker News 행, 플라이아웃 행, 관리자 내비, 사이트로 돌아가기, 본문 바로가기 7곳)과 `text-body-md`(14/22.4 — 칩·버튼·입력·푸터 행). `text-sm`은 계약 3절의 크기 토큰이 아니다.
+- **D6 템플릿 점검**: 이 슬라이스의 답(헤더 KST 고정폭 시계 + 통계 문장)이 **640px 미만에서는 둘 다 숨는다**(`statsVisible:false`, `clockVisible:false`). 390px 크롬은 워드마크 + 아이콘 2개 + 탭 4개라 제품 이름을 바꿔도 그대로 통한다.
+
+### 기술
+- **T1 페이지 컨테이너 문자열이 5곳에 복사돼 있다.** 같은 커밋 구간에서 `src/lib/ui.ts:54`에 `CONTAINER`가 export됐는데 `Header.tsx:76`, `Footer.tsx:24`는 같은 이름의 로컬 상수를 다시 정의하고 `PageSkeleton.tsx:12`, `admin/layout.tsx:20,35`는 리터럴이다. 테스트(`chrome-unslop.test.ts:167,178-184`)도 import가 아니라 리터럴을 고정한다. 7-15("`src/lib/ui.ts` 하나")와 "코드 중복 제거" 기준 위반.
+- **T2 정적 테스트의 구멍(변이로 확인, 모두 28/28 통과).**
+  1. Hacker News 링크에 `text-green-400` — 이번에 고친 바로 그 징후가 되돌아와도 통과한다(Tailwind 기본 팔레트는 `extend`라 CSS가 생성됨).
+  2. 워드마크 옆에 `bg-live` 점 — SPEC 방향 "live 빨강은 S2에서 쓰지 않는다"를 지키는 검사가 없다.
+  3. 버튼에 `rounded-3xl` — `rounded-(pill|badge|full)`만 본다.
+  4. 통계 숫자에 `text-accent` — 정적으로는 잡기 어렵고, 런타임 체커도 내비·탭만 본다.
+
+### S2 밖 (감점하지 않음 — 기록만)
+- 본문 컨테이너가 아직 `px-4`라 1440px에서 본문 왼쪽 선 x=96, 크롬 x=112(S4).
+- dev 콘솔의 `Invalid DOM property fetchpriority`는 `ArticleImage.tsx:47`(S3). 415는 픽스처의 가짜 이미지.
+- 404 응답은 `<html id="__next_error__">` 빈 셸이라 JS 없이 열면 빈 화면(Next 14의 `notFound()` 동작, 기존).
+- `ui.ts`의 `FIELD` 글자 14px → iOS에서 입력 포커스 시 화면 확대(S1 토큰).
+- `globals.css`의 `.nav-link*`는 죽은 클래스(통합 단계 삭제 대상).
+
+---
+
+## 4. 글꼴 로딩 독립 재현
+
+| 조건 | `/` | `/nope` | `/article/999999` | `/search` |
 |---|---|---|---|---|
-| 외부 전부 abort (audit.js와 동일) | 404, **pageerror `Event`** | 404, **`Event`** | 404, 오류 없음 | 200, 없음 |
-| Pretendard CSS 빈 200 | 404, 없음 | 404, 없음 | 404, 없음 | 200, 없음 |
-| Pretendard CSS 3초 지연 후 200 | 404, 없음 | 404, 없음 | 404, 없음 | 200, 없음 |
-| 실제 네트워크 시도(샌드박스에서 실패) | 404, `Event` | 404, `Event` | 없음 | 없음 |
+| 글꼴 호스트 3곳 **4초 지연** (prod) — FCP | 228ms | 216ms | 260ms | 144ms |
+| 〃 — 스타일시트 | 2개 모두 `non-blocking`, 4.08s에 도착 후 적용 | 동일 | 동일 | 동일 |
+| 글꼴 호스트 **차단** (prod) | 정상 표시(본문 4,777자), FCP 360ms | h1 표시 | h1 표시 | h1 표시 |
+| `link[data-webfonts]` 수 | 2 | 2 | 2 | 2 |
 
-- 모든 조건에서 h1·헤더·푸터·버튼이 정상 렌더되고, 햄버거 클릭 시 `aria-expanded=true`로 **상호작용도 정상**(앱이 죽지 않음).
-- 즉 **페이지 레벨 notFound()로 404가 된 응답에서, 외부 스타일시트 로드가 *실패*할 때만** React가 스타일시트 error 이벤트(`Event`)를 uncaught rejection으로 보고한다. 지연(느린 CDN)은 문제 없음.
-- **운영(폰트 CDN 접속 가능)에서는 발생하지 않음** → S2 회귀 아님(SPEC 항목 2 참고 조항과 일치). 다만 CDN 차단 사용자(사내망·광고차단 등)에게는 404 페이지에서 콘솔 오류 1건이 남는다 — 근본 원인은 S1의 외부 `@import`이므로 아래 인계 항목으로 기록.
-
-### 0-2. 관찰된 추가 사실 (S2 감점 아님, 인계)
-- 브라우저에서 `/nope`·`/article/999999`의 **하이드레이션 후 `document.title`이 `Not Found - LiveNews | LiveNews`**로 바뀐다(SSR 제목은 정확). 원인: `src/app/[country]/page.tsx:30`, `src/app/article/[id]/page.tsx:17`의 generateMetadata가 미존재 시 `{ title: 'Not Found - LiveNews' }` 반환 → RSC 메타데이터가 덮어씀. SPEC 계약 D-5가 S4에 배정한 항목. verify T4는 SSR HTML만 검사하므로 이 차이를 잡지 못한다.
-- 홈·국가 페이지의 `NewsletterBanner`는 플래그 off에서도 여전히 렌더되고 `setSubmitted(true)` 가짜 "구독 완료!"를 유지(`NewsletterBanner.tsx:30-34, 58`). SPEC 계약 C가 S3에 배정. 푸터 쪽(S2 책임)은 해결됨.
-- `mobile|ranking` 깨진 이미지 13→14(+1, api/img) — 랭킹 데이터 변동에 따른 것으로 S2 파일과 무관(D2~D5, S3).
+- 소프트 내비(`/`→`/us`)·뒤로 가기·404→홈 뒤에도 링크 2개(중복 없음), 모두 `<head>` 안.
+- **하이드레이션 경고**: dev 서버에서 6개 라우트 × (정상·4초 지연·차단) = 18회, React 경고 중 S2 원인 **0건**. prod 8회 `Minified React error` 0건.
+- **404 셸**: 서버 응답이 `<html id="__next_error__">`이고 `<head>`에 인라인 스크립트가 없다(직접 확인). React가 브라우저에서 만든 `<script>`는 실행되지 않으므로 `WebFontLinks`가 없으면 링크 0개가 맞다. 마운트 후 2개가 붙고 non-blocking.
+- JS 비활성: `<noscript>` 링크 2개 적용, 헤더·본문 표시(통계·시계는 클라이언트 전용이라 없음 — 정상).
+- 빌드: `next/font` 0건, `globals.css` `@import` 0건, 빌드 산출물에 글꼴 파일 0 → 네트워크 없이 빌드 가능.
 
 ---
 
-## 1. SPEC 개선 항목 검증
+## 5. "SPEC과 다르게 한 점" 판정
 
-- **[PASS] 항목 1 (D10 관리자 크롬 분리)**: `Header`/`Footer` 기본 export가 `usePathname()` → `isAdminPath` 게이트 후 `SiteHeader`/`SiteFooter` 렌더(훅 순서 불변). T1 PASS(4개 관리자 경로 × 375/1440: SSR에 `<header|<footer|Hacker News|뉴스레터` 없음, visible nav 1, fixed 0, 통계 요청 0). `admin/layout.tsx:18` 바가 `max-w-7xl mx-auto px-4` 안으로 이동 → 1440 스크린샷에서 로고·"소스 관리 (0)" 제목 x=96 정렬 일치. 375에서 "LiveNews Admin"·"사이트로 돌아가기" 각 1줄, 현재 메뉴 오렌지(`aria-current`). `AdminNav`의 `/admin` 정확 일치 + 나머지 `href/` 접두 일치(`/admin/sourcesX` 오탐 없음 — SPEC의 단순 startsWith보다 엄밀).
-- **[PASS] 항목 2 (D9 실제 404)**: `layout.tsx`에서 Suspense/Loading 제거, `src/app/loading.tsx` 삭제, `PageSkeleton`(`role=status aria-live aria-busy` + sr-only), `breaking/ranking/category/[slug]` 1줄 re-export만 존재. curl 6경로 404 + SSR 제목 정확. T4 PASS(목록 경로 클라이언트 이동 시 스켈레톤 관측 포함).
-- **[PASS] 항목 3 (D26 오류 화면)**: `ErrorPage`, `h1`, `<a href={withBasePath('/')}>`, `startTransition(() => { router.refresh(); reset(); })` + 전환 중 버튼 비활성. 하네스 T3 PASS(recovered=true, 홈 200).
-- **[PASS] 항목 4 (D11 뉴스레터 플래그)**: `newsletter.ts`가 SPEC 계약 C와 정확히 일치(리터럴 `process.env.NEXT_PUBLIC_NEWSLETTER_ENABLED`, 정확히 `'true'`, 2xx만 ok). Footer: 플래그 off → 열 미렌더 + 완전 리터럴 `lg:grid-cols-3`/`lg:grid-cols-4` 분기, 배너 경로 숨김, sr-only `<label htmlFor>`, 제출 중 disabled, 실패 문구 `role=status`, 타이머 언마운트 정리. `.env.example` 문구 SPEC과 동일. T2·T2B PASS.
-- **[PASS] 항목 5 (공개 통계 API)**: `/api/stats` force-dynamic, `getCached('site:stats',60)`, 반환 시 3키만 재구성(캐시 오염 대비), 실패 500 `{error}`. `useSiteStats` 모듈 스코프 in-flight + lastValue + 공유 타이머(구독자 0 시 정리). 실측 요청 1회, admin 0회, T7 PASS(psql KST 자정 집계 일치). `grep livenews/api` Header/Footer 0건.
-- **[PASS] 항목 6 (KST 시계·연도)**: `formatKstClock`/`kstYear` 순수 함수, LiveClock `<time dateTime=ISO-Z>` + `KST` 라벨, 마운트 전 null. Footer `kstYear()` + 연도 직접 부모 `<p suppressHydrationWarning>`, `getFullYear` 없음. T5·T6 PASS(Seoul/LA/UTC 동일 KST).
-- **[PASS] 항목 7 (닫힌 패널 포커스 차단·ARIA)**: 3개 패널 `invisible` + visibility 포함 transition 리터럴, id 3개, 4개 토글 모두 `aria-expanded`+`aria-controls`(국가 `aria-haspopup`), nav 레이블 3종, 활성 링크 `aria-current`, ESC 시 연 토글로 포커스 복귀, HN `aria-label="Hacker News (새 창)"`, SearchBar `aria-label`. T8 PASS.
-  - **SPEC 이탈 판단 — `scrollIntoView` → `ul.scrollTo`: 타당.** `planner-s2-scrollintoview.js`를 직접 재실행: `none → 본문 바로가기`, `scrollIntoView → Hacker News (새 창)`, `scrollTo → 본문 바로가기`. Chromium에서 scrollIntoView가 순차 포커스 시작점을 옮겨 첫 Tab이 바로가기 링크를 건너뛰는 것이 재현됨. scrollTo는 가로 스트립만 움직여 페이지 세로 스크롤 부작용도 없음(1024px `/category/sports`: 활성 항목 가시, `scrollY 0`, 첫 Tab "본문 바로가기"). 동일 시각 효과(중앙 정렬, smooth) 유지.
-- **[PASS] 항목 8 (접힌 헤더 포커스 가림)**: `focusWithin` + onFocus/onBlur(relatedTarget 검사), `collapsed`에 `!focusWithin`. T14 PASS. 직접 실측: 접힘 후 Shift+Tab → 포커스 "중국" top 51px, header transform `none`(재확장).
-  - **SPEC 이탈 판단 — `:focus-visible`일 때만 focusWithin: 타당.** 직접 실측(`$SP/eval-s2-ux.js`): 마우스로 데스크톱 내비 "경제" 클릭 → 클라이언트 이동 후에도 `document.activeElement`가 헤더 안 링크("경제")에 남음 → 스크롤 다운 시 header transform `matrix(…,-48)`로 **정상 접힘**. SPEC 원안대로였다면 이 상태에서 헤더가 영구히 펼쳐져 "마우스 사용자의 접힘 경험 불변" 요구를 위반했을 것. `matches(':focus-visible')` 미지원 시 true로 폴백(접근성 쪽으로 안전한 실패). 키보드 경로는 T14로 확인.
-- **[PASS] 항목 9 (바로가기 대비)**: `focus:text-surface`, ratio 7.48 (T10). `main tabIndex={-1}`.
-- **[PASS] 항목 10 (가로 모드 메뉴)**: 열림 `max-h-[calc(100dvh-7.5rem)] overflow-y-auto overscroll-contain`. T9: overflowY auto, clientH 254 < scrollH 339, 18링크 모두 도달.
-- **[PASS] 항목 11 (404 좁은 화면·푸터 시맨틱)**: 버튼 행 `flex-wrap`, `whitespace-nowrap`, `px-5 sm:px-6`, 404 숫자 `aria-hidden`. 320px: docW 320, 버튼 높이 40/42. 푸터 h3 0, h2 4, 노출 이모지 0 (T11·T12).
-- **[PASS] 항목 12 (단위 테스트)**: SPEC 표의 모든 행이 단언으로 존재함을 대조(BASE_PATH↔next.config.js 정규식, withBasePath 4케이스+SITE_STATS_PATH, isAdminPath 4 true/8 false, formatKstClock·kstYear·startOfKstDay를 4개 TZ 루프, NaN RangeError, parseSiteStats 1 ok + 추가키 제거 + 10 bad, isFlagOn 1 true/9 false + NEWSLETTER_ENABLED, ENDPOINT, banner 5/7, subscribeNewsletter 200/201/404/500/throw/''/not-an-email + fetch 미호출 + Content-Type 추가 단언). 기본·LA TZ 모두 통과.
-
-**12/12 PASS.** 수정 금지 파일(page.tsx 전부, middleware.ts, api/admin/*, NewsletterBanner.tsx, utils.ts, constants.ts, S5 백엔드) `git diff HEAD~1` 변경 0.
+| # | 내용 | 판정 |
+|---|---|---|
+| 1 | `WebFontLinks.tsx` 신규 | **타당** — 404 셸 구조를 직접 확인(4절). 26줄, 일반 페이지에서는 아무 일도 하지 않음 |
+| 2 | 워드마크 링크 `h-8` | **타당** — 링 상단 y=4, 뷰포트에 잘리지 않음 |
+| 3 | `<nav>`에 `h-10` 없음, `li.flex` | **타당** — nav 41px(테두리 1 + 40), 링크 40px |
+| 4 | 통계 구분점 앞뒤 실제 공백 + `mx-1` | **타당** — 구분점이 `aria-hidden`이라 필요 |
+| 5 | `CHIP`/`CHIP_CURRENT`, `aria-expanded:` 변형 | **타당** — 7-7. 스킬의 "활성 = 면 한 단계 + 헤어라인"과도 일치 |
+| 6 | 플라이아웃 현재 행에 `surface-elevated` | **타당** — 모바일 메뉴 현재 칸과 같은 표현 |
+| 7 | 버튼 값은 `ui.ts` 그대로 | **타당** — 7-7 |
+| 8 | "소셜" 섹션 제거, 브랜드 글리프 미작성 | **타당** — 7-17의 결과 |
+| 9 | 푸터 행 `li.flex` + `inline-flex h-8` | **타당** — 19개 모두 32px |
+| 10 | 관리자 바·본문 공통 컨테이너 | **타당** — 7-6, x=112 정렬 |
+| 11 | 정적 테스트 변경 | **타당하나 불완전** — T2 |
+| 12 | preconnect 3개 | **타당** — 7-8 |
 
 ---
 
-## 2. 채점
+## 6. 화면 비교 (수정 전 `qa-out/unslop/before/prod` ↔ `eval-s2-*.jpg`)
 
-### 디자인 품질: 8/10
-- 기존 다크 토큰(surface/card/elevated, accent #f0883e, text-muted)만 사용, 새 색·그라데이션 0. 관리자 화면은 사이트 크롬이 사라져 단일 관리자 바만 남고 1440에서 로고·본문 정렬이 맞음. 404는 320에서도 버튼이 한 줄 라벨로 안정적. 푸터 3열은 빈 트랙 없이 균등(400×3).
-- 감점: ① 375px 관리자 바가 3줄(브랜드 / 메뉴 / "사이트로 돌아가기")로, 복귀 링크가 좌측 단독 행에 떠 있어 바 높이가 커짐(깨짐은 아니나 정돈감 부족). ② `KST` 라벨이 부모와 같은 `text-text-muted` — 크기·굵기만 다르고 색 위계가 없어 Bloomberg식 "단위 표기"로서의 존재감이 약함. ③ 홈 화면은 여전히 이미지 대체 텍스트가 노출(S3 범위, 감점 제외).
-
-### 독창성: 7/10
-- 해결 방식이 근거 기반이고 차별적: D9를 "루트 경계 제거 + notFound 없는 세그먼트에만 loading" 구조 규칙으로 해결하고 계약 D로 후속 슬라이스까지 묶음, 뉴스레터를 "숨김 + 정직한 실패" 플래그로 처리, 공개/관리자 통계 분리. 두 SPEC 이탈(scrollTo, focus-visible)도 실측으로 정당화된 개선.
-- 감점: 시각적 독창 요소는 KST 라벨 1개뿐(결함 수정 라운드이므로 큰 감점은 아님).
-
-### 기술적 완성도: 9/10
-- tsc 0, 테스트 70/70(두 TZ), 클린 빌드 성공, verify 14/14 + T2B. 순수 로직을 `site.ts`/`newsletter.ts`로 분리해 테스트 가능, 하드코딩 basePath 제거, 통계 요청 공유, 응답 키 화이트리스트, 타이머 정리, 리터럴 Tailwind 클래스.
-- 감점: ① `LiveClock`의 `{clock.label}<span>KST</span>`는 텍스트 노드 사이 공백이 없어 접근성 이름이 `01:41:48KST`로 붙어 읽힘(verify T6 출력에서 확인). ② 404 페이지의 `Event` 오류는 S1 외부 `@import`가 근본 원인이지만 S2가 404를 활성화하면서 표면화됨 — 기록은 했으나 완화책(예: 인계 문서화 외 조치)은 없음.
-
-### 기능성: 8/10
-- 관리자 3중 내비 제거, 실제 404, 오류 화면 복귀·재시도 동작, 푸터 가짜 성공 제거, KST 일관, 키보드 사용성(보이지 않는 Tab 정지 0, ESC 복귀, 접힘 헤더 재확장) 모두 실측 확인.
-- 감점(인계 성격): 사용자가 보는 결과로는 ① 홈/국가 페이지 `NewsletterBanner`의 가짜 구독 폼이 플래그 off에서도 그대로 남음(S3), ② 404 브라우저 탭 제목이 하이드레이션 후 `Not Found - LiveNews | LiveNews`(S4). 둘 다 SPEC상 타 슬라이스 몫이라 S2 감점은 최소화.
-
-### 회귀 안전: 9/10
-- audit 156레코드: 신규 OVERFLOW 0, scrollWidth/빈 화면/스피너 변화 0. 신규 콘솔·실패요청은 의도된 200→404 6건과 그에 수반된 차단 환경 `Event`뿐. S1 성과(죽은 이미지 ID 0, overflow 3건 동일) 유지. 기존 공개 라우트 200, 관리자 대시보드는 여전히 `/api/admin/stats` 사용(변경 없음). 백엔드/워커 파일 무수정, 데이터 영향 없음.
-- 감점: 홈·기사·국가·검색 경로의 클라이언트 이동 스켈레톤이 사라짐(SPEC 의도된 트레이드오프, 로컬 15~70ms).
+- **홈 상단 1440**: 4색 워드마크 + 깜박이는 점 3개 + 주황 숫자 + 초록 Hacker News + 랭킹 아이콘 → 한 색 워드마크, 회색 문장, 주황은 `홈` 밑줄 하나. 조용한 크롬이 됐다.
+- **홈 푸터 1440**: 주황 워드마크·파란 AI 상자·이모지 12개·사각 아이콘 타일 → 글자 목록과 헤어라인. 3열이 비어 보이는 점(D2)만 남는다.
+- **404**: 거대 404 + 주황 알약 → 작은 고정폭 `404` + h1 + 버튼 2개. 오류 화면과 같은 구성.
+- **관리자**: 주황 굵은 로고 → 중립 워드마크, 주황은 현재 메뉴 하나.
+- **390px**: 탭 아이콘 한 크기·한 굵기, 블러 없음. 다만 크롬에 이 제품만의 것이 없다(D6).
+- 템플릿 느낌: 데스크톱·태블릿은 통계 문장과 KST 시계가 답이 된다. 모바일은 아직 아니다.
 
 ---
 
-## 3. 판정
+## 7. 채점
 
 **전체 판정**: 합격
-**가중 점수**: 8.2 / 10.0  ( 8×0.3 + 7×0.2 + 9×0.25 + 8×0.15 + 9×0.1 = 2.40 + 1.40 + 2.25 + 1.20 + 0.90 = 8.15 )
+**가중 점수**: 7.8 / 10.0 (8×0.3 + 7×0.2 + 8×0.25 + 7×0.15 + 9×0.1 = 7.75)
 
 **항목별 점수**:
-- 디자인 품질: 8/10 — 기존 토큰만으로 관리자/404/푸터 정돈, 모바일 관리자 바 3줄·KST 라벨 위계 약함
-- 독창성: 7/10 — 실험 근거의 구조 규칙(D9 계약)·정직한 플래그·공개/관리자 통계 분리, 시각 요소는 KST 라벨뿐
-- 기술적 완성도: 9/10 — tsc 0, 70/70(2 TZ), 빌드 성공, verify 14/14+T2B; 시계 접근성 이름 공백 누락
-- 기능성: 8/10 — S2 결함 전부 해소 실측; 홈 배너 가짜 폼(S3)·404 클라이언트 제목(S4) 잔존
-- 회귀 안전: 9/10 — 신규 overflow 0, 신규 오류는 의도된 404 6건뿐, 금지 파일 무수정
+- 디자인 품질: 8/10 — 측정상 격자·색·서체·아이콘·모션 위반 0. 모바일 메뉴 정렬(D1), 푸터 중복·균형(D2), 표기 불일치(D3), 4px 모서리(D4), 줄 높이 둘(D5)로 감점.
+- 독창성: 7/10 — 새 장식 없이 정렬과 통신 데스크 문장·KST 시계로 방향을 지켰다. 그 답이 640px 미만에서는 사라진다(D6).
+- 기술적 완성도: 8/10 — tsc·테스트·빌드 통과, 글꼴 로딩 견고. 컨테이너 문자열 5중 복사(T1), 정적 테스트 구멍(T2), 사실과 다른 주석(F3).
+- 기능성: 7/10 — 검색·메뉴·플라이아웃·ESC 복귀 모두 정상. 고정 크롬이 포커스를 완전히 가리는 문제(F1)와 플라이아웃 잔류(F2).
+- 회귀 안전: 9/10 — 상태코드·키보드 동작·aria·관리자 크롬 숨김·통계 요청 1회 모두 유지. Header 훅·핸들러 diff 없음.
 
-**구체적 개선 지시** (합격 — 필수 아님, 후속 라운드/인계용):
-1. `src/components/Header.tsx:35-36` (S2 경미): `{clock.label}` 뒤 `KST` span 앞에 공백을 넣거나(`{clock.label}{' '}<span…>KST</span>`) span에 `aria-label`이 아닌 실제 공백 텍스트를 두어 스크린리더가 "01:41:48 KST"로 읽게 할 것. 시각 간격은 기존 `gap-1.5`가 유지.
-2. `src/app/admin/layout.tsx:18-28` (S2 경미, 선택): 375px에서 "사이트로 돌아가기"가 단독 3번째 행으로 떨어짐. 바깥 flex를 `items-start`로 두고 복귀 링크를 브랜드와 같은 1행 우측에 두는 구조(브랜드+복귀 1행 `justify-between`, AdminNav 2행)로 바꾸면 2행으로 정돈됨.
-3. **S3 인계** `src/components/NewsletterBanner.tsx:30-34, 58`: 계약 C대로 `if (!NEWSLETTER_ENABLED) return null;`(훅 이후) + `subscribeNewsletter` 결과로만 성공 표시 — 현재 플래그 off에서도 홈 main에 email 입력 1개와 가짜 "구독 완료!"가 남아 있음(실측).
-4. **S4 인계** `src/app/[country]/page.tsx:30`, `src/app/article/[id]/page.tsx:17`: 미존재 시 `{ title: 'Not Found - LiveNews' }` 반환을 제거하고 `notFound()` 호출(또는 title 미지정)로 바꿔 하이드레이션 후 탭 제목이 `페이지를 찾을 수 없습니다 | LiveNews`로 유지되게 할 것(계약 D-5). verify T4에 `document.title`(하이드레이션 후) 검사 추가 권장.
-5. **S1/S4 인계(선택)** `src/app/globals.css:4`: 외부 `@import` 대신 Pretendard를 `next/font/local`로 자체 호스팅하거나 `<link rel="stylesheet">`로 분리하면, 폰트 CDN 차단 사용자에게 404 페이지에서 나는 uncaught `Event` 오류(본 보고서 0-1)가 사라짐. 운영(CDN 접속 가능)에서는 재현되지 않으므로 우선순위 낮음.
+**구체적 개선 지시** (합격이므로 재검수 조건은 아님. 1~3은 통합 단계 전에 반영 권장):
+1. `src/app/layout.tsx:55` — `<html>`에 `scroll-pt-24 scroll-pb-16 lg:scroll-pb-0`을 더해 포커스로 스크롤될 때 sticky 헤더(90px)와 하단 탭 바(57px)만큼 비운다. 확인: 푸터에서 Shift+Tab, 모바일에서 Tab 순회 시 본문 요소가 헤더·탭 바와 겹치지 않을 것(F1).
+2. `src/components/Header.tsx:76`, `Footer.tsx:24` 로컬 `CONTAINER` 삭제 후 `@/lib/ui`에서 import. `PageSkeleton.tsx:12`, `admin/layout.tsx:20,35`도 `cn(CONTAINER, …)`. `tests/chrome-unslop.test.ts:178-184`는 "네 파일이 `CONTAINER`를 `@/lib/ui`에서 import하고 `max-w-screen-xl` 리터럴이 없다"로 바꾼다(T1).
+3. `tests/chrome-unslop.test.ts:42-65` `BANNED`에 추가: ① 기본 팔레트 색 `/\b(text|bg|border|fill|stroke|decoration|outline)-(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone|white|black)\b/` ② `/\b(bg|text|border)-live\b/` ③ 계약 밖 모서리 `/\brounded-(sm|md|lg|xl|2xl|3xl)\b/`(T2).
+4. `src/components/Header.tsx:410-419` Hacker News 행에 `-mx-3`를 더해 글자가 라벨과 같은 x=16에서 시작하게 하고, `:386-407` 카테고리 칸은 `justify-center` → `justify-start` + `-mx-3` 보정(또는 칸 전체를 왼쪽 정렬 목록으로)으로 왼쪽 선을 하나로 맞춘다(D1).
+5. `src/components/Footer.tsx:19-21` `QUICK_LINKS` 필터에 `!m.href.startsWith('/category/')`를 더해 같은 열의 `경제` 중복을 없앤다(D2). `:214`의 `번역 · 요약되었으며` → `번역·요약되었으며`(D3).
+6. `src/components/PageSkeleton.tsx:23,24,33,43-46` `rounded` → `rounded-tag`(D4).
+7. `src/components/Header.tsx:82,396,415,520`, `AdminNav.tsx:29`, `admin/layout.tsx:29`, `layout.tsx:70` `text-sm` → `text-body-md`(고정 높이 컨트롤이라 배치는 그대로, 14px 줄 높이가 한 가지가 된다)(D5).
+8. `src/components/Header.tsx:236` `collapsed && '-translate-y-full lg:-translate-y-12'`로 모바일의 1px 잔여 선을 없애고 `:234-235` 주석을 사실에 맞춘다(F3).
+9. `src/components/Header.tsx:501` 플라이아웃 래퍼에 `onBlur`로 포커스가 `countryRef` 밖으로 나가면 `setCountryOpen(false)`(F2).
+10. (선택, 사용자 확인 후) `src/components/Header.tsx:37` 시계를 640px 미만에서는 시각만(`HH:mm:ss KST`) 보이게 해 모바일 크롬에도 이 제품의 표식을 남긴다(D6). 새 요소가 아니라 이미 있는 요소의 표시 범위 변경이다.
 
 **방향 판단**: 현재 방향 유지

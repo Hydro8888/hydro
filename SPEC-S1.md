@@ -10,7 +10,7 @@
 
 | 파일 | 내용 |
 |---|---|
-| `qa-out/planner-s1-proto.diff` | 이 설계서 전체를 적용한 **참고용 프로토타입** (S1 4개 파일 + Footer 1줄 + 테스트 2개). `git apply --check` 통과. 격리 복사본에서 `tsc` 0 오류 · `npm test` 232/232 · `next build` 성공을 확인했다. 설계서와 다르면 설계서가 우선 |
+| `qa-out/planner-s1-proto.diff` | 이 설계서 전체를 적용한 **참고용 프로토타입** (S1 4개 파일 + Footer 1줄 + 테스트 2개). `git apply --check` 통과. 격리 복사본에서 `tsc` 0 오류 · `npm test` 232/232 · `next build` 성공(17/17 페이지)과, 이 설계서의 모든 검증 명령이 적힌 결과를 내는 것을 확인했다. 설계서와 다르면 설계서가 우선 |
 | `qa-out/planner-s1-tailwind.config.mts`, `planner-s1-globals.css` | 제안하는 두 파일의 전체 내용 |
 | `qa-out/planner-s1-contrast.mjs` | 대비 계산 (`node qa-out/planner-s1-contrast.mjs`) |
 | `qa-out/planner-s1-fontblock.cjs`, `.log` | Pretendard `@import` 렌더 차단 실측 |
@@ -122,7 +122,7 @@
 
 ## 개선 항목
 
-각 항목의 "검증"은 저장소 루트에서 실행한다. 테스트 이름은 항목 16에서 정한 이름이다.
+각 항목의 "검증"은 저장소 루트에서 실행한다. 테스트 이름은 항목 17에서 정한 이름이다.
 
 ### 항목 1: 중립 램프와 강조색 하나 — `colors`
 - **[패스 2 색 · 템플릿 기본 중립색 / 강조색 4개]**
@@ -165,8 +165,9 @@
 - **기대 효과**: 강조색은 `accent` 하나, 의미색은 `live`/`positive`/`negative`만.
 - **검증**
   ```bash
-  grep -nE "primary|accent-(blue|red|green)|PRIORITY_STYLES|AI_BADGE_STYLE|countryColor" tailwind.config.ts src/lib/constants.ts src/lib/utils.ts   # 0줄
-  npx tsx --test --test-name-pattern="deleted tokens" tests/design-tokens.test.ts                                                                    # 1 pass
+  grep -nE "primary:|dark:|light:|blue:|red:|green:" tailwind.config.ts                                                       # 0줄
+  grep -nE "accent-(blue|red|green)|PRIORITY_STYLES|AI_BADGE_STYLE|countryColor" src/lib/constants.ts src/lib/utils.ts       # 0줄
+  npx tsx --test --test-name-pattern="deleted tokens" tests/design-tokens.test.ts                                             # 2 pass
   ```
 
 ### 항목 3: 카테고리 색 중립화 — `CATEGORY_COLORS` / `getCategoryStyle`
@@ -221,7 +222,7 @@
 - **기대 효과**: 인터페이스에 이모지 0개(S1 범위). 이 한 줄을 지우지 않으면 `tsc`가 `Property 'icon' does not exist`로 실패한다.
 - **검증**
   ```bash
-  grep -n "icon" src/lib/constants.ts              # 0줄
+  grep -n "icon:" src/lib/constants.ts             # 0줄 ("semiconductor"가 걸리므로 콜론까지)
   grep -rn "cat\.icon\|\.icon}" src/components/Footer.tsx   # 0줄
   node -e "const s=require('fs').readFileSync('src/lib/constants.ts','utf8');console.log(/\p{Extended_Pictographic}/u.test(s))"   # false
   git diff --stat -- src/components/Footer.tsx     # 1 file changed, 1 deletion(-)
@@ -362,7 +363,7 @@
 - **기대 효과**: 전환은 한 곡선·세 지속 시간. 반복 모션은 티커(제품 기능)와 로딩 스피너뿐.
 - **검증**
   ```bash
-  npx tsx --test --test-name-pattern="motion|transitions use the one easing|deleted tokens|reduced-motion" tests/design-tokens.test.ts   # 4 pass
+  npx tsx --test --test-name-pattern="motion|transitions use the one easing|deleted tokens|reduced-motion" tests/design-tokens.test.ts   # 5 pass
   grep -cE "@keyframes|animation:|transition-all|ease-(in|out)" src/app/globals.css     # 0
   grep -cE "pulse|pop|slide-up|toast|ease-(in|out)" tailwind.config.ts                   # 0
   ```
@@ -405,7 +406,7 @@
     ```
   - 유지: `body`·`:lang()`·`table` 줄바꿈 규칙, `::selection`(`bg-accent/20 text-text`), reduced-motion 블록, `.scrollbar-none/.scrollbar-hide`, `.safe-area-bottom`.
   - 정리 후 `globals.css`의 전체 구성: `@tailwind` 3줄 → base(body, lang, table, selection, focus-visible, scrollbar, reduced-motion) → components(`.nav-link`, `.nav-link-active`, `.dateline`, `.img-standin`) → utilities(`.scrollbar-none/.scrollbar-hide`, `.safe-area-bottom`). 전체 내용은 `qa-out/planner-s1-globals.css`.
-- **기대 효과**: 약 170줄 → 약 85줄. hex 0건, 강조색은 현재 위치에만.
+- **기대 효과**: 170줄 → 약 90줄. hex 0건, 강조색은 현재 위치에만.
 - **검증**
   ```bash
   grep -cE "#[0-9a-fA-F]{3,8}\b|uppercase|tracking-|italic|-[0-9]+\.5\b" src/app/globals.css      # 0
@@ -445,7 +446,7 @@
 - **기대 효과**: `14:02` / `11.05 14:02`가 목록·카드 메타·기사 머리에서 같은 폭·같은 모양으로 찍힌다. 서버(TZ=UTC)와 브라우저(TZ=Asia/Seoul) 출력이 같다.
 - **검증**
   ```bash
-  npx tsx --test --test-name-pattern="formatWireTime|process time zone" tests/utils.test.ts          # 7 pass (formatWireTime 5 + TZ 2)
+  npx tsx --test --test-name-pattern="formatWireTime|process time zone" tests/utils.test.ts          # 8 pass (formatWireTime 5 + TZ 독립성 2 + formatCount의 TZ 1)
   npx tsx --test --test-name-pattern="dateline" tests/design-tokens.test.ts                           # 1 pass
   TZ=America/Los_Angeles npx tsx -e "import {formatWireTime as f} from './src/lib/utils'; const N=Date.UTC(2026,9,5,3); console.log(f('2026-10-05T05:02:00Z',N), '|', f('2026-10-04T14:59:59Z',N), '|', JSON.stringify(f('garbage',N)))"
   # → 14:02 | 10.04 23:59 | ""
@@ -477,7 +478,7 @@
 ### 항목 14: `.img-standin` — 대체 사진 인쇄 처리
 - **[패스 8 비주얼 · 모먼트는 실제 콘텐츠에서 / effects.md Duotone을 CSS만으로]**
 - **대상**: `globals.css` `@layer components`
-- **현재 문제**: 기사 사진이 없을 때 쓰는 카테고리 스톡 사진(Unsplash)이 실제 보도 사진과 똑같이 원색이라, 화면에서 무엇이 진짜 보도 사진인지 구분되지 않는다(`qa-out/unslop/before/prod/d-home-footer.jpg`의 국회의사당 스톡 사진).
+- **현재 문제**: 기사 사진이 없을 때 쓰는 카테고리 스톡 사진(Unsplash)이 실제 보도 사진과 똑같이 원색이라, 화면에서 무엇이 진짜 보도 사진인지 구분되지 않는다(`utils.ts:437-454` `CATEGORY_PHOTOS` 16개 카테고리 × 4장).
 - **변경값**
   ```css
   .img-standin {
@@ -679,9 +680,9 @@ npx tsc --noEmit; echo "tsc=$?"            # tsc=0
 
 # 2. S1 파일에 남으면 안 되는 것 (모두 0)
 grep -cE "@import|gradient|box-shadow|@keyframes|animation:|transition-all|uppercase|tracking-|italic|#[0-9a-fA-F]{3,8}\b" src/app/globals.css
-grep -cE "icon|PRIORITY_STYLES|AI_BADGE_STYLE|animate-|accent-(blue|red|green)" src/lib/constants.ts
+grep -cE "icon:|PRIORITY_STYLES|AI_BADGE_STYLE|animate-|accent-(blue|red|green)|#(21262d|30363d)" src/lib/constants.ts
 grep -cE "countryColor|gray-500|toLocale" src/lib/utils.ts
-grep -cE "primary|9999|'(7|8|9)00'|pulse|pop|ease-(in|out)|0\.05em" tailwind.config.ts
+grep -cE "primary:|9999|'(7|8|9)00'|pulse|pop|ease-(in|out)|0\.05em" tailwind.config.ts
 
 # 3. 수정 범위: S1 4개 파일 + 테스트 2개 + Footer 1줄
 git status --short                          # tailwind.config.ts, src/app/globals.css, src/lib/constants.ts, src/lib/utils.ts,
@@ -704,4 +705,4 @@ CSS=qa-out/eval-s1.css OUT=eval-s1 node qa-out/planner-s1-preview.cjs    # qa-ou
 node qa-out/planner-s1-contrast.mjs
 ```
 
-회귀 확인 포인트: `getCategoryStyle`·`CATEGORY_COLORS`·`CATEGORIES` 사용처가 수정 없이 빌드되는가 / 날짜·이미지·페이지네이션 테스트 186개가 그대로 통과하는가 / `.scrollbar-hide`·`.safe-area-bottom`·`.nav-link`가 생성 CSS에 남아 있는가 / reduced-motion 블록이 남아 있는가.
+회귀 확인 포인트: `getCategoryStyle`·`CATEGORY_COLORS`·`CATEGORIES` 사용처가 수정 없이 빌드되는가 / 기존 209개 중 갱신 대상 7개를 뺀 202개(날짜·이미지·페이지네이션·번역 등)가 테스트 수정 없이 통과하는가 / `.scrollbar-hide`·`.safe-area-bottom`·`.nav-link`가 생성 CSS에 남아 있는가 / reduced-motion 블록이 남아 있는가.

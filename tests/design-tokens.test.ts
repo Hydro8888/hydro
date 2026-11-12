@@ -215,7 +215,7 @@ describe('src/lib/ui.ts — shared control and table classes', () => {
 
   test('exports the names both plans use (SPEC-S4 item 0, SPEC-S2 item 4)', () => {
     assert.deepEqual(Object.keys(ui).sort(), [
-      'BTN_GHOST_SM', 'BTN_PRIMARY', 'BTN_SECONDARY', 'BTN_SECONDARY_SM', 'CHIP', 'CHIP_CURRENT', 'FIELD', 'FIELD_SM',
+      'BTN_GHOST_SM', 'BTN_PRIMARY', 'BTN_SECONDARY', 'BTN_SECONDARY_SM', 'CHIP', 'CHIP_CURRENT', 'CONTAINER', 'FIELD', 'FIELD_SM',
       'LOG_STATUS', 'NUM', 'PANEL', 'STATUS_DOT', 'TABLE_WRAP', 'TAG', 'TD', 'TD_MAIN', 'TD_NUM', 'TD_TIME', 'TH', 'TH_NUM',
       'TR', 'TR_SELECTED',
     ]);

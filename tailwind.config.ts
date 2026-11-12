@@ -26,8 +26,8 @@ const config: Config = {
   ],
   theme: {
     // Closed scales — these REPLACE Tailwind's defaults, so a class outside the contract
-    // (font-bold, shadow-lg, transition-all, duration-300, ease-in-out, animate-pulse, …)
-    // generates no CSS at all. Colors, spacing and radius stay open (see `extend`).
+    // (a 700+ weight, a default shadow, a catch-all transition, another duration or easing,
+    // a looping animation) generates no CSS at all. Colors, spacing and radius stay open (see `extend`).
     fontWeight: { normal: '400', medium: '500', semibold: '600' },
     // Depth on the dark theme = surface steps + hairlines. The one shadow is for floating menus.
     boxShadow: { none: 'none', float: '0 8px 24px rgba(0,0,0,0.35)' },

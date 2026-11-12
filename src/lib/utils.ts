@@ -343,6 +343,40 @@ export function timeAgo(input: DateInput, now?: Date | number): string {
   return formatDateOnly(t);
 }
 
+/**
+ * Wire time in KST, the dateline printed on every article:
+ *   same KST calendar date as `now` → 'HH:mm'        ('14:02')
+ *   another date in the same KST year → 'MM.DD HH:mm' ('10.04 23:59')
+ *   another KST year → 'YYYY.MM.DD'                   ('2025.10.05')
+ * The same rules apply to instants after `now`. Invalid input → ''.
+ * `now` defaults to the current time (also when it is invalid).
+ *
+ * HYDRATION: the result depends on `now` (it changes at KST midnight and at New Year), so server
+ * HTML and the first client render can differ. In client components:
+ *   <time dateTime={toIsoDateTime(d)} suppressHydrationWarning>{formatWireTime(d)}</time>
+ */
+export function formatWireTime(input: DateInput, now?: Date | number): string {
+  const p = toKstParts(input);
+  if (!p) return '';
+  const n = toKstParts(toEpochMs(now) ?? Date.now());
+  if (!n || n.year !== p.year) return `${pad4(p.year)}.${pad2(p.month)}.${pad2(p.day)}`;
+  const time = `${pad2(p.hour)}:${pad2(p.minute)}`;
+  return n.month === p.month && n.day === p.day ? time : `${pad2(p.month)}.${pad2(p.day)} ${time}`;
+}
+
+/**
+ * Count with thousands separators ('164,917') — the one number format. No ICU, so the server
+ * and the browser print the same string. Fractions are truncated, the sign is kept.
+ * Anything that is not a finite number inside the safe-integer range → '0'.
+ * The unit ('건') is added by the caller.
+ */
+export function formatCount(n: number): string {
+  if (typeof n !== 'number' || !Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER) return '0';
+  const i = Math.trunc(n);
+  const digits = String(Math.abs(i)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return i < 0 ? '-' + digits : digits;
+}
+
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '...';
@@ -353,16 +387,6 @@ export function countryLabel(code: string): string {
     global: '세계', us: '미국', japan: '일본', china: '중국',
   };
   return map[code] || code;
-}
-
-export function countryColor(code: string): string {
-  const map: Record<string, string> = {
-    global: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
-    us: 'bg-red-500/15 text-red-400 border border-red-500/20',
-    japan: 'bg-pink-500/15 text-pink-400 border border-pink-500/20',
-    china: 'bg-amber-500/15 text-amber-400 border border-amber-500/20',
-  };
-  return map[code] || 'bg-surface-elevated text-text-secondary';
 }
 
 export function categoryLabel(slug: string): string {
@@ -495,12 +519,11 @@ export function getArticleImageSources(article: {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns category color classes for the given slug.
- * Unknown slugs (e.g. country subcategories) get a neutral gray style.
+ * Classes for a category label. Categories are not color-coded: every slug (known or not)
+ * gets the same neutral style. Name and signature kept for the existing callers.
  */
-export function getCategoryStyle(slug: string): CategoryStyle {
-  if (hasOwn(CATEGORY_COLORS, slug)) return CATEGORY_COLORS[slug];
-  return { border: 'border-l-gray-500', text: 'text-text-secondary', bg: 'bg-surface-elevated', borderAll: 'border-gray-500' };
+export function getCategoryStyle(_slug: string): CategoryStyle {
+  return CATEGORY_COLORS.general;
 }
 
 /** Merges class names, filtering out falsy values */

@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import {
   CATEGORY_PHOTOS,
   formatDate,
+  formatCount,
   formatDateOnly,
+  formatWireTime,
   getArticleImageSources,
   getDefaultImage,
   getDisplayTitle,
@@ -168,6 +170,90 @@ describe('timeAgo(t, NOW)', () => {
   });
 });
 
+describe('formatWireTime(t, NOW) — wire time, KST', () => {
+  // NOW = 2026-10-05 12:00 KST
+  const TIME = /^\d{2}:\d{2}$/;
+  const DAY_TIME = /^\d{2}\.\d{2} \d{2}:\d{2}$/;
+  const FULL_DATE = /^\d{4}\.\d{2}\.\d{2}$/;
+
+  test('same KST date → HH:mm', () => {
+    assert.equal(formatWireTime('2026-10-05T05:02:00Z', NOW), '14:02');
+    assert.equal(formatWireTime(NOW, NOW), '12:00');
+    assert.equal(formatWireTime('2026-10-04T15:00:00Z', NOW), '00:00'); // UTC date differs, KST date is the same
+    assert.equal(formatWireTime('2026-10-05T14:59:59Z', NOW), '23:59');
+    assert.equal(formatWireTime(NOW + 5 * 3600 * SEC, NOW), '17:00'); // later today
+  });
+
+  test('another date in the same KST year → MM.DD HH:mm', () => {
+    assert.equal(formatWireTime('2026-10-04T14:59:59Z', NOW), '10.04 23:59');
+    assert.equal(formatWireTime('2026-10-05T15:00:00Z', NOW), '10.06 00:00'); // tomorrow
+    assert.equal(formatWireTime('2026-01-09T00:05:00Z', NOW), '01.09 09:05');
+    assert.equal(formatWireTime('2025-12-31T15:00:00Z', NOW), '01.01 00:00'); // first minute of the KST year
+    assert.equal(formatWireTime('2026-12-31T14:59:00Z', NOW), '12.31 23:59'); // last minute of the KST year
+  });
+
+  test('another KST year → YYYY.MM.DD (the year is never dropped)', () => {
+    assert.equal(formatWireTime('2025-10-05T05:02:00Z', NOW), '2025.10.05'); // same month/day, last year
+    assert.equal(formatWireTime('2025-12-31T14:59:59Z', NOW), '2025.12.31'); // one second before the KST new year
+    assert.equal(formatWireTime('2026-12-31T15:00:00Z', NOW), '2027.01.01'); // UTC year is 2026, KST year is 2027
+    assert.equal(formatWireTime('1999-03-01T00:00:00Z', NOW), '1999.03.01');
+    // the year is compared in KST for `now` too: 2026-12-31 15:30 UTC is already 2027 in Korea
+    const kstNewYear = Date.UTC(2026, 11, 31, 15, 30);
+    assert.equal(formatWireTime('2026-12-31T15:10:00Z', kstNewYear), '00:10');
+    assert.equal(formatWireTime('2026-12-31T14:50:00Z', kstNewYear), '2026.12.31');
+    for (const d of ['2025-10-05T05:02:00Z', '2027-01-01T00:00:00Z']) assert.equal(formatWireTime(d, NOW), formatDateOnly(d), d);
+  });
+
+  test('zero-padded, 24-hour, one of three fixed shapes', () => {
+    for (const d of ['2026-10-05T00:00:00Z', '2026-03-01T19:07:00Z', '2026-12-31T15:00:00Z', '2024-02-29T03:04:05Z', NOW - 5 * SEC]) {
+      const out = formatWireTime(d, NOW);
+      assert.ok(TIME.test(out) || DAY_TIME.test(out) || FULL_DATE.test(out), `${String(d)} → ${out}`);
+    }
+  });
+
+  test('invalid input → empty string', () => {
+    for (const bad of INVALID_DATES) assert.equal(formatWireTime(bad, NOW), '', `input ${String(bad)}`);
+  });
+
+  test('now accepts a Date or a number; invalid or missing now → current time', () => {
+    assert.equal(formatWireTime('2026-10-05T05:02:00Z', new Date(NOW)), '14:02');
+    assert.match(formatWireTime(Date.now()), TIME);
+    assert.match(formatWireTime(Date.now(), new Date(NaN)), TIME);
+    // three days ago is another date; across a new year it is another year
+    const out = formatWireTime(Date.now() - 3 * 86400 * SEC);
+    assert.ok(DAY_TIME.test(out) || FULL_DATE.test(out), out);
+    assert.match(formatWireTime(Date.now() - 400 * 86400 * SEC), FULL_DATE);
+  });
+});
+
+describe('formatCount', () => {
+  test('thousands separators', () => {
+    assert.equal(formatCount(0), '0');
+    assert.equal(formatCount(7), '7');
+    assert.equal(formatCount(999), '999');
+    assert.equal(formatCount(1000), '1,000');
+    assert.equal(formatCount(164917), '164,917');
+    assert.equal(formatCount(1234567), '1,234,567');
+    assert.equal(formatCount(Number.MAX_SAFE_INTEGER), '9,007,199,254,740,991');
+  });
+
+  test('fractions are truncated; negatives keep the sign', () => {
+    assert.equal(formatCount(1234.9), '1,234');
+    assert.equal(formatCount(0.9), '0');
+    assert.equal(formatCount(-0.4), '0');
+    assert.equal(formatCount(-1234), '-1,234');
+  });
+
+  test('invalid input → "0"', () => {
+    const bad: unknown[] = [NaN, Infinity, -Infinity, null, undefined, '164917', '', {}, [], true, 1e21];
+    for (const v of bad) assert.equal(formatCount(v as number), '0', `input ${String(v)}`);
+  });
+
+  test('same output in every process time zone / locale', () => {
+    for (const tz of ['UTC', 'Asia/Seoul', 'America/Los_Angeles']) assert.equal(withTZ(tz, () => formatCount(164917)), '164,917', tz);
+  });
+});
+
 describe('date output does not depend on the process time zone', () => {
   const ZONES = ['UTC', 'Asia/Seoul', 'America/Los_Angeles', 'Pacific/Kiritimati'];
   const INPUTS = [
@@ -181,7 +267,8 @@ describe('date output does not depend on the process time zone', () => {
   ];
   const snapshot = () =>
     INPUTS.map((d) => [formatDate(d), formatDateOnly(d), timeAgo(d, NOW), toIsoDateTime(d) ?? '(none)'].join(' | '))
-      .concat([timeAgo(NOW - 3 * 3600 * SEC, NOW), timeAgo(NOW + 5 * 3600 * SEC, NOW)]);
+      .concat([timeAgo(NOW - 3 * 3600 * SEC, NOW), timeAgo(NOW + 5 * 3600 * SEC, NOW)])
+      .concat(INPUTS.map((d) => formatWireTime(d, NOW)), [formatWireTime(NOW - 3 * 3600 * SEC, NOW)]);
 
   test('the TZ switch is effective in this runtime (sanity check)', () => {
     const utcHour = withTZ('UTC', () => new Date(Date.UTC(2026, 9, 1, 8, 3)).getHours());

@@ -175,7 +175,6 @@ function SiteFooter({ pathname }: { pathname: string }) {
                     href={`/category/${cat.slug}`}
                     className="text-body-md text-text-secondary hover:text-accent transition-colors inline-flex items-center gap-1.5"
                   >
-                    <span aria-hidden="true" className="text-xs opacity-60">{cat.icon}</span>
                     {cat.label}
                   </Link>
                 </li>

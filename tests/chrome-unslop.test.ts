@@ -12,6 +12,14 @@ import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+/** Every .tsx file under a directory, as repo-relative paths. */
+function tsxFiles(dir: string): string[] {
+  return fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) return tsxFiles(rel);
+    return entry.name.endsWith('.tsx') ? [rel] : [];
+  });
+}
 
 const ICONS = 'src/components/icons.tsx';
 const UI = 'src/lib/ui.ts';
@@ -73,23 +81,25 @@ describe('site chrome — banned patterns (unslop passes 1-9)', () => {
 describe('site chrome — icons', () => {
   const src = read(ICONS);
 
-  test('one stroke width and one box size, set in one place', () => {
-    assert.deepEqual(src.match(/strokeWidth=\{[^}]*\}/g), ['strokeWidth={1.5}']);
-    assert.deepEqual(src.match(/className="[^"]*"/g), ['className="h-4 w-4 shrink-0"']);
-    assert.equal((src.match(/<svg\b/g) ?? []).length, 1);
+  test('one stroke width and one box size', () => {
+    // Later slices add icons to this file; every base <svg> keeps the same box and stroke.
+    assert.deepEqual(Array.from(new Set(src.match(/strokeWidth=\{[^}]*\}/g))), ['strokeWidth={1.5}']);
+    assert.deepEqual(Array.from(new Set(src.match(/className="[^"]*"/g))), ['className="h-4 w-4 shrink-0"']);
     assert.match(src, /stroke="currentColor"/);
     // Server and client components both import it, so it carries no client directive.
     assert.doesNotMatch(src, /^'use client'/m);
   });
 
-  test('icons are named exports and every chrome icon comes from the set', () => {
+  test('icons are named exports, and every exported icon is used somewhere', () => {
     const exported = Array.from(src.matchAll(/^export function (\w+Icon)\(/gm), (m) => m[1]);
     for (const name of ['SearchIcon', 'MenuIcon', 'CloseIcon', 'HomeIcon', 'BoltIcon', 'GlobeIcon', 'ExternalIcon', 'MailIcon', 'CheckIcon'])
       assert.ok(exported.includes(name), `${name} is exported`);
     assert.doesNotMatch(src, /export default/);
-    // Every exported icon is used by the chrome (no dead icon), and nothing imports an icon that is not there.
-    const users = ['src/components/Header.tsx', 'src/components/Footer.tsx', 'src/components/SearchBar.tsx'].map(read).join('\n');
-    for (const name of exported) assert.match(users, new RegExp(`<${name} />`), `${name} is used`);
+    const users = tsxFiles('src')
+      .filter((file) => file !== ICONS)
+      .map(read)
+      .join('\n');
+    for (const name of exported) assert.match(users, new RegExp(`<${name}\\b`), `${name} is used`);
   });
 });
 

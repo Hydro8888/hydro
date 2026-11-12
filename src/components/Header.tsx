@@ -249,7 +249,7 @@ function SiteHeader() {
             </Link>
 
             {/* Stats sentence, next to the wordmark */}
-            <div className="ml-4 hidden min-w-0 flex-1 sm:block">
+            <div className="mx-4 hidden min-w-0 flex-1 sm:block">
               <LiveStats />
             </div>
 

@@ -49,3 +49,6 @@ export const LOG_STATUS: Record<string, { label: string; dot: string }> = {
   failed: { label: '실패', dot: 'bg-negative' },
   partial: { label: '부분', dot: 'bg-text-muted' },
 };
+
+/** Page container shared by header, footer and every page (UNSLOP-AUDIT §7-6). */
+export const CONTAINER = 'mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8';

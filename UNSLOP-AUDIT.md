@@ -148,3 +148,22 @@ S5(백엔드)는 화면이 없어 이번 작업 대상이 아니다.
   - `Pagination`·`CountryTabs`·`BreakingTicker`: 현재 위치만 `accent`, 나머지는 중립. props 변경 없음.
 - **S4.** 홈 "최신 뉴스" 목록은 `rank`를 넘기지 않는다(시각 표시). 홈 머리기사에 `lead`. 섹션 제목 옆 색 막대 제거. 기사 상세 h1은 `font-serif`. 숫자는 `toLocaleString` 금지(서버·브라우저 차이) — S1의 `formatCount(n)`(`164,917`)를 쓴다.
 - **S1 추가 유틸.** `formatCount(n: number): string` — 천 단위 쉼표, 무효 입력은 `'0'`.
+
+## 7. 계약 보완 (Planner 검토 반영 — 3절·6절과 SPEC이 다르면 이 절이 우선)
+
+| # | 문제 | 결정 |
+|---|---|---|
+| 1 | `text-muted` `#8a847a`가 `surface-elevated` 위에서 4.17:1 | 값을 **`#918b81`** 로 변경(모든 면에서 4.5:1 이상) |
+| 2 | `live`/`negative` `#e5484d`가 카드·elevated 위에서 4.5:1 미달 | 값을 **`#ea5d61`** 로 변경. `live` 면 위 글자는 `accent-ink`. `negative`는 관리자 전용이 아니라 **오류 의미 전용**(공개 화면 오류 글자에도 사용 가능) |
+| 3 | `font-mono` 스택에 한글 없음 | `'IBM Plex Mono', 'Pretendard Variable', Pretendard, ui-monospace, 'SFMono-Regular', Menlo, monospace` — 숫자·라틴은 Plex Mono, 한글은 Pretendard |
+| 4 | `formatWireTime`에 연도 없음 | 같은 KST 날짜 `HH:mm` / 같은 해 `MM.DD HH:mm` / 다른 해 `YYYY.MM.DD`. 클라이언트 컴포넌트에서는 `<time dateTime suppressHydrationWarning>` 안에 넣는다 |
+| 5 | `headline-lg` 굵기 | **500**. 600은 `headline-xl`(큰 헤드라인)만 |
+| 6 | 페이지 가장자리 여백이 범위로만 정해짐 | 공통 컨테이너 **`mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8`** (헤더·푸터·모든 페이지). 기사 상세는 그 안에서 읽기 폭만 좁힌다 |
+| 7 | 버튼·입력·칩 치수가 계약에 없음 | **S1이 `src/lib/ui.ts`를 만든다** — SPEC-S4 항목 0의 정의 그대로(컨트롤 높이 40 / 조밀 32, 모서리 `rounded-control`, 주요 버튼 = `text` 색 면 + `accent-ink` 글자, 보조 = `surface-elevated` + 헤어라인). S2·S3·S4는 버튼·입력·칩에 이 클래스를 쓴다. `PageHeading`·`EmptyState` 컴포넌트는 S4 |
+| 8 | Pretendard `@import`가 렌더를 막음(jsDelivr 지연 시 첫 화면 580ms → 4.5s) | S1이 `@import`를 지우고, **S2가 layout.tsx에서 Pretendard·Noto Serif KR·IBM Plex Mono를 모두 렌더 비차단 `<link>`로** 불러온다. S1 적용 직후 ~ S2 적용 전에는 시스템 글꼴로 보이는 것이 정상 |
+| 9 | 진입 애니메이션 | 공개 페이지·관리자 모두 **0개**(S1의 `animate-fade-in` 정의는 남기되 사용하지 않는다). 메뉴 열림(200ms fade+rise)만 유지 |
+| 10 | 닫힌 스케일 | S1이 `fontWeight`·`boxShadow`·`transition*`·`animation`을 닫는 것(=`font-bold`, `transition-all`, `animate-pulse` 등이 CSS로 생성되지 않음)을 승인. 뒤 슬라이스는 죽은 클래스를 소스에서도 지운다 |
+| 11 | 통신 목록의 정렬과 표시 시각 불일치 | 홈의 통신 목록 2곳은 묶음 안에서 **발행 시각 내림차순**으로 보여 준다(`queries.ts` 불변, 화면 정렬만) |
+| 12 | 제목 문구 | 속보 페이지 h1 "속보", 홈 두 번째 목록 제목 "그 밖의 뉴스" 승인 |
+| 13 | `estimateReadingTime` | S3가 사용처를 지운 뒤 죽은 export가 되면 통합 단계에서 삭제 |
+| 14 | 기존 별칭 | `rounded-badge`(6px)·`rounded-pill`(8px)은 별칭으로 유지하되 새 코드는 `rounded-tag`·`rounded-control` 사용 |

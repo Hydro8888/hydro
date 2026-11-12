@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+qa-out/
+.deployed-commit
+data/
+.env.backup
+.env.tmp.*

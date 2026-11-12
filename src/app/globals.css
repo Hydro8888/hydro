@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Web fonts are not loaded from this file: a font stylesheet pulled in here blocks the first
+   paint until the font CDN answers. layout.tsx links them without blocking; the stacks in
+   tailwind.config.ts fall back to system fonts until they arrive. */
+
+@layer base {
+  body {
+    @apply bg-surface text-text antialiased;
+    /* Long URLs / unbroken words wrap instead of overflowing the viewport.
+       `anywhere` (unlike `break-word`) also lowers min-content, so flex items can shrink too. */
+    overflow-wrap: anywhere;
+    /* Korean wraps between words (어절), not mid-syllable */
+    word-break: keep-all;
+  }
+
+  /* Chinese/Japanese have no spaces: keep-all would leave no break points, so restore
+     per-character breaking (with kinsoku). Needs a lang attribute on the text (toLangTag). */
+  :lang(ja),
+  :lang(zh) {
+    word-break: normal;
+  }
+
+  /* Tables size columns from min-content: inheriting `anywhere` would squeeze short-word
+     columns letter by letter. Restore the previous rules; overflow-x-auto wrappers absorb width. */
+  table {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  ::selection {
+    @apply bg-accent/20 text-text;
+  }
+
+  /* The one keyboard focus ring. Base layer, so a utility can still adjust it
+     (-outline-offset-2 draws it inside a clipped or scrolling row). */
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 2px;
+  }
+
+  /* Element defaults that the closed weight scale cannot reach: 700 is outside the contract. */
+  b,
+  strong,
+  th {
+    font-weight: theme('fontWeight.medium');
+  }
+
+  /* Preflight paints placeholders with gray-400; keep them on the ramp.
+     (A bare ::placeholder would lose to preflight's input::placeholder.) */
+  input::placeholder,
+  textarea::placeholder {
+    color: theme('colors.text.muted');
+  }
+
+  /* A lone duration-* (no transition-* class) would otherwise fall back to the browser's
+     `all` + `ease`. The default duration stays 0s, so nothing moves without a transition class. */
+  *,
+  ::before,
+  ::after {
+    transition-property: theme('transitionProperty.DEFAULT');
+    transition-timing-function: theme('transitionTimingFunction.DEFAULT');
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: theme('colors.surface.DEFAULT');
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.surface.elevated');
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.text.muted');
+  }
+
+  /* Respect OS-level reduced motion: stop the ticker, the spinner and every transition */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Wire time (formatWireTime): fixed-width figures, so times line up down a list.
+     On surface-elevated add text-text-secondary. */
+  .dateline {
+    @apply font-mono text-meta tabular-nums text-text-muted;
+  }
+
+  /* Stand-in (category stock) photos are printed in greyscale, so color is left to the
+     real news photographs. Never on an article's own photo or the placeholder. */
+  .img-standin {
+    filter: grayscale(1) contrast(1.05) brightness(0.65);
+  }
+}
+
+@layer utilities {
+  /* .scrollbar-hide: alias used by the country/category rows */
+  .scrollbar-none,
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

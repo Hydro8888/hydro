@@ -167,3 +167,9 @@ S5(백엔드)는 화면이 없어 이번 작업 대상이 아니다.
 | 12 | 제목 문구 | 속보 페이지 h1 "속보", 홈 두 번째 목록 제목 "그 밖의 뉴스" 승인 |
 | 13 | `estimateReadingTime` | S3가 사용처를 지운 뒤 죽은 export가 되면 통합 단계에서 삭제 |
 | 14 | 기존 별칭 | `rounded-badge`(6px)·`rounded-pill`(8px)은 별칭으로 유지하되 새 코드는 `rounded-tag`·`rounded-control` 사용 |
+| 15 | 공용 클래스 파일 위치(S2는 `src/components/ui.ts`, S4는 `src/lib/ui.ts` 제안) | **`src/lib/ui.ts` 하나**. S1이 만들며 SPEC-S4 항목 0과 SPEC-S2 항목 4의 이름을 모두 담는다(같은 것은 한 이름으로 합치고 별칭 export). 아이콘은 S2가 만드는 **`src/components/icons.tsx`** 를 S3·S4가 재사용 |
+| 16 | 워드마크의 `.co.kr` | 유지. `LiveNews`는 `text`, `.co.kr`은 `text-secondary`(색상 아닌 글자 역할 차이). 빨간 점은 삭제 |
+| 17 | 푸터의 확인 불가 링크(`github.com/livenews`, `twitter.com/livenews_kr`) | 실제 계정인지 확인할 수 없으므로 **삭제**하고 보고서에 기록(실제 주소를 받으면 복원). `contact@livenews.co.kr`은 유지 |
+| 18 | 스켈레톤 | 움직임 없는 정지 면(`.shimmer` 삭제) |
+| 19 | 가로 스크롤 줄 안의 포커스 링 잘림 | 내비 줄·하단 탭·`CountryTabs` 등 스크롤 줄 안에서는 `-outline-offset-2`로 안쪽에 그린다 |
+| 20 | 근거 없는 구독 문구("매일 아침 AI가 선별한 …") | 사실만 남긴다(푸터 폼·`NewsletterBanner` 동일 문구) |

@@ -2,15 +2,17 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { getBreakingArticles } from '@/lib/queries';
-import { parsePage } from '@/lib/utils';
+import { CONTAINER } from '@/lib/ui';
+import { cn, parsePage } from '@/lib/utils';
 import { pageHref, resolvePageRequest } from '@/lib/routing';
-import NewsCard from '@/components/NewsCard';
-import NewsCardLarge from '@/components/NewsCardLarge';
+import ArticleListing from '@/components/ArticleListing';
+import EmptyState from '@/components/EmptyState';
+import PageHeading from '@/components/PageHeading';
 import Pagination from '@/components/Pagination';
 
 export const metadata = {
   title: '속보',
-  description: '최신 속보 뉴스를 실시간으로 확인하세요',
+  description: '해외 주요 언론의 최신 기사를 수집 순서대로 전합니다',
 };
 
 export default async function BreakingPage({
@@ -25,40 +27,14 @@ export default async function BreakingPage({
   const resolved = resolvePageRequest(page, totalPages);
   if (resolved.kind === 'redirect') redirect(pageHref('/breaking', resolved.page));
 
-  const headlines = articles.slice(0, 3);
-  const rest = articles.slice(3);
-
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-8">
-      <div className="flex items-center gap-3 mb-8">
-        <span className="bg-accent-red/15 text-accent-red text-overline font-bold px-3 py-1.5 rounded-badge border border-accent-red/30">속보</span>
-        <h1 className="text-headline-lg text-text">최신 뉴스</h1>
-        <span className="text-caption text-text-muted bg-surface-elevated px-2.5 py-1 rounded-badge">
-          {total}개
-        </span>
-      </div>
+    <div className={cn(CONTAINER, 'py-8')}>
+      <PageHeading title="속보" count={total} />
 
-      {headlines.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
-          {headlines.map((a) => (
-            <NewsCardLarge key={a.id} article={a} />
-          ))}
-        </div>
-      )}
-
-      {rest.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {rest.map((a) => (
-            <NewsCard key={a.id} article={a} />
-          ))}
-        </div>
-      )}
+      <ArticleListing articles={articles} />
 
       {articles.length === 0 && (
-        <div className="text-center py-24">
-          <p className="text-text-secondary text-headline-sm">아직 표시할 뉴스가 없습니다</p>
-          <p className="text-text-muted text-body-md mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
-        </div>
+        <EmptyState title="아직 표시할 뉴스가 없습니다" detail="새 기사가 수집되면 이곳에 표시됩니다" />
       )}
 
       <Pagination currentPage={page} totalPages={totalPages} basePath="/breaking" />

@@ -1,25 +1,26 @@
 export const dynamic = 'force-dynamic';
 
-import React from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { COUNTRY_SUBCATEGORIES } from '@/lib/constants';
 import { getCountryArticles } from '@/lib/queries';
-import { parsePage } from '@/lib/utils';
+import { BTN_SECONDARY, CONTAINER } from '@/lib/ui';
+import { cn, parsePage } from '@/lib/utils';
 import { pageHref, resolvePageRequest } from '@/lib/routing';
 import { NEWSLETTER_ENABLED } from '@/lib/newsletter';
-import NewsCard from '@/components/NewsCard';
-import NewsCardLarge from '@/components/NewsCardLarge';
+import ArticleListing from '@/components/ArticleListing';
+import ChipNav from '@/components/ChipNav';
+import EmptyState from '@/components/EmptyState';
+import PageHeading from '@/components/PageHeading';
 import Pagination from '@/components/Pagination';
 import NewsletterBanner from '@/components/NewsletterBanner';
-import AdSlot from '@/components/AdSlot';
 
 // Route-param → Prisma country code mapping
-const COUNTRY_CONFIG: Partial<Record<string, { dbCode: string; label: string; emoji: string }>> = {
-  world: { dbCode: 'global', label: '세계', emoji: '🌍' },
-  us:    { dbCode: 'us',     label: '미국', emoji: '🇺🇸' },
-  japan: { dbCode: 'japan',  label: '일본', emoji: '🇯🇵' },
-  china: { dbCode: 'china',  label: '중국', emoji: '🇨🇳' },
+const COUNTRY_CONFIG: Partial<Record<string, { dbCode: string; label: string }>> = {
+  world: { dbCode: 'global', label: '세계' },
+  us:    { dbCode: 'us',     label: '미국' },
+  japan: { dbCode: 'japan',  label: '일본' },
+  china: { dbCode: 'china',  label: '중국' },
 };
 
 const VALID_COUNTRIES = Object.keys(COUNTRY_CONFIG);
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: { params: { country: string }
   if (!config) notFound();
   return {
     title: `${config.label} 뉴스`,
-    description: `${config.label} 주요 뉴스를 실시간으로 확인하세요`,
+    description: `${config.label} 주요 뉴스를 한국어로 번역해 전합니다`,
   };
 }
 
@@ -60,84 +61,31 @@ export default async function CountryPage({
   const resolved = resolvePageRequest(page, totalPages);
   if (resolved.kind === 'redirect') redirect(pageHref(`/${params.country}`, resolved.page));
 
-  const headlines = articles.slice(0, 3);
-  const rest = articles.slice(3);
   const subcategories = COUNTRY_SUBCATEGORIES[config.dbCode] || [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <span className="text-3xl">{config.emoji}</span>
-        <h1 className="text-headline-lg text-text">{config.label} 뉴스</h1>
-        <span className="text-caption text-text-muted bg-surface-elevated px-2.5 py-1 rounded-badge">
-          {total}개
-        </span>
-      </div>
+    <div className={cn(CONTAINER, 'py-8')}>
+      <PageHeading title={`${config.label} 뉴스`} count={total} />
 
-      {/* Subcategory pills */}
-      {subcategories.length > 0 && (
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-          {subcategories.map((sub) => (
-            <Link
-              key={sub.slug}
-              href={`/category/${sub.slug}`}
-              className="px-3.5 py-1.5 rounded-pill text-body-md border border-border text-text-secondary hover:border-accent hover:text-accent whitespace-nowrap transition-colors"
-            >
-              {sub.label}
-            </Link>
-          ))}
-        </div>
-      )}
+      {subcategories.length > 0 && <ChipNav label="세부 분야" items={subcategories} />}
 
-      {/* Headlines — asymmetric hero layout */}
-      {headlines.length > 0 && (
-        <section className="mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {headlines.map((article) => (
-              <NewsCardLarge key={article.id} article={article} />
-            ))}
-          </div>
-        </section>
-      )}
+      <ArticleListing articles={articles} ads />
 
-      {/* Article grid */}
-      {rest.length > 0 && (
-        <section>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {rest.map((article, idx) => (
-              <React.Fragment key={article.id}>
-                <NewsCard article={article} />
-                {(idx + 1) % 4 === 0 && idx < rest.length - 1 && (
-                  <AdSlot size="native" className="md:col-span-2 lg:col-span-3" />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Empty state — the query succeeded and there is genuinely nothing yet */}
+      {/* The query succeeded and there is genuinely nothing yet */}
       {articles.length === 0 && (
-        <div className="text-center py-24">
-          <p className="text-text-secondary text-headline-sm">{config.label} 뉴스가 아직 없습니다</p>
-          <p className="text-text-muted text-body-md mt-2">새 기사가 수집되면 이곳에 표시됩니다</p>
-          <Link
-            href="/breaking"
-            className="mt-4 inline-block px-4 py-2 border border-border text-text-secondary rounded-card text-body-md hover:border-accent hover:text-accent transition-colors"
-          >
+        <EmptyState title={`${config.label} 뉴스가 아직 없습니다`} detail="새 기사가 수집되면 이곳에 표시됩니다">
+          <Link href="/breaking" className={BTN_SECONDARY}>
             전체 속보 보기
           </Link>
-        </div>
+        </EmptyState>
       )}
 
       {/* Pagination directly after the list — users shouldn't scroll past a
           promo banner to reach page 2 */}
       <Pagination currentPage={page} totalPages={totalPages} basePath={`/${params.country}`} />
 
-      {/* Newsletter Banner */}
       {NEWSLETTER_ENABLED && articles.length > 0 && (
-        <section className="mt-6">
+        <section className="mt-12">
           <NewsletterBanner />
         </section>
       )}

@@ -1,409 +1,707 @@
-# S1 디자인 시스템 개선 설계서 — Round 5 (결함 수정 라운드)
+# S1 디자인 시스템 개선 설계서 — Unslop 재작업 라운드
 
-> **근거 문서**: `QA_BASELINE-R5.md`(결함 D1~D25) + 이번 Planner 실측(아래 "실측 요약", 도구는 스크래치패드에 보존).
-> **라운드 규칙**: 결함 수정 전용. 신규 기능·AI 기능·근거 없는 디자인 변경 금지(planner.md 원칙 2 "AI 기능" 이번 라운드 미적용).
-> 모든 항목은 결함 ID 또는 `파일:라인` 근거에 연결된다. DB 스키마 변경 없음. 기존 export 이름·시그니처 하위 호환 유지.
-> **사용자 요청**: "전체적으로 뉴스 번역이 잘 안되고 있고 화면이 깨지는 게 있어 모두 점검하고 수정하고 테스트까지 완료해줘"
-> S1은 이 중 **화면 깨짐의 디자인 시스템 원인**과 **뒤 슬라이스가 쓸 공용 유틸·테스트 기반**을 담당한다.
+> **사용자 요청**: "https://github.com/heydamir/unslop 이 기능을 모두 활용해서 재작업해줘 테스트까지 완료해줘"
+> **계약 문서**: `UNSLOP-AUDIT.md` (감사 · 방향 · 3절 토큰 계약 · 6절 슬라이스 간 인터페이스). 이 설계서는 계약의 값·이름을 바꾸지 않는다.
+> **스킬**: `.claude/skills/unslop` (unslop by Damir Sokolovsky [@heydamir](https://x.com/heydamir), CC BY 4.0).
+> **라운드 규칙**: 새 기능·새 장식 금지. 모든 항목은 unslop 9개 패스(1 간격 · 2 색 · 3 아이콘 · 4 문구 · 5 서체 · 6 레이아웃 · 7 디테일 · 8 비주얼 · 9 모션) 중 어느 패스의 어떤 징후를 고치는지 `파일:라인` 근거와 함께 적는다. planner.md의 "야심차게", "AI 기능"은 이번 라운드에 적용하지 않는다.
+> S1에 해당 없는 패스: 4 문구, 6 레이아웃 (계약 4절 표에서 S1 칸이 "—").
 
-```
-SP=/tmp/claude-0/-home-user-hydro/0832edd1-f39e-53fc-97a8-a3a334add43a/scratchpad   # 이하 모든 명령의 $SP
-```
+실험 산출물은 모두 `qa-out/planner-s1-*` (git 무시 폴더). 소스는 수정하지 않았다.
+
+| 파일 | 내용 |
+|---|---|
+| `qa-out/planner-s1-proto.diff` | 이 설계서 전체를 적용한 **참고용 프로토타입** (S1 4개 파일 + Footer 1줄 + 테스트 2개). `git apply --check` 통과. 격리 복사본에서 `tsc` 0 오류 · `npm test` 232/232 · `next build` 성공을 확인했다. 설계서와 다르면 설계서가 우선 |
+| `qa-out/planner-s1-tailwind.config.mts`, `planner-s1-globals.css` | 제안하는 두 파일의 전체 내용 |
+| `qa-out/planner-s1-contrast.mjs` | 대비 계산 (`node qa-out/planner-s1-contrast.mjs`) |
+| `qa-out/planner-s1-fontblock.cjs`, `.log` | Pretendard `@import` 렌더 차단 실측 |
+| `qa-out/planner-s1-handoff.sh`, `.txt` | S1 적용 후 CSS가 생성되지 않는 클래스의 S2~S4 파일별 개수 |
+| `qa-out/planner-s1-preview.cjs`, `planner-s1-preview-*.jpg` | 실행 중인 앱(:4000, 읽기 전용)에 S1 CSS만 바꿔 끼운 화면 |
+| `qa-out/planner-s1-build.log` | 격리 복사본 `next build` 로그 |
 
 ---
 
 ## 현재 상태 분석
 
-### 장점 (유지)
-- 다크 모던 토큰 체계가 정착됨: `surface`(#0d1117/#161b22/#21262d), `text`(#e6edf3/#8b949e/#6e7681), `accent`(#f0883e/#58a6ff/#f85149/#3fb950), `border`(#30363d/#21262d), Pretendard, 타이포 스케일(`headline-*`, `body-*`, `caption`, `overline`). `tailwind.config.ts:17-57`
-- 그리드는 모두 Tailwind `grid-cols-N` = `repeat(N, minmax(0,1fr))`(빌드 CSS로 확인) → 그리드 트랙이 min-content로 부풀지 않는 구조.
-- Pretendard 원격 `@import`는 빌드 CSS 0바이트 위치에 있어 유효함(결함 아님, 손대지 말 것).
-- reduced-motion 대응, 이미지 URL 정규화/로고 차단 유틸, `cn`/`getCategoryStyle` 등 헬퍼가 한 곳에 모여 있음.
+### 유지할 것
+- KST 고정 오프셋 날짜 헬퍼(`utils.ts:195-344`): ICU를 쓰지 않아 서버·브라우저 출력이 같다. `formatWireTime`은 이 헬퍼(`toKstParts`, `toEpochMs`, `pad2`) 위에 얹는다.
+- 줄바꿈 규칙(`globals.css:11-32`), `prefers-reduced-motion` 블록(`globals.css:57-67`), `.scrollbar-none/.scrollbar-hide`, `.safe-area-bottom`.
+- Tailwind `content`에 `src/lib`, `src/hooks` 포함(`tailwind.config.ts:10-18`) — 클래스 문자열을 가진 상수가 스캔된다.
+- `headline-xl`의 `clamp(1.75rem, 1.2rem + 2vw, 2.5rem)` 식(`tailwind.config.ts:63`).
+- 토큰 이름 체계(`surface*`, `text*`, `border*`, `accent`, `headline-*`, `body-*`, `caption`, `overline`, `rounded-card`).
 
-### 결함 (근거)
+### 징후 (S1 파일에 있는 것)
 
-| ID | 심각도 | 증상 | 근거 |
-|---|---|---|---|
-| **D1** | 높음 | Unsplash 대체 사진 60개 중 6개 404 → 이미지 없는 기사 중 6개 카테고리의 1/4이 깨진 이미지 | `utils.ts:213,215,217,218,225,227`. Planner 재측정: `curl -I` 결과 정확히 같은 6개 404, 교체 후보 6개 모두 200 |
-| **S1-A (신규)** | 높음 | **카테고리 색 체계 전체가 렌더링되지 않음.** 모든 카테고리 배지가 투명 배경·본문색 글자·**라이트 테마 기본 테두리 #e5e7eb**(다크 화면에 밝은 회색 선) | `tailwind.config.ts:4-8` `content`에 `src/lib/**` 없음 → `constants.ts:87-104`의 클래스 문자열이 Tailwind 스캔 대상이 아님. 빌드 CSS에 카테고리 색 클래스 **64개 중 63개 없음**(`text-amber-400`만 타 파일 사용으로 존재). 실측: 페이지당 배지 20~30개 전부 `color: rgb(230,237,243)`, `background: transparent`, `border-left-color: rgb(229,231,235)`. 기사 상세 배지는 `article/[id]/page.tsx:106`의 `.replace('border-l-','border-')`로 만든 `border-blue-500` 등이 **어디에도 리터럴로 없어** 영구 미생성(0/16). 발생 시점: 커밋 `3ce8104`(2026-04-03, 카드의 인라인 색 맵을 `getCategoryStyle()`로 중앙화) 이후 6개월간 잠복 |
-| **D6** | 높음 | 공백 없는 긴 문자열이 박스를 넘침. PC 2305px/1440, 태블릿 2033/768, 모바일 레이아웃 뷰포트 1500px(최소 배율 0.25 한도까지 확대 → 전체 축소). h1은 모든 화면 40px 고정 | `globals.css:10-13`에 줄바꿈 규칙 없음. `tailwind.config.ts:49` `headline-xl` 2.5rem 고정. 모바일 장문 제목 h1 높이 1150px. 한국어가 음절 단위로 잘림("테스/트", "수출/입", "배터/리") |
-| **D7** | 중간 | 날짜가 서버 TZ·ICU 의존, 잘못된 입력에 "Invalid Date" 노출, 미래 시각에 "방금 전", 하이드레이션 불일치 | `utils.ts:136-156`. Planner 실측: `formatDate('2026-10-01T08:03:00Z')` → TZ=UTC `"2026. 10. 01. AM 08:03"` / TZ=Asia/Seoul `"2026. 10. 01. PM 05:03"`(한국어 UI에 AM/PM). `timeAgo('2026-09-01T20:30:00Z')` → UTC `"2026년 9월 1일"` / KST `"2026년 9월 2일"` → 클라이언트 카드(`NewsCard.tsx:53`, `NewsCardLarge.tsx:62`)에서 **결정적 하이드레이션 불일치**. 기준선 감사에서 실제 발생: `[tablet] art-chinese` React #425(텍스트 불일치) + #422(루트 전체 클라이언트 재렌더). `formatDate('garbage')`/`timeAgo('garbage')` → `"Invalid Date"`, `timeAgo(now+5h)` → `"방금 전"` |
-| **D8** | 중간 | `?page=abc` → Prisma 에러, 과대값도 에러. **API에도 동일 결함** | 페이지: `breaking/page.tsx:19`, `[country]/page.tsx:47`, `category/[slug]/page.tsx:28`, `search/page.tsx:44`의 `parseInt` → NaN. API: `api/search/route.ts:12-13`, `api/articles/route.ts:12-13`, `api/admin/logs/route.ts:9-10`의 `Math.max(1, parseInt('abc'))` = **NaN**. Planner 실측: `/api/search?page=abc`, `…&limit=abc`, `…&page=99999999999999999999`, `/api/admin/logs?page=abc` 모두 **HTTP 500** → `/search?page=abc`가 거짓 "검색 중 오류" 표시 |
-| **D2/D3 (S3 기반)** | 높음 | 최종(무네트워크) 대체 수단 없음, 하이드레이션 전 실패 이미지 복구 불가 | 이미지 소스 결정 로직이 3곳에 복제(`NewsCard.tsx:16-18`, `NewsCardLarge.tsx:16-18`, `article/[id]/page.tsx:97-98`)되고 2단계(원본→Unsplash)뿐 |
-| **S1-B (신규)** | 낮음 | 페이지가 쓰는 `scrollbar-hide` 클래스가 정의되지 않음 → 가로 스크롤 줄에 스크롤바 노출(Firefox/클래식 스크롤바 환경) | 사용처 `[country]/page.tsx:66`, `category/[slug]/page.tsx:45`. 정의는 `scrollbar-none`뿐(`globals.css:111-117`). 실측 computed `scrollbar-width: auto` |
-| **S1-C (신규, D24 연관)** | 낮음 | 이미지 URL 유틸이 http(s) 외 스킴을 통과, 프로토콜 상대 URL을 프록시하지 않음 | `utils.ts:69-76` → `isValidArticleImage('javascript:alert(document.cookie)')`, `('ftp://…')` 모두 `true`(프록시로 전달). `utils.ts:109` → `proxyImageUrl('//cdn…/a.jpg')`가 `'/'` 접두 검사에 걸려 **원본 그대로 반환**(핫링크·혼합콘텐츠 우회 안 됨). `getDefaultImage('sports', -1 \| NaN)` → `https://images.unsplash.com/undefined?…`(`utils.ts:236-239`) |
-| **D6 후속 (ja/zh)** | 낮음 | 한국어용 `keep-all`을 전역 적용하면 `lang` 표기 없는 일본어·중국어 원문이 불규칙 줄바꿈("維/持", "示/す") | Planner 주입 실험 스크린샷. 원인: 원문 블록에 `lang` 속성 없음 + 제목 폴백 `titleKo \|\| titleOriginal`이 7곳에 복제(`NewsCard.tsx:11`, `NewsCardLarge.tsx:11`, `NewsCardCompact.tsx:16`, `BreakingTicker.tsx:46`, `article/[id]/page.tsx:19,72`, `admin/articles/page.tsx:101`) |
-| **D25** | 중간 | 자동 테스트 없음 | `package.json`에 `test` 스크립트 없음, `tests/` 없음 |
-
-### Planner 실측 요약 (모두 재실행 가능, `$SP`)
-
-| 측정 | 결과 | 도구 |
+| # | 패스 · 징후 (signs.md) | 근거 |
 |---|---|---|
-| Unsplash ID 66개 HEAD | 기존 60개 중 404 = D1의 6개 그대로 / 교체 6개 = 200 | `curl -I` (검증 V1-2) |
-| 빌드 CSS 카테고리 색 클래스 | 64개 중 63개 누락 | `.next/static/css/*.css` grep |
-| 배지 computed style | `/` 27개, `/breaking` 30개, `/category/market` 20개 배지 전부 무색 + #e5e7eb 테두리 | `planner-s1-badge-probe.js`, `planner-s1-border-probe.js` |
-| 관리자·404 페이지의 #e5e7eb 테두리 | 0건 → 기본 테두리색 변경의 부작용 대상 없음 | `planner-s1-border-probe-admin.js` |
-| `src/lib` 글롭을 넣은 임시 config로 Tailwind 컴파일 | CATEGORY_COLORS 48/48 생성, 단 전체 테두리 `border-<색>` 0/16 → 리터럴 필요 | `planner-s1-tw.config.ts`, `planner-s1-tw-out.css` |
-| D6 CSS 주입 실험 (16 라우트 × 3 뷰포트 × 4 변형) | 모든 변형이 `art-unbroken` 넘침 해소. `overflow-wrap:anywhere` 단독은 공개 페이지 요소 크기 변화 **0건**(넘치던 요소 제외). **유일한 부작용 = 표 압착**: 태블릿 `/admin/logs` 표 폭 902→734px, 높이 5313→8313px | `planner-s1-wrap-experiment.js` → `.json` |
-| 표 리셋 포함 최종안 | 관리자 표 6개 케이스(2 페이지 × 3 뷰포트) 기하가 기준선과 **완전히 동일** | `planner-s1-table-check2.js` |
-| 최종안 전 라우트 (40 라우트 × 3 뷰포트) | 넘침 3 → **0**. 모바일 장문 제목 h1 높이 1150 → 595px, 한국어 어절 단위 줄바꿈 | `planner-s1-final-check.js`, `planner-s1-shots/` |
-| react-dom(Next 14.2.18 번들) | `didNotMatchHydratedTextInstance`가 **부모 요소의 `suppressHydrationWarning`이면 텍스트 불일치 검사 생략** | `node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:36220` |
-| `tsx --test` 러너 | Node 22 + tsx 4.21에서 `node:test` TS 파일 실행·런타임 `process.env.TZ` 전환 동작 확인 | `$SP/tsxtest/` |
+| a | 2 색 · "Every element highlighted" | `constants.ts:109-126` 카테고리 16개 × 서로 다른 색 4클래스(64개), `utils.ts:358-366` `countryColor` 4색, `tailwind.config.ts:40-45` 강조색 4개 |
+| b | 2 색 · 템플릿 기본 중립색 | `tailwind.config.ts:4-7, 28-39` GitHub 다크 팔레트(`#0d1117/#161b22/#21262d/#30363d`), `globals.css:47,50,54` 같은 값 하드코딩, `constants.ts:136-137` 플레이스홀더 SVG도 같은 값 |
+| c | 2 색 · 그라데이션 글자, 글로우, 그라데이션 | `globals.css:118-120` `.text-gradient-amber`, `:122-124` `.border-glow`, `:154-161` `.shimmer::after` `linear-gradient` |
+| d | 2 색 · 그림자로 깊이 표현 | `tailwind.config.ts:72-76` 그림자 3종(2겹씩), `globals.css:89` `hover:shadow-elevated` |
+| e | 3 아이콘 · 이모지를 아이콘으로 | `constants.ts:46-61` `icon: '🏛'` … 16개 → `Footer.tsx:178`에 노출 |
+| f | 5 서체 · 제목 700~800 | `tailwind.config.ts:63-65` `fontWeight: '800'`, `'700'`, `'700'` |
+| g | 5 서체 · 대문자 + 넓은 자간 라벨 | `tailwind.config.ts:70` `overline` `letterSpacing: '0.05em'` 11px, `globals.css:93` `tracking-wide uppercase` |
+| h | 5 서체 · 숫자 형식 불일치 | 숫자 포맷 유틸이 없음(`utils.ts` 전체). 화면마다 `toLocaleString`·날것 숫자 혼용(감사 1절) |
+| i | 5 서체 · 글꼴 로딩이 첫 화면을 막음 | `globals.css:1-4` 원격 `@import` (아래 실측) |
+| j | 7 디테일 · 모서리 체계 없음 / 전부 알약 | `tailwind.config.ts:77-81` `card 8px`, `badge 4px`, `pill 9999px` 세 가지뿐 |
+| k | 7 디테일 · 포커스 링 불통일 | `globals.css`에 전역 포커스 규칙 없음. 다른 파일 28곳이 `outline-none`/`focus:ring-*`를 제각각 사용 |
+| l | 9 모션 · `transition-all`, 반복 애니메이션, 튀는 애니메이션, easing 여러 개 | `globals.css:89` `transition-all`, `:162` `shimmer-slide … infinite`, `tailwind.config.ts:91-99, 106-110` `pulse-dot`(무한 반복), `bookmark-pop`(1.3배 튐), `ease-out`/`ease-in-out`/`linear` 혼용 |
+| m | 죽은 코드(슬롭이 숨어 있는 곳) | `globals.css`의 `.breaking-ticker`(+`@keyframes ticker`), `@keyframes slogan`, `.news-card`, `.news-card-large`, `.category-pill`, `.country-badge`, `.tab-item`, `.tab-item-active`, `.text-gradient-amber`, `.border-glow`, `.surface-interactive` — 모두 사용처 0곳. `constants.ts:147-154` `PRIORITY_STYLES`, `AI_BADGE_STYLE`, `utils.ts:358` `countryColor` — 사용처 0곳. `tailwind.config.ts` `slide-up`, `toast-in` 애니메이션 — 사용처 0곳 |
+
+### 실측 1 — Pretendard `@import`는 렌더를 막는다 (`qa-out/planner-s1-fontblock.log`)
+빌드된 CSS(`/.next/static/css/*.css`)의 첫 줄이 `@import url("https://cdn.jsdelivr.net/…/pretendardvariable-dynamic-subset.min.css")`이고, 이 CSS는 `<link rel="stylesheet" data-precedence="next">`로 걸린다. 브라우저는 `@import`된 시트까지 받아야 첫 화면을 그린다.
+
+| jsDelivr 응답 | `renderBlockingStatus` | 첫 화면(FCP) |
+|---|---|---|
+| 정상 | `blocking` | 580ms |
+| 4초 지연 | `blocking` | **4,516ms** |
+| 즉시 실패 | `blocking` | 248ms |
+
+→ 제3자 CDN이 느려지면 그만큼 화면 전체가 늦게 뜬다. 계약 3절의 글꼴 조건("렌더를 막지 않는 방식", "실패해도 대체 글꼴로 정상 표시")을 Pretendard도 지키려면 `@import`를 지우고 `<link>`로 옮겨야 한다(항목 5).
+
+### 실측 2 — 대비 (WCAG 2.x, 기준 4.5:1)
+
+| 글자색 \ 면 | `surface-deep` #12110f | `surface` #161513 | `surface-card` #1c1a18 | `surface-elevated` #262421 |
+|---|---|---|---|---|
+| `text` #efe9de | 15.62 | 15.10 | 14.36 | 12.81 |
+| `text-secondary` #aaa398 | 7.55 | 7.30 | 6.94 | 6.19 |
+| `text-muted` #8a847a | 5.09 | 4.92 | 4.68 | **4.17 (미달)** |
+| `accent` #f0883e | 7.46 | 7.21 | 6.85 | 6.11 |
+| `live` / `negative` #e5484d | 4.82 | 4.66 | **4.43 (미달)** | **3.95 (미달)** |
+| `positive` #4cc38a | 8.52 | 8.24 | 7.83 | 6.99 |
+
+| 조합 | 대비 | 판정 |
+|---|---|---|
+| `accent-ink` #161513 on `accent` #f0883e | 7.21 | 통과 |
+| `accent-ink` #161513 on `text` #efe9de (주요 버튼) | 15.10 | 통과 |
+| `accent-ink` #161513 on `live` #e5484d | 4.66 | 통과 |
+| 흰색 on `accent` (현재 코드 `bg-accent text-white` 9곳) | 2.53 | 미달 |
+| `text` on `accent` | 2.09 | 미달 |
+| 흰색 on `live` | 3.91 | 미달 |
+| `text` on `live` | 3.24 | 미달 |
+| `::selection` (`accent` 20% 위 `text`) | 9.06 ~ 11.32 | 통과 |
+| 포커스 링 `accent` vs 각 면 (비글자 3:1 기준) | 6.11 ~ 7.46 | 통과 |
+
+참고: 수정 전 `text-muted` #6e7681은 4.12 / 3.77 / 3.31(surface / card / elevated)로 세 면 모두 미달이었다.
+
+사용 규칙(값은 계약 그대로 두고 쓰는 곳으로 해결 — "S2~S4 인계" 절에 다시 적음):
+1. `text-muted`는 `surface-deep`·`surface`·`surface-card` 위에서만. `surface-elevated` 위(hover 행, 입력창, 칩)의 메타는 `text-secondary`.
+2. `live`·`negative`를 **글자색**으로 쓸 때는 `surface`·`surface-deep` 위에서만. 카드·elevated 위에서는 점(비글자, 3:1 통과) + 중립 글자.
+3. `accent`·`live` 면 위 글자는 반드시 `accent-ink`. 흰색·`text`는 미달.
 
 ---
 
-## 디자인 방향
+## 디자인 방향 (UNSLOP-AUDIT.md 2절 그대로)
 
-- **유지**: 다크 모던(Bloomberg/Reuters) — 깊은 네이비-블랙 표면 3단계, 앰버 악센트, Pretendard, 정보 밀도 높은 레이아웃. 기존 색·폰트·간격 토큰 **값 변경 금지**.
-- **이번 라운드의 "디자인 작업" = 원래 의도했던 디자인을 실제로 보이게 만드는 것**:
-  1. **카테고리 색 코드 복구** — 좌측 2px 컬러 틱의 터미널형 라벨(S1 R1에서 설계한 차별화 요소)이 6개월간 화면에 한 번도 나오지 않았다. 새 색을 만들지 말고 `CATEGORY_COLORS`에 이미 정의된 색이 렌더링되게 한다.
-  2. **한국어 조판 품질** — 어절 단위 줄바꿈 + 반응형 대제목. 장식이 아니라 가독성 결함 수정이다.
-- **명시적 금지(AI slop)**: 보라색/핑크 그라데이션, 흰 카드+밝은 그림자, 네온 악센트, 새 장식 효과, 새 색 토큰. (미사용 `.text-gradient-amber` 등은 이번 라운드에서 건드리지 않는다.)
-- **최종 대체 이미지(오프라인 플레이스홀더)**는 "조용한" 표현: 텍스트·로고 없이 표면색 위에 테두리 토큰색의 단순 사진 아이콘. 다크 팔레트 밖의 색 금지.
+- **Product.** 해외 주요 언론 30곳의 기사를 몇 시간마다 모아 한국어로 번역해 보여 주는, 한국 독자를 위한 해외 뉴스 통신 데스크.
+- **Character.** 차분한, 정확한, 종이 신문 같은.
+- **World.** 밤의 편집국과 통신사 데스크 — 신문지와 잉크, 시각이 찍혀 나오는 통신 전문. 중립색은 종이·잉크 쪽으로 아주 약하게 따뜻하게, 강조색은 기존 주황 하나.
+- **Moments.** ① 홈 머리기사의 실제 보도 사진(화면에서 유일하게 색이 풍부한 곳) ② "최신 뉴스" 통신 목록.
+- **Signature.** 통신 시각표 — KST 시각을 고정폭 숫자로(`14:02`, 날짜가 다르면 `11.05 14:02`).
+
+**금지 (S1 파일에서 0건이어야 함)**: 색상 그라데이션 · 그라데이션 글자 · 글로우 · 색 그림자 · `backdrop-blur` · 카테고리별 색 · 이모지 · 굵기 700 이상 · `uppercase` · `tracking-*` · `italic` · `transition-all` · 반복/튀는 애니메이션 · 하드코딩 hex(토큰 정의 제외) · 4px 격자를 벗어난 간격.
+
+**S1이 담당하는 차별화 요소 2개** (새 장식이 아니라 계약의 Signature·Moments를 받치는 유틸)
+1. `formatWireTime` + `.dateline` — 통신 시각표.
+2. `.img-standin` — 대체 사진만 흑백 인쇄 처리해서 실제 보도 사진이 유일한 색으로 남게 한다.
 
 ---
 
 ## 대상 파일 목록
 
-| 파일 | 변경 |
+| 파일 | 작업 |
 |---|---|
-| `tailwind.config.ts` | `content`에 `src/lib`·`src/hooks` 추가, `borderColor.DEFAULT` = 테두리 토큰, `headline-xl` 유동 크기 |
-| `src/app/globals.css` | base 레이어 전역 줄바꿈 안전장치, `scrollbar-hide` 별칭 |
-| `src/lib/constants.ts` | `CATEGORY_COLORS.*.borderAll`, `MAX_PAGE`, `BREAKING_ITEMS_PER_PAGE`, `IMAGE_PLACEHOLDER_SRC` |
-| `src/lib/utils.ts` | D1 사진 교체·`getDefaultImage` 견고화, KST 날짜 유틸, `parseIntParam`/`parsePage`, 이미지 체인, URL 유틸 견고화, 표시 제목/언어 헬퍼 |
-| `package.json` | `scripts.test` **한 줄만** 추가 (의존성 추가·변경 금지) |
-| `tests/utils.test.ts` (신규) | 유틸 단위 테스트 |
-| `tests/design-tokens.test.ts` (신규) | 상수·Tailwind 설정 불변식 테스트 |
-
-**수정 금지**: 위 목록 외 파일(컴포넌트·페이지·워커·API). S1 변경은 전부 **추가형(additive)** 이어야 하며, 다른 슬라이스 파일을 고치지 않아도 `npm run build`가 통과해야 한다.
-**실행 환경 제약**: `utils.ts`/`constants.ts`는 브라우저·Next 서버·Node 워커(tsx, `src/workers/*`가 `../lib/utils` import)에서 공용 → DOM/브라우저 전용 API, Node 전용 모듈, `Intl`/`toLocale*`(날짜용) 사용 금지.
+| `tailwind.config.ts` | 전면 갱신 (항목 1, 2, 5~9) |
+| `src/app/globals.css` | 전면 갱신 (항목 5, 8~12, 14) |
+| `src/lib/constants.ts` | `CATEGORIES`, `CATEGORY_COLORS`, 플레이스홀더, 죽은 상수 (항목 2~4, 15) |
+| `src/lib/utils.ts` | `getCategoryStyle`, `countryColor` 삭제, `formatWireTime`, `formatCount` (항목 2, 3, 12, 13) |
+| `tests/design-tokens.test.ts` | 7개 테스트 갱신 + 신규 (항목 16) |
+| `tests/utils.test.ts` | 신규 2개 describe (항목 16) |
+| `src/components/Footer.tsx` **178행 한 줄** | 빌드 유지용 최소 수정 (항목 4). 그 밖의 타 슬라이스 파일은 손대지 않는다 |
 
 ---
 
 ## 개선 항목
 
-우선순위: **P0** = 이번 슬라이스 합격 필수, **P1** = 필수(뒤 슬라이스 의존), **P2** = 필수(저위험 보강).
+각 항목의 "검증"은 저장소 루트에서 실행한다. 테스트 이름은 항목 16에서 정한 이름이다.
 
-### 항목 1 [P0 · D1]: 죽은 Unsplash 사진 6개 교체 + `getDefaultImage` 견고화
-- **대상 파일**: `src/lib/utils.ts` (`CATEGORY_PHOTOS` 211-228, `getDefaultImage` 235-241)
-- **현재 문제**: 아래 6개 ID가 404. `id % 4` 매핑이라 해당 카테고리의 이미지 없는 기사 1/4이 깨진 이미지(`general`은 미분류 기본값이라 영향 최대). 음수/NaN id면 URL에 `undefined`가 들어가 100% 깨짐. 카테고리 앞뒤 공백은 `general`로 떨어짐.
-- **개선 방법**:
-  1. **같은 배열 위치에서** 정확히 교체(다른 58개 슬롯은 한 글자도 바꾸지 말 것 → 기존 기사의 대표 사진 불변):
+### 항목 1: 중립 램프와 강조색 하나 — `colors`
+- **[패스 2 색 · 템플릿 기본 중립색 / 강조색 4개]**
+- **대상**: `tailwind.config.ts:4-7`(borderTokens), `:21-46`(colors), `:50-52`(borderColor)
+- **현재 문제**: GitHub 다크 팔레트 그대로. 강조색이 주황·파랑·빨강·초록 4개. 테두리가 불투명 회청색.
+- **변경값** (`theme.extend.colors` — 계약 3절 표 그대로)
+  ```ts
+  const borderTokens = { DEFAULT: 'rgba(239,233,222,0.10)', muted: 'rgba(239,233,222,0.06)' };
+  colors: {
+    surface: { deep: '#12110f', DEFAULT: '#161513', card: '#1c1a18', elevated: '#262421' },
+    text:    { DEFAULT: '#efe9de', secondary: '#aaa398', muted: '#8a847a' },
+    accent:  { DEFAULT: '#f0883e', ink: '#161513' },
+    live: '#e5484d',
+    positive: '#4cc38a',
+    negative: '#e5484d',
+    border: borderTokens,
+  },
+  borderColor: { DEFAULT: borderTokens.DEFAULT },
+  ```
+  - `extend.colors`의 키는 정확히 `accent, border, live, negative, positive, surface, text` 7개.
+  - 문자열은 계약 표기 그대로(`rgba(239,233,222,0.10)` — 공백 없음, `0.10`).
+  - Tailwind 기본 팔레트(`white`, `amber-400` …)는 **닫지 않는다**. 이유: 병렬로 계획 중인 S2~S4가 `text-white` 등을 계획에 넣었을 때 조용히 사라지면 사진 위 글자처럼 읽을 수 없는 결함이 된다(현재 12곳 사용, `qa-out/planner-s1-handoff.txt`).
+- **기대 효과**: 한 개의 따뜻한 중립 램프 + 강조색 하나. 테두리는 글자색의 10%/6% 헤어라인이라 어느 면 위에서도 같은 세기로 보인다.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="palette = UNSLOP-AUDIT|default border color|preflight paints" tests/design-tokens.test.ts   # 3 pass
+  node qa-out/planner-s1-contrast.mjs                                                                                              # 위 대비 표와 같은 값
+  grep -nE "#(0d1117|161b22|21262d|30363d|484f58|6e7681|8b949e|e6edf3|58a6ff|f85149|3fb950)" tailwind.config.ts src/app/globals.css src/lib/constants.ts src/lib/utils.ts   # 0줄
+  ```
 
-     | 카테고리(라인) | 인덱스 | 제거(404) | 교체(검증된 ID) |
-     |---|---|---|---|
-     | market (213) | 1 | `photo-1535320903710-d946a44237ab` | `photo-1640340434855-6084b1f4901c` (캔들차트) |
-     | sports (215) | 0 | `photo-1461896836934-bd45ba43fcee` | `photo-1471295253337-3ceaaedca402` (야구장) |
-     | semiconductor (217) | 2 | `photo-1640955014216-7d4be39b5f94` | `photo-1591799264318-7e6ef8ddb7ea` (CPU 칩) |
-     | automotive (218) | 2 | `photo-1549317661-bd32c8ce0abe` | `photo-1494976388531-d1058494cdd8` (자동차) |
-     | culture (225) | 2 | `photo-1499781350541-7783f6c6a0c8` | `photo-1460661419201-fd4cecdf8a8b` (붓) |
-     | general (227) | 0 | `photo-1504711434969-e33886168d4c` | `photo-1504711331083-9c895941bf81` (신문) |
-  2. `CATEGORY_PHOTOS`를 `export const CATEGORY_PHOTOS: Readonly<Record<string, readonly string[]>>`로 export(테스트·검증용, 위치는 `utils.ts` 유지).
-  3. `getDefaultImage(category: string | null | undefined, articleId: number | string | null | undefined): string`:
-     - 카테고리: `(category ?? '').trim().toLowerCase()`, 없거나 미지 → `general`.
-     - 인덱스: number면 그대로, 그 외는 `parseInt(String(articleId ?? ''), 10)`(기존 동작 유지) → 유한수가 아니면 0, 유한수면 `Math.abs(Math.trunc(n)) % photos.length`. **양의 정수 id는 기존과 같은 인덱스**(회귀 없음).
-     - URL 형식 불변: `https://images.unsplash.com/{id}?w=800&h=500&fit=crop&auto=format&q=75`.
-- **기대 효과**: 운영 환경에서 Unsplash 대체 이미지 404 0건. 어떤 입력에도 유효 URL 반환.
-- **검증 방법**:
-  - V1-1 `npm test` — `tests/utils.test.ts`의 D1 케이스(항목 7) 통과.
-  - V1-2 네트워크 실검증(빈 출력이면 통과):
-    `for id in $(grep -ohE "photo-[0-9]+-[0-9a-f]+" src/lib/utils.ts src/lib/constants.ts | sort -u); do curl -s -o /dev/null -m 15 -w "%{http_code} $id\n" -I "https://images.unsplash.com/$id?w=64&q=10"; done | grep -v '^200'`
-  - V1-3 `git diff src/lib/utils.ts`에서 `CATEGORY_PHOTOS`의 변경이 정확히 6개 ID 치환뿐인지(+export 키워드) 확인.
+### 항목 2: 삭제할 토큰과 죽은 색 상수
+- **[패스 2 색 · "Every element highlighted"]**
+- **대상**: `tailwind.config.ts:22-25, 42-44` / `constants.ts:146-154` / `utils.ts:358-366`
+- **현재 문제**: 계약이 삭제를 정한 토큰이 남아 있고, 색 클래스를 가진 죽은 상수가 Tailwind 스캔에 걸려 CSS에 색 클래스를 만들어 낸다.
+- **변경값**
+  - 삭제: `primary`, `dark`, `light`, `accent.blue`, `accent.red`, `accent.green` (`tailwind.config.ts`). `primary/dark/light`는 사용처 0곳.
+  - 삭제: `PRIORITY_STYLES`, `AI_BADGE_STYLE` (`constants.ts:146-154`) — 사용처 0곳(`grep -rn "PRIORITY_STYLES\|AI_BADGE_STYLE" src tests scripts` → 정의만).
+  - 삭제: `countryColor` (`utils.ts:358-366`) — 사용처 0곳.
+  - `accent-blue/red/green`은 S2~S4 파일 62곳에서 아직 쓰인다. Tailwind는 모르는 클래스를 무시하므로 **빌드는 깨지지 않고**, 그 요소의 색만 빠진다(이번 방향이 원하는 중간 상태). 클래스 이름 정리는 각 슬라이스 몫.
+- **기대 효과**: 강조색은 `accent` 하나, 의미색은 `live`/`positive`/`negative`만.
+- **검증**
+  ```bash
+  grep -nE "primary|accent-(blue|red|green)|PRIORITY_STYLES|AI_BADGE_STYLE|countryColor" tailwind.config.ts src/lib/constants.ts src/lib/utils.ts   # 0줄
+  npx tsx --test --test-name-pattern="deleted tokens" tests/design-tokens.test.ts                                                                    # 1 pass
+  ```
 
-### 항목 2 [P0 · S1-A 신규]: Tailwind가 `src/lib`를 스캔하도록 수정 — 카테고리 색 체계 복구
-- **대상 파일**: `tailwind.config.ts` (4-8), `src/lib/constants.ts` (87-104), `src/lib/utils.ts` (248-250)
-- **현재 문제**: 위 결함표 S1-A. 다크 화면에 라이트 테마 기본 테두리(#e5e7eb)가 그려지고 카테고리 구분 색이 전무.
-- **개선 방법**:
-  1. `content`에 `'./src/lib/**/*.{js,ts,jsx,tsx}'`, `'./src/hooks/**/*.{js,ts,jsx,tsx}'` 추가(기존 3개 글롭 유지, `src/workers`는 넣지 않음).
-  2. `theme.extend.borderColor.DEFAULT`를 `border` 토큰과 **같은 값**(#30363d)으로 설정 → 색 미지정 테두리의 기본색이 다크 토큰이 됨(안전망). 가능하면 리터럴 중복 대신 같은 상수/`theme()` 참조로 단일 출처 유지. 실측상 현재 #e5e7eb를 쓰는 요소는 고장 난 배지뿐이라 부작용 없음.
-  3. `CATEGORY_COLORS` 각 항목에 `borderAll` 추가 — 값은 **반드시 `border` 값에서 `border-l-`를 `border-`로 바꾼 완전한 리터럴**(예: politics `'border-red-500'`, world `'border-blue-400'`, general `'border-gray-500'`). 타입: `export type CategoryStyle = { border: string; text: string; bg: string; borderAll: string }`. 이렇게 하면 **S4가 아직 손대지 않은 기사 상세의 `.replace()` 코드도 즉시 색을 얻는다**(그 결과 클래스가 리터럴로 존재하게 되므로).
-  4. `getCategoryStyle()` 반환 타입을 `CategoryStyle`로, 폴백에 `borderAll: 'border-gray-500'` 추가(`border-l-gray-500`과 불변식 일치). 기존 필드·값 불변.
-  5. 새 색을 만들지 말 것. 클래스 문자열은 동적 조합 금지(완전한 리터럴만).
-- **기대 효과**: 16개 카테고리 배지·섹션 헤더가 설계된 색으로 표시, 다크 화면의 밝은 회색 선 제거.
-- **검증 방법**:
-  - V2-1 빌드 후 CSS 존재 확인(모두 OK여야 함):
-    `CSS=$(ls .next/static/css/*.css); for c in border-l-indigo-500 text-violet-400 'bg-cyan-500\\/10' border-l-blue-400 border-blue-500 border-gray-500 border-red-500; do grep -q "\.$c[{:,]" $CSS && echo "OK $c" || echo "MISSING $c"; done`
-  - V2-2 `cd $SP && node planner-s1-verify.js` → **T5 PASS**(배지 전부 유색, #e5e7eb 테두리 0건).
-  - V2-3 `npm test` — 불변식: 16개 카테고리 모두 4필드, `borderAll === border.replace('border-l-','border-')`, `content`에 `src/lib` 포함, `borderColor.DEFAULT === colors.border.DEFAULT`.
+### 항목 3: 카테고리 색 중립화 — `CATEGORY_COLORS` / `getCategoryStyle`
+- **[패스 2 색 · "Every element highlighted" (색 16가지가 크롬에 퍼짐)]**
+- **대상**: `constants.ts:91-126`, `utils.ts:1, 493-504`
+- **현재 문제**: 카테고리마다 다른 색의 글자·왼쪽 테두리·배경. 알 수 없는 slug의 대체값도 램프 밖 색(`border-l-gray-500`, `border-gray-500`).
+- **변경값**
+  ```ts
+  // constants.ts — 타입은 그대로
+  export type CategoryStyle = { border: string; text: string; bg: string; borderAll: string };
 
-### 항목 3 [P0 · D6]: 전역 타이포그래피 안전장치 (globals.css `@layer base`)
-- **대상 파일**: `src/app/globals.css` (base 레이어 10-13 부근)
-- **현재 문제**: 줄바꿈 규칙 부재로 URL·긴 단어가 박스를 넘고 모바일 레이아웃 뷰포트가 1500px로 확대. 한국어는 음절 중간에서 잘림.
-- **개선 방법** — `@layer base`에 아래 규칙을 **그대로** 추가(기존 `body { @apply … }`에 합쳐도 됨):
+  const NEUTRAL_CATEGORY_STYLE: CategoryStyle = Object.freeze({   // export 하지 않는다
+    border: 'border-l-border',
+    text: 'text-text-secondary',
+    bg: 'bg-surface-elevated',
+    borderAll: 'border-border',
+  });
+
+  export const CATEGORY_COLORS: Record<string, CategoryStyle> = Object.freeze(
+    Object.fromEntries(CATEGORIES.map((c) => [c.slug, NEUTRAL_CATEGORY_STYLE])),
+  );
+
+  // utils.ts — 이름·시그니처 유지
+  export function getCategoryStyle(_slug: string): CategoryStyle {
+    return CATEGORY_COLORS.general;
+  }
+  ```
+  - 네 클래스는 `constants.ts`에 **완전한 문자열 리터럴**로 둔다(Tailwind 스캔 규칙, 기존 S1-A 교훈).
+  - `CATEGORY_COLORS`의 키는 16개 카테고리 slug 그대로. 값은 전부 같은 객체.
+  - `utils.ts:1`의 import에서 `CATEGORY_COLORS`는 계속 쓰인다. `hasOwn`은 `getDefaultImage`가 쓰므로 남긴다.
+  - 필드별 뜻: `text` = 라벨 글자색(계약: 색 없는 글자 라벨), `bg` = 면이 꼭 필요할 때(사진 위 등)의 중립 면, `border`/`borderAll` = 헤어라인. 글자만 쓰려면 `text`만 적용하면 된다.
+  - 대비: `text-secondary` on `surface-elevated` 6.19:1.
+  - `constants.ts:91-93` 구획 주석의 "Dark modern palette" 문구도 고친다.
+- **기대 효과**: 색 클래스 문자열 0개. 기존 사용처 5곳(`NewsCard.tsx:12`, `NewsCardLarge.tsx:12`, `ArticleHeroImage.tsx:31`, `app/page.tsx:128`, `app/article/[id]/page.tsx:112`)은 수정 없이 빌드되고 중립 라벨로 보인다.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="category styles" tests/design-tokens.test.ts    # 5 pass
+  npx tsx -e "import {getCategoryStyle as g} from './src/lib/utils'; console.log(JSON.stringify(g('politics'))===JSON.stringify(g('__proto__')), g('x'))"
+  # → true { border: 'border-l-border', text: 'text-text-secondary', bg: 'bg-surface-elevated', borderAll: 'border-border' }
+  ```
+
+### 항목 4: `CATEGORIES` 이모지 제거 (+ 빌드 유지용 Footer 한 줄)
+- **[패스 3 아이콘 · "Emoji as nav icons, label decoration"]**
+- **대상**: `constants.ts:45-62`, `src/components/Footer.tsx:178`
+- **현재 문제**: 16개 카테고리에 이모지 `icon` 필드. 푸터 카테고리 목록에 그대로 찍힌다(`qa-out/unslop/before/prod/d-home-footer.jpg`).
+- **변경값**
+  - `CATEGORIES`의 각 원소를 `{ slug, label }`만 남긴다(순서·slug·label·`as const` 그대로, 16개).
+  - `Footer.tsx:178` — 다음 **한 줄만 삭제**한다(다른 줄은 S2 몫).
+    ```tsx
+                        <span aria-hidden="true" className="text-xs opacity-60">{cat.icon}</span>
+    ```
+- **기대 효과**: 인터페이스에 이모지 0개(S1 범위). 이 한 줄을 지우지 않으면 `tsc`가 `Property 'icon' does not exist`로 실패한다.
+- **검증**
+  ```bash
+  grep -n "icon" src/lib/constants.ts              # 0줄
+  grep -rn "cat\.icon\|\.icon}" src/components/Footer.tsx   # 0줄
+  node -e "const s=require('fs').readFileSync('src/lib/constants.ts','utf8');console.log(/\p{Extended_Pictographic}/u.test(s))"   # false
+  git diff --stat -- src/components/Footer.tsx     # 1 file changed, 1 deletion(-)
+  ```
+
+### 항목 5: 서체 패밀리 — serif · mono 스택, Pretendard `@import` 제거
+- **[패스 5 서체 · 글꼴 선택과 짝 / 글꼴 로딩이 첫 화면을 막음]**
+- **대상**: `tailwind.config.ts:53-59`, `globals.css:1-4`
+- **현재 문제**: 큰 헤드라인용·숫자용 짝 글꼴이 없다. Pretendard는 CSS `@import`로 걸려 첫 화면을 막는다(실측 1).
+- **변경값**
+  ```ts
+  fontFamily: {
+    sans:  [/* 기존 10개 항목 그대로 — 'Pretendard Variable', 'Pretendard', …, 'sans-serif' */],
+    serif: ['Noto Serif KR', 'AppleMyungjo', 'Nanum Myeongjo', 'Batang', 'serif'],
+    mono:  ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+  },
+  ```
+  - `globals.css:1-4` (`@import url('https://cdn.jsdelivr.net/…')`와 그 주석) **삭제**. 판단 근거: 실측 1(`renderBlockingStatus: blocking`, CDN 4초 지연 → FCP 4.5초). Pretendard 자체는 유지하며, 로딩은 S2가 `layout.tsx`에서 다른 두 글꼴과 같은 비차단 `<link>`로 한다(인계 1번 — **필수**).
+  - 대체 글꼴은 스택이 전부다. `@font-face`를 새로 만들지 않는다(빌드 시점 다운로드 금지).
+  - S1~S2 사이 중간 상태에서는 Pretendard가 로드되지 않아 OS 기본 글꼴로 보인다. 빌드에는 영향 없다.
+- **기대 효과**: 글꼴 CDN이 느리거나 죽어도 첫 화면이 바로 뜬다. `font-serif`(큰 헤드라인 2곳), `font-mono`(시각·숫자) 사용 가능.
+- **검증**
+  ```bash
+  grep -c "@import" src/app/globals.css                                                    # 0
+  npx tsx --test --test-name-pattern="font families" tests/design-tokens.test.ts          # 1 pass
+  npx tailwindcss -i src/app/globals.css -o qa-out/eval-s1.css --minify && head -c 60 qa-out/eval-s1.css   # '@import'로 시작하지 않음
+  ```
+
+### 항목 6: 타입 스케일과 굵기 — 400 / 500 / 600
+- **[패스 5 서체 · "Headings at weight 800 or 900", "Uppercase labels with wide tracking"]**
+- **대상**: `tailwind.config.ts:60-71`, 신규 `theme.fontWeight`
+- **현재 문제**: `headline-xl` 800, `headline-lg`·`headline-md` 700, `overline` 11px + 자간 0.05em, `caption` 500.
+- **변경값** (`theme.extend.fontSize` — 계약 3절 그대로, 키 9개)
+  ```ts
+  'headline-xl': ['clamp(1.75rem, 1.2rem + 2vw, 2.5rem)', { lineHeight: '1.2',  fontWeight: '600' }],
+  'headline-lg': ['1.75rem',   { lineHeight: '1.25', fontWeight: '600' }],
+  'headline-md': ['1.25rem',   { lineHeight: '1.35', fontWeight: '500' }],
+  'headline-sm': ['1rem',      { lineHeight: '1.45', fontWeight: '500' }],
+  'body-lg':     ['0.9375rem', { lineHeight: '1.6',  fontWeight: '400' }],
+  'body-md':     ['0.875rem',  { lineHeight: '1.6',  fontWeight: '400' }],
+  caption:       ['0.75rem',   { lineHeight: '1rem', fontWeight: '400' }],
+  overline:      ['0.75rem',   { lineHeight: '1rem', fontWeight: '500', letterSpacing: '0' }],
+  meta:          ['0.75rem',   { lineHeight: '1rem', fontWeight: '400' }],   // 신규
+  ```
+  굵기 스케일을 닫는다(`theme.fontWeight` — `extend` 아님).
+  ```ts
+  fontWeight: { normal: '400', medium: '500', semibold: '600' },
+  ```
+  - 효과: `font-bold`/`font-extrabold`/`font-black`은 CSS가 생성되지 않는다. S2~S4에 남은 29곳은 크기 토큰의 굵기(500/600)나 상속값(400)으로 내려간다. 빌드는 깨지지 않는다.
+  - 닫는 이유: ① 계약의 "700 이상 금지"를 시스템이 보장 ② Noto Serif KR은 500·600만, IBM Plex Mono는 400·500만 로드하므로 700을 요청하면 브라우저가 가짜 굵은 글씨를 합성한다.
+  - `uppercase`·`italic`·`tracking-*`는 Tailwind 설정으로 막지 않는다(`not-italic` 등이 함께 사라짐). S1 파일에서 쓰지 않는 것으로 지킨다.
+- **기대 효과**: 위계는 크기와 색으로. 굵기 3단계.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="type scale|text-headline-xl|text-overline" tests/design-tokens.test.ts   # 3 pass
+  grep -nE "fontWeight: '(7|8|9)00'|letterSpacing: '0\.0" tailwind.config.ts                                    # 0줄
+  ```
+
+### 항목 7: 모서리 — tag 6 / control 8 / card 12 / panel 16
+- **[패스 7 디테일 · "Every element a full pill", 중첩 반경]**
+- **대상**: `tailwind.config.ts:77-81`
+- **현재 문제**: `card 8px`, `badge 4px`, `pill 9999px`. 컨트롤·패널 단계가 없어 버튼·입력·칩이 전부 알약(`rounded-pill` 12곳).
+- **변경값** (`theme.extend.borderRadius`)
+  ```ts
+  tag: '0.375rem',      // 6px  신규
+  control: '0.5rem',    // 8px  신규
+  card: '0.75rem',      // 12px (8 → 12)
+  panel: '1rem',        // 16px 신규
+  // 사용 중단 별칭 — S2~S4 파일 27곳이 아직 참조. 지우면 버튼·입력이 각진 모서리가 된다.
+  badge: '0.375rem',    // = tag
+  pill: '0.5rem',       // = control
+  ```
+  - 별칭을 남기는 근거: 계약 3절 첫 줄 "기존 토큰 이름은 유지하고 값만 바꾼다". `rounded-pill` 12곳은 전부 버튼·입력·칩·카운트이고 실제 원은 없다(전수 확인) → 8px가 맞다. 실제 원은 `rounded-full`(Tailwind 기본) 그대로.
+  - 주석에 "사용 중단, 새 코드는 `rounded-tag`/`rounded-control`"을 적는다.
+- **기대 효과**: 크기에 따른 반경. 중첩 계산 가능(패널 16 − 패딩 → 카드 12 → 컨트롤 8 → 태그 6).
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="radius" tests/design-tokens.test.ts   # 1 pass
+  grep -n "9999" tailwind.config.ts                                         # 0줄
+  ```
+
+### 항목 8: 깊이 — 그림자는 `shadow-float` 하나, 글로우·그라데이션 제거
+- **[패스 2 색 · "Colored glows", "Gradient text", 어두운 테마의 깊이는 면 단계 + 헤어라인]**
+- **대상**: `tailwind.config.ts:72-76`, `globals.css:118-124, 145-168`
+- **현재 문제**: 그림자 3종, `.border-glow`(주황 글로우), `.text-gradient-amber`(그라데이션 글자), `.shimmer`(흰색 그라데이션이 무한히 지나감).
+- **변경값**
+  - 그림자 스케일을 닫는다(`theme.boxShadow` — `extend` 아님).
+    ```ts
+    boxShadow: { none: 'none', float: '0 8px 24px rgba(0,0,0,0.35)' },
+    ```
+    `shadow-card`(14곳), `shadow-elevated`(5곳), `shadow-dropdown`(1곳: `Header.tsx:526`)은 CSS가 생성되지 않는다 → 그림자 없음 = 계약이 정한 상태. `Header.tsx:526`의 떠 있는 메뉴는 S2가 `shadow-float`로 바꾼다(그 전까지는 테두리 + 면으로 구분됨).
+  - `globals.css`에서 삭제: `.text-gradient-amber`, `.border-glow`, `.shimmer`, `.shimmer::after`, `@keyframes shimmer-slide`.
+  - `.shimmer` 삭제 근거: 계약 3절 "그라데이션 … 없음. 이미지 위 스크림만 허용" + "`animate-pulse/ping` 금지". 그라데이션 없이 로딩을 알리는 대안(투명도 맥박)도 금지 대상이라 스켈레톤은 **정지한 면**으로 둔다. `PageSkeleton.tsx`의 10곳은 모두 자체 배경(`bg-surface-card`/`bg-surface-elevated`)이 있어 클래스가 사라져도 블록은 그대로 보인다.
+- **기대 효과**: 깊이는 면 4단계 + 헤어라인. `globals.css`에 `gradient`·`box-shadow` 0건.
+- **검증**
+  ```bash
+  grep -cE "gradient|box-shadow|shimmer|glow" src/app/globals.css          # 0
+  npx tsx --test --test-name-pattern="depth|no @import|dead and decorative" tests/design-tokens.test.ts   # 3 pass
+  ```
+
+### 항목 9: 모션 — easing 하나, 지속 150 / 200 / 400ms, 진입 하나
+- **[패스 9 모션 · `transition-all`, 반복 애니메이션, "Bouncy springs", "one easing curve"]**
+- **대상**: `tailwind.config.ts:82-111`, 신규 `theme.transition*`, `globals.css:38-41, 71-82`
+- **현재 문제**: easing 3종 혼용, `pulse-dot` 무한 반복, `bookmark-pop` 1.3배 튐, 진입 애니메이션 2종(`fade-in` 0.3s, `slide-up` 0.4s), `transition-all`.
+- **변경값** (모두 `theme` 최상위 — 닫힌 스케일)
+  ```ts
+  const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+  transitionTimingFunction: { DEFAULT: EASE, linear: 'linear' },
+  transitionDuration: { DEFAULT: '150ms', 0: '0ms', 150: '150ms', 200: '200ms', 400: '400ms' },
+  transitionProperty: {
+    none: 'none',
+    DEFAULT: 'color, background-color, border-color, text-decoration-color, fill, stroke, opacity, transform',
+    colors: 'color, background-color, border-color, text-decoration-color, fill, stroke',
+    opacity: 'opacity',
+    transform: 'transform',
+  },
+  keyframes: {
+    spin: { to: { transform: 'rotate(360deg)' } },
+    'fade-in': {
+      from: { opacity: '0', transform: 'translateY(8px)' },
+      to: { opacity: '1', transform: 'none' },
+    },
+  },
+  animation: {
+    none: 'none',
+    spin: 'spin 1s linear infinite',
+    'fade-in': `fade-in 400ms ${EASE} backwards`,
+  },
+  ```
+  - `linear`는 연속 운동(로딩 스피너, 티커)에만. 상태 전환은 전부 `EASE`.
+  - `duration-400`은 Tailwind 기본 스케일에 없어서 여기서 추가한다(계약의 400ms 진입).
+  - `animate-fade-in`은 이름을 유지하고 내용만 "fade + 8px 오름, 400ms"로 바꾼다(사용 7곳). `to`가 `transform: none`이고 fill이 `backwards`라서 끝난 뒤 transform이 남지 않는다 → 쌓임 맥락·`position: fixed` 기준이 바뀌지 않는다.
+  - 삭제: `slide-up`, `toast-in`(사용 0곳), `pulse-dot`(4곳), `bookmark-pop`(1곳). Tailwind 기본 `animate-pulse/ping/bounce`도 생성되지 않는다(스케일을 닫았으므로).
+  - `transition-all`(8곳)은 CSS가 생성되지 않는다 → 전환 없이 즉시 바뀜. `duration-300/500`(10곳)·`ease-in-out`(2곳)도 생성되지 않는다 → 기본 150ms·`EASE`가 적용된다. `Header.tsx:303, 379`의 `transition-[max-height,…]`(임의 값)은 그대로 생성되고 150ms로 동작한다. `transitionend`/`animationend`에 기대는 JS는 0곳.
+  - `globals.css`에서 삭제: `@keyframes slogan`(`:38-41`), `.breaking-ticker` + `@keyframes ticker` + `.breaking-ticker:hover`(`:71-82`). 티커는 `BreakingTicker.tsx:74-89`의 styled-jsx가 자체 `@keyframes ticker`와 hover·focus 정지를 갖고 있어 영향 없다.
+  - `prefers-reduced-motion` 블록(`globals.css:57-67`)은 그대로 둔다.
+- **기대 효과**: 전환은 한 곡선·세 지속 시간. 반복 모션은 티커(제품 기능)와 로딩 스피너뿐.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="motion|transitions use the one easing|deleted tokens|reduced-motion" tests/design-tokens.test.ts   # 4 pass
+  grep -cE "@keyframes|animation:|transition-all|ease-(in|out)" src/app/globals.css     # 0
+  grep -cE "pulse|pop|slide-up|toast|ease-(in|out)" tailwind.config.ts                   # 0
+  ```
+
+### 항목 10: 포커스 링 하나
+- **[패스 7 디테일 · "A visible focus ring for keyboard users"]**
+- **대상**: `globals.css` `@layer base` (`::selection` 규칙 뒤)
+- **현재 문제**: 전역 포커스 규칙이 없어 브라우저 기본(파란 링)이 뜨거나, 파일마다 `outline-none` + `focus:ring-*`를 따로 쓴다.
+- **변경값**
   ```css
-  body {
-    overflow-wrap: anywhere;   /* 넘칠 때만 임의 지점 줄바꿈 + min-content 계산에 반영 */
-    word-break: keep-all;      /* 한국어 어절(띄어쓰기) 단위 줄바꿈 */
-  }
-  /* 띄어쓰기 없는 중·일 원문은 keep-all 해제(문자 단위 줄바꿈 + 금칙 처리) */
-  :lang(ja), :lang(zh) {
-    word-break: normal;
-  }
-  /* 표는 열 너비를 min-content로 계산 → anywhere를 상속하면 짧은 단어 열이 글자 단위로 압착됨.
-     표 안은 기존 규칙으로 되돌리고 넘침은 기존 overflow-x-auto 래퍼가 흡수 */
-  table {
-    overflow-wrap: break-word;
-    word-break: normal;
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 2px;
   }
   ```
-  - `break-all` 금지(한·영 모두 아무 데서나 끊어 keep-all을 무력화). 컴포넌트별 `break-words`/`min-w-0` 추가는 S1 범위 밖이며 이 규칙으로 불필요.
-- **설계 근거 (min-content 부작용 분석)**:
-  - `overflow-wrap: break-word`는 줄바꿈만 허용하고 **min-content 계산에는 반영되지 않는다** → flex 아이템(`min-width:auto` = min-content)·표·`inline-flex`/`w-fit` 같은 내재 크기 요소에서는 긴 URL 폭이 그대로 최소 폭이 되어 계속 넘친다. `anywhere`는 그 줄바꿈 기회를 min-content에 반영하므로 flex 아이템이 컨테이너 폭까지 줄어든다. 일반 블록(h1·p)에서는 둘의 동작이 같다.
-  - **flex**: 넘치지 않는 행은 flex-basis(=max-content, `overflow-wrap`과 무관)로 배치되므로 레이아웃 불변. 영향은 "원래 넘치던 과제약 행"에만 생기며 그 경우 넘침 대신 줄바꿈된다. `whitespace-nowrap` 요소(내비·티커·국가 탭·필 행)는 줄바꿈 기회 자체가 없어 영향 없음. 명시적 `min-w-[…]`(페이지네이션 버튼)는 그 값이 하한으로 유지.
-  - **grid**: 전 그리드가 `minmax(0,1fr)`(이미 하한 0) → 영향 없음.
-  - **한국어**: 현재도 기본 `word-break:normal`에서 한글 음절마다 줄바꿈 기회가 있어 한글 min-content는 이미 1음절이다. 따라서 `anywhere`가 한국어 UI 라벨에 새로 주는 위험은 없다. `keep-all`은 줄 배치 시 어절 단위를 우선하고, 한 어절이 줄보다 길 때만 `anywhere`의 비상 줄바꿈이 작동한다.
-  - **표**: 유일하게 실측된 부작용(태블릿 `/admin/logs` 902→734px로 압착, 행 높이 +56%)을 `table` 리셋으로 제거. 리셋 후 6개 케이스 모두 기준선과 픽셀 단위로 같은 기하.
-  - **실측**: 이 규칙으로 40 라우트 × 3 뷰포트 넘침 3 → 0. `anywhere` 단독 주입 시 공개 페이지에서 크기가 바뀐 요소는 넘치던 요소뿐(0건 부작용).
-- **기대 효과**: 어떤 텍스트 컨테이너에서도 긴 문자열이 뷰포트를 넘지 않음. 모바일이 1500px로 축소되던 현상 제거. 한국어 제목이 어절 단위로 줄바꿈.
-- **검증 방법**:
-  - V3-1 `bash $SP/qa-env.sh restart && cd $SP && node planner-s1-verify.js` → **T1**(넘침 0, 모바일 vw=375 유지), **T2**(computed: body `anywhere`/`keep-all`, table·td `break-word`/`normal`, `:lang(ja|zh)` `normal`), **T4**(표 기하 = 기존 규칙과 동일) PASS.
-  - V3-2 `cd $SP && node audit.js s1` → `art-unbroken` OVERFLOW가 3개 뷰포트 모두 사라지고, 기준선(`audit-baseline.json`)에 없던 OVERFLOW 신규 0건.
-  - V3-3 육안: `node peek.js mobile /article/392 peek/s1-unbroken 2`, `node peek.js mobile /article/391 peek/s1-long 1` → URL이 화면 안에서 줄바꿈, 한국어 어절 단위.
-
-### 항목 4 [P0 · D6]: `headline-xl` 유동(반응형) 크기 토큰
-- **대상 파일**: `tailwind.config.ts:49`
-- **현재 문제**: 기사 h1(`text-headline-xl`, 사용처는 `article/[id]/page.tsx:123` 1곳)이 375px 화면에서도 40px → 장문 제목 h1 높이 1150px, URL 제목 1단어가 10줄 이상.
-- **개선 방법**: `'headline-xl': ['clamp(1.75rem, 1.2rem + 2vw, 2.5rem)', { lineHeight: '1.15', fontWeight: '800' }]` (lineHeight·weight 불변). 결과: ≤440px에서 28px(= `headline-lg`, 타이포 스케일 역전 없음), 768px에서 ≈34.56px, ≥1040px에서 40px(데스크톱 불변). rem+vw 조합이라 브라우저 확대 시에도 커짐.
-- **기대 효과**: 모바일 장문 제목 h1 높이 1150 → 595px(실측), 데스크톱 디자인 불변.
-- **검증 방법**: `node planner-s1-verify.js` **T3** PASS(28 / ≈34.56 / 40px, ±0.75). `npm test`에서 토큰 문자열이 `clamp(`로 시작하고 `1.75rem`·`2.5rem` 포함.
-
-### 항목 5 [P0 · D7]: 서버 TZ·ICU 무관한 결정적 KST 날짜 유틸 + 하이드레이션 안전 계약
-- **대상 파일**: `src/lib/utils.ts` (136-156)
-- **현재 문제**: 결함표 D7. 서버(UTC)와 브라우저(KST)가 다른 문자열을 만들어 클라이언트 카드에서 하이드레이션 실패(#425/#422 실제 관측). `Intl` 구현차로 "AM/PM" 등 형식도 환경마다 다름.
-- **개선 방법** (`Intl`·`toLocale*` 사용 금지. 한국은 1988년 이후 서머타임이 없으므로 **고정 +9시간 오프셋**이 기사 날짜 전 범위에서 정확):
-  ```ts
-  export type DateInput = Date | string | number | null | undefined;
-  export interface KstParts { year: number; month: number; day: number; hour: number; minute: number; second: number; weekday: number } // weekday 0=일
-  export function toKstParts(input: DateInput): KstParts | null;      // new Date(ms + 9h)의 getUTC* 값
-  export function formatDate(input: DateInput): string;               // 'YYYY.MM.DD HH:mm' (KST, 24시간, 0 채움)
-  export function formatDateOnly(input: DateInput): string;           // 'YYYY.MM.DD' (KST)
-  export function toIsoDateTime(input: DateInput): string | undefined; // Date#toISOString() (UTC 'Z') — <time dateTime>용
-  export function timeAgo(input: DateInput, now?: Date | number): string; // now 기본값 Date.now()
+  - base 레이어라서 유틸리티(`outline-none`, `focus:outline-none`)가 이긴다 → 기존 28곳은 지금 모습 그대로이고 깨지지 않는다. 그 클래스를 지워 이 링 하나로 맞추는 것은 S2~S4 몫. `layout.tsx:47`의 `<main tabIndex={-1} className="… focus:outline-none">`은 그대로 두는 것이 맞다(건너뛰기 링크의 도착점).
+  - `overflow-hidden` 안에서 링이 잘리는 요소는 Tailwind 기본 유틸 `-outline-offset-2`를 쓴다(새 이름 추가 없음).
+- **기대 효과**: 키보드 포커스가 어디서나 같은 모양. 대비 6.11~7.46:1.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="one focus ring" tests/design-tokens.test.ts   # 1 pass
   ```
-  - 입력 해석: `null`/`undefined`/`''`/파싱 불가/`Invalid Date` → `formatDate`·`formatDateOnly`·`timeAgo`는 `''`, `toKstParts`는 `null`, `toIsoDateTime`은 `undefined`. **타임존 표기가 없는 날짜-시간 문자열**(`'2026-10-01T08:03:00'`, `'2026-10-01 08:03'`)은 **UTC로 해석**(V8은 로컬 TZ로 해석하므로 서버 TZ 의존이 생김; Prisma DateTime은 UTC 저장).
-  - 출력 예시(TZ와 무관하게 문자 단위 동일):
-    - `formatDate('2026-10-01T08:03:00Z')` → `'2026.10.01 17:03'`
-    - `formatDate('2026-12-31T15:00:00Z')` → `'2027.01.01 00:00'` · `formatDate('2028-02-28T15:30:00Z')` → `'2028.02.29 00:30'`
-    - `formatDateOnly('2026-09-30T15:00:00Z')` → `'2026.10.01'`
-    - `toIsoDateTime('2026-10-01T17:03:00+09:00')` → `'2026-10-01T08:03:00.000Z'`
-    - `toKstParts('2026-10-04T15:30:00Z')` → `{ year: 2026, month: 10, day: 5, hour: 0, minute: 30, second: 0, weekday: 1 }`
-  - `timeAgo` 규칙(`diff = floor((now − t)/1000)`초):
-    | 조건 | 출력 |
-    |---|---|
-    | 입력 무효 | `''` |
-    | `diff < −60` (60초 넘게 미래) | `formatDate(t)` (절대 시각) |
-    | `diff < 60` (±60초 시계 오차 포함) | `'방금 전'` |
-    | `< 3600` | `'N분 전'` |
-    | `< 86400` | `'N시간 전'` |
-    | `< 604800` | `'N일 전'` |
-    | 그 이상 | `formatDateOnly(t)` 예: `'2026.09.28'` (기존 `'2026년 9월 28일'`에서 의도적 변경: ICU 제거 + `formatDate`와 형식 통일, 모바일 메타 행 폭 절약) |
-  - 시그니처는 기존 호출(`timeAgo(article.publishedAt)`, `formatDate(article.publishedAt)`)과 100% 호환.
-- **하이드레이션 안전 계약** (S3/S4가 적용, "슬라이스 간 계약" 참조): 절대 형식(`formatDate`/`formatDateOnly`)은 결정적이라 그대로 안전. `timeAgo`는 `now`에 의존하므로 **클라이언트 컴포넌트에서는 반드시** `<time dateTime={toIsoDateTime(d)} suppressHydrationWarning>{timeAgo(d)}</time>`처럼 결과 텍스트의 **직접 부모 요소**에 `suppressHydrationWarning`을 둔다(react-dom 18.3이 이 경우 텍스트 불일치 검사를 생략함을 소스로 확인).
-- **기대 효과**: 서버·브라우저 결과가 문자 단위로 동일(TZ/ICU 무관), "Invalid Date"·"AM/PM"·미래 "방금 전" 제거, 하이드레이션 오류의 결정적 원인 제거.
-- **검증 방법**:
-  - V5-1 `TZ=UTC npm test && TZ=Asia/Seoul npm test && TZ=America/Los_Angeles npm test` 모두 통과(테스트 내부에서도 `process.env.TZ`를 바꿔가며 동일 출력 단언).
-  - V5-2 `grep -nE "toLocale|Intl\." src/lib/utils.ts` → **0건**.
-  - V5-3 빌드 후 `curl -s http://127.0.0.1:4000/livenews/article/1 | grep -oE "20[0-9]{2}\.[0-9]{2}\.[0-9]{2} [0-9]{2}:[0-9]{2}" | head -2` → `YYYY.MM.DD HH:mm` 형식, `AM|PM|Invalid Date` 문자열 없음(`grep -cE "AM [0-9]|PM [0-9]|Invalid Date"` → 0).
 
-### 항목 6 [P0 · D8 기반]: 쿼리 정수 파서 `parseIntParam` / `parsePage` + `MAX_PAGE`
-- **대상 파일**: `src/lib/utils.ts`, `src/lib/constants.ts`
-- **현재 문제**: 결함표 D8 — 페이지·API의 `parseInt`가 NaN·과대값을 Prisma로 흘려 500/거짓 안내.
-- **개선 방법**:
-  ```ts
-  // constants.ts
-  export const MAX_PAGE = 10_000;               // 운영 최대(속보 458p)의 20배+, skip 최대 ≈ 300k로 Prisma Int 범위 안
-  export const BREAKING_ITEMS_PER_PAGE = 30;    // queries.ts의 하드코딩 30을 S4가 대체할 수 있도록 (ITEMS_PER_PAGE=20은 유지)
-  // utils.ts
-  export function parseIntParam(raw: unknown, opts: { min: number; max: number; fallback: number }): number;
-  export function parsePage(raw: unknown): number; // = parseIntParam(raw, { min: 1, max: MAX_PAGE, fallback: 1 })
-  ```
-  - 규칙: 배열이면 첫 요소(`?page=2&page=3` → `['2','3']`). 문자열은 trim 후 **`/^\d+$/`(ASCII 숫자만)일 때만** 정수로 인정 — 부호·소수점·지수·전각 숫자·문자 혼입은 해석 불가 → `fallback`. number는 `Number.isInteger`일 때만 인정(NaN·Infinity·2.5 → `fallback`). 해석된 값은 `[min, max]`로 clamp(`'0'` → 1, 과대값 → `MAX_PAGE`). 그 외 타입 → `fallback`. 항상 정수 반환.
-  - `parsePage`는 서버 컴포넌트(`searchParams.page: string | string[] | undefined`)와 클라이언트(`URLSearchParams.get()`: `string | null`) 양쪽에서 쓰는 순수 함수.
-- **기대 효과**: S4/API가 한 줄로 NaN·과대값 500을 제거. 범위 초과(`page > totalPages`) 처리는 S4 몫(계약 참조).
-- **검증 방법**: `npm test`의 parse 케이스(항목 7 표) 전부 통과 + 무작위 문자열 1,000개에 대해 결과가 항상 `1 ≤ 정수 ≤ MAX_PAGE`.
-
-### 항목 7 [P0 · D25]: `npm test` 도입 + S1 단위 테스트
-- **대상 파일**: `package.json`(scripts만), `tests/utils.test.ts`(신규), `tests/design-tokens.test.ts`(신규)
-- **현재 문제**: 자동 테스트 0개.
-- **개선 방법**:
-  - `package.json` → `"test": "tsx --test tests/*.test.ts"` 한 줄 추가. **의존성 추가 금지**(tsx는 기존 devDependency, `node:test`/`node:assert/strict` 사용).
-  - 테스트 작성 규칙: 상대 경로 import(`../src/lib/utils`, `../tailwind.config`), 네트워크 호출 금지, `process.env.TZ`를 바꾸는 테스트는 `finally`에서 원복, `tsconfig`의 `include: ["**/*.ts"]` 때문에 **`next build`가 테스트도 타입 검사**하므로 타입 오류 0.
-  - **`tests/utils.test.ts` 필수 케이스** (기준 시각 `NOW = Date.UTC(2026, 9, 5, 3, 0, 0)` = 2026-10-05 12:00 KST):
-
-    | 대상 | 입력 → 기대값 |
-    |---|---|
-    | formatDate | `'2026-10-01T08:03:00Z'`·같은 순간의 `Date`·`Date.UTC(2026,9,1,8,3)` → `'2026.10.01 17:03'`; `'2026-10-01T17:03:00+09:00'` → `'2026.10.01 17:03'`; `'2026-10-01T08:03:00'`(존 없음=UTC) → `'2026.10.01 17:03'`; `'2026-12-31T15:00:00Z'` → `'2027.01.01 00:00'`; `'2026-12-31T14:59:59Z'` → `'2026.12.31 23:59'`; `'2028-02-28T15:30:00Z'` → `'2028.02.29 00:30'`; `'2026-02-28T15:30:00Z'` → `'2026.03.01 00:30'`; `null`/`undefined`/`''`/`'garbage'`/`new Date(NaN)` → `''` |
-    | TZ 독립성 | `process.env.TZ`를 `'UTC'`, `'Asia/Seoul'`, `'America/Los_Angeles'`, `'Pacific/Kiritimati'`로 바꿔도 `formatDate`/`formatDateOnly`/`timeAgo(…, NOW)` 결과 동일 |
-    | formatDateOnly | `'2026-09-30T15:00:00Z'` → `'2026.10.01'`; 무효 → `''` |
-    | toIsoDateTime / toKstParts | 위 항목 5 예시 그대로; 무효 → `undefined` / `null` |
-    | timeAgo(t, NOW) | t=NOW → `'방금 전'`; −59s → `'방금 전'`; −60s → `'1분 전'`; −3599s → `'59분 전'`; −3600s → `'1시간 전'`; −86399s → `'23시간 전'`; −86400s → `'1일 전'`; −604799s → `'6일 전'`; −604800s → `'2026.09.28'`; +30s → `'방금 전'`; +5h → `'2026.10.05 17:00'`; `'2026-09-01T20:30:00Z'` → `'2026.09.02'`; 무효 → `''`; `now`에 `Date` 객체를 줘도 같은 결과 |
-    | parsePage | `undefined`/`null`/`''`/`'abc'`/`'7abc'`/`'-3'`/`'2.5'`/`'1e3'`/`'０７'`/`[]`/`{}`/`2.5`/`NaN`/`Infinity` → 1; `'1'` → 1; `'7'`/`' 7 '`/`'007'`/`7` → 7; `'0'` → 1; `['3','9']` → 3; `String(MAX_PAGE)` → MAX_PAGE; `String(MAX_PAGE+1)`/`'99999999999999999999'` → MAX_PAGE; 무작위 문자열 1,000개 → 항상 `1..MAX_PAGE` 정수 |
-    | parseIntParam | (`'abc'`, {min:1,max:100,fallback:20}) → 20; `'0'` → 1; `'500'` → 100; `'50'` → 50 |
-    | D1 사진 | `CATEGORY_PHOTOS` 전체에 죽은 6개 ID 0건; 교체 ID가 정확한 위치에 존재(market[1], sports[0], semiconductor[2], automotive[2], culture[2], general[0]); `CATEGORIES`의 16개 slug 모두 4개 ID, 각 ID `/^photo-\d+-[0-9a-f]+$/` |
-    | getDefaultImage | id `0,1,2,3,5,-1,NaN,1.5,'12','abc',null,undefined,Number.MAX_SAFE_INTEGER` 모두 `/^https:\/\/images\.unsplash\.com\/photo-\d+-[0-9a-f]+\?w=800&h=500&fit=crop&auto=format&q=75$/` 일치('undefined' 미포함); `('economy',5)`는 `CATEGORY_PHOTOS.economy[1]` 사용(기존 매핑 유지); `(' Sports ',1)` = `('sports',1)`; `(null,1)` = `('quantum-weird-category',1)` = `('general',1)`; 같은 입력 → 같은 출력 |
-    | getArticleImageSources | 유효 원본 → 길이 3 `[proxyImageUrl(정규화 원본), getDefaultImage(cat,id), IMAGE_PLACEHOLDER_SRC]`; `imageUrl: null`·로고 URL(`https://static.example.com/assets/logo.png`)·`'javascript:alert(1)'` → 길이 2; `'//cdn.example.com/photos/abc.jpg'` → 첫 요소가 `'https://cdn.example.com/photos/abc.jpg'`의 프록시; `'http://x.com/a.jpg'` → https 프록시; 마지막 요소는 항상 `IMAGE_PLACEHOLDER_SRC`; 중복 없음; 두 번 호출 deepEqual |
-    | isValidArticleImage | true: `'https://cdn.example.com/news/2026/photo.jpg'`, `'http://cdn.example.com/a.jpg'`. false: `null`, `''`, `'short'`, 로고/파비콘/`.svg`/`data:` URL, `'javascript:alert(document.cookie)'`, `'ftp://files.example.com/a.jpg'`, `'https://static.chinadaily.com.cn/img/a.jpg'`, `'/relative/a.jpg'`, `IMAGE_PLACEHOLDER_SRC` |
-    | normalizeImageUrl (회귀) | `'//x.com/a.jpg'` → `'https://x.com/a.jpg'`; `'http://x.com/a.jpg'` → `'https://x.com/a.jpg'`; 앞뒤 공백 제거; `null`/`''` → `null` |
-    | proxyImageUrl | `'https://x.com/a b.jpg'` → `'/livenews/api/img?url=https%3A%2F%2Fx.com%2Fa%20b.jpg'`; `'/local.png'`·`'data:image/png;base64,AA'`·`''` → 그대로; `'//cdn.example.com/a.jpg'` → `'/livenews/api/img?url=' + encodeURIComponent('https://cdn.example.com/a.jpg')` |
-    | getDisplayTitle / toLangTag | 항목 11 표 그대로 |
-  - **`tests/design-tokens.test.ts` 필수 케이스**:
-    - `CATEGORIES` 16개 slug 모두 `getCategoryStyle(slug)`가 `border` `/^border-l-[a-z]+-\d{3}$/`, `text` `/^text-[a-z]+-\d{3}$/`, `bg` `/^bg-[a-z]+-\d{3}\/\d{1,2}$/`, `borderAll === border.replace('border-l-','border-')`; 미지 slug 폴백도 4필드 + 같은 불변식.
-    - Tailwind 설정: `content` 중 `src/lib/` 포함 항목 존재; `extend.borderColor.DEFAULT === extend.colors.border.DEFAULT`; `fontSize['headline-xl'][0]`이 `clamp(`로 시작하고 `1.75rem`·`2.5rem` 포함; **기존 팔레트 스냅샷 불변**(surface #0d1117/#161b22/#21262d, text #e6edf3/#8b949e/#6e7681, accent #f0883e/#58a6ff/#f85149/#3fb950, border #30363d/#21262d).
-    - `IMAGE_PLACEHOLDER_SRC`: `data:image/svg+xml`로 시작; 디코딩한 SVG에 `viewBox="0 0 800 500"` 포함; `href`·`url(`·`<image`·`<text`·`@import`·`font` 미포함(외부 요청·글꼴 의존 없음); SVG 안의 모든 `#rrggbb`가 Tailwind 팔레트 값 집합에 속함.
-    - `MAX_PAGE`는 양의 정수, `BREAKING_ITEMS_PER_PAGE === 30`, `ITEMS_PER_PAGE === 20`(불변).
-- **기대 효과**: 회귀 자동 탐지 기반. 다른 슬라이스는 `tests/<영역>.test.ts`만 추가하면 됨.
-- **검증 방법**: `npm test` 종료코드 0, 출력에 두 파일이 모두 실행되고 `# fail 0`, 위 표의 모든 행이 최소 1개 이상의 단언으로 존재(Evaluator가 테스트 파일을 읽고 표와 대조), `npx tsc --noEmit` 0 오류, `npm run build` 성공.
-
-### 항목 8 [P1 · D2/D3 기반]: 이미지 대체 체인 API + 오프라인 플레이스홀더
-- **대상 파일**: `src/lib/utils.ts`, `src/lib/constants.ts`
-- **현재 문제**: 이미지 소스 결정이 3곳에 복제되고 2단계뿐 → Unsplash까지 실패하면 같은 URL 재설정(D2), 하이드레이션 전 실패는 복구 불가(D3). S3가 고칠 수 있도록 결정적 체인이 필요.
-- **개선 방법**:
-  ```ts
-  // constants.ts — 네트워크 요청 0, 다크 팔레트만 사용하는 인라인 SVG
-  export const IMAGE_PLACEHOLDER_SRC: string; // 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SVG)
-  // utils.ts
-  export function getArticleImageSources(article: { id: number | string; imageUrl?: string | null; categoryPrimary?: string | null }): string[];
-  ```
-  - 체인: `normalizeImageUrl(imageUrl)`이 `isValidArticleImage` 통과 시 `proxyImageUrl(그 값)` → `getDefaultImage(categoryPrimary, id)` → `IMAGE_PLACEHOLDER_SRC`. 중복 제거. 길이 2~3, **마지막은 항상 플레이스홀더**(절대 실패하지 않음). `Date`·난수 미사용 → 서버/클라이언트 동일(첫 `src` 하이드레이션 안전).
-  - 플레이스홀더 SVG 기준안(형태는 조정 가능, 제약은 필수): `viewBox="0 0 800 500"`(Unsplash 대체 800×500과 같은 16:10), `preserveAspectRatio="xMidYMid slice"`, 배경 `#21262d`(surface.elevated = 카드 이미지 영역 배경과 동일), 중앙의 단순 사진 아이콘(사각 프레임+산+해) 선색 `#30363d`(border). 텍스트·글꼴·외부 참조 금지.
+### 항목 11: `globals.css` 정리 — 죽은 클래스, 하드코딩 색, 내비 hover
+- **[패스 2 색 · 강조색 반복 / 패스 5 서체 · 대문자 라벨 / 패스 1 간격 · 격자 밖 값]**
+- **대상**: `globals.css:43-55, 84-114, 126-128`
+- **현재 문제**: 사용처 0곳인 컴포넌트 클래스 7개(그중 `.category-pill`은 `tracking-wide uppercase`, `.news-card-large`는 `transition-all` + 그림자, `.country-badge`는 `py-0.5`). 스크롤바 색이 hex 하드코딩. `.nav-link` hover가 모든 메뉴에 강조색을 쓴다.
+- **변경값**
+  - 삭제: `.news-card`, `.news-card-large`, `.category-pill`, `.country-badge`, `.tab-item`, `.tab-item-active`, `.surface-interactive`.
+  - 유지(S2 `Header.tsx:331, 332, 344, 361, 362`가 사용): `.nav-link`, `.nav-link-active`. 한 곳만 바꾼다.
+    ```css
+    .nav-link        { @apply px-3 py-2 text-sm font-medium text-text-secondary hover:text-text transition-colors; }   /* hover:text-accent → hover:text-text */
+    .nav-link-active { @apply text-accent border-b-2 border-accent; }                                                  /* 그대로: 현재 위치만 accent */
     ```
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice"><rect width="800" height="500" fill="#21262d"/><g fill="none" stroke="#30363d" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><rect x="330" y="185" width="140" height="130" rx="12"/><path d="M348 297l36-42 28 30 22-22 30 34"/><circle cx="436" cy="222" r="12"/></g></svg>
+  - 스크롤바: hex → 토큰.
+    ```css
+    ::-webkit-scrollbar-track       { background: theme('colors.surface.DEFAULT'); }
+    ::-webkit-scrollbar-thumb       { background: theme('colors.surface.elevated'); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: theme('colors.text.muted'); }
     ```
-  - 플레이스홀더는 `isValidArticleImage`에 넣지 않는다(`data:`·svg 패턴으로 의도적으로 false).
-- **기대 효과**: S3가 `onError`/마운트 시점 검사로 인덱스만 증가시키면 최종적으로 깨진 아이콘·alt 텍스트 노출 0건(무네트워크 최악 조건 포함).
-- **검증 방법**: `npm test`의 getArticleImageSources·IMAGE_PLACEHOLDER_SRC 케이스. 렌더링 효과(깨진 이미지 0)는 S3 검수에서 `audit.js`로 확인.
-
-### 항목 9 [P1 · S1-B 신규]: 미정의 `scrollbar-hide` 클래스 별칭 추가
-- **대상 파일**: `src/app/globals.css` (`@layer utilities` 111-117)
-- **현재 문제**: 두 페이지가 쓰는 `.scrollbar-hide`가 어디에도 정의되지 않아 무효(실측 computed `scrollbar-width: auto`).
-- **개선 방법**: 기존 규칙 셀렉터에 별칭 추가 — `.scrollbar-none, .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }` / `.scrollbar-none::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar { display: none; }`. 페이지 파일 수정 불필요.
-- **기대 효과**: 국가·카테고리 필 행이 의도대로 스크롤바 없이 가로 스크롤.
-- **검증 방법**: `node planner-s1-verify.js` **T6** PASS(`/category/market`, `/japan`의 `.scrollbar-hide` computed `scrollbar-width: none`).
-
-### 항목 10 [P1 · S1-C 신규, D24 연관]: 이미지 URL 유틸 견고화
-- **대상 파일**: `src/lib/utils.ts` (`isValidArticleImage` 53-79, `proxyImageUrl` 108-111)
-- **현재 문제**: 결함표 S1-C.
-- **개선 방법**:
-  - `isValidArticleImage`: 기존 패턴 검사 유지 + `new URL()` 결과의 `protocol`이 `http:`/`https:`가 아니면 `false`. 워커(`scraper.ts`·`normalizer.ts`·`collector.ts`)는 원본 URL을 검사하는데, 프로토콜 상대 URL은 지금도 `new URL()` 실패로 false이고 DB 이미지 URL은 https 273건·null 136건·`//` 1건(픽스처)뿐이라 기존 정상 이미지에 영향 없음.
-  - `proxyImageUrl`: `'//'`로 시작하면 `'https:'`를 붙인 뒤 프록시. `data:`와 단일 `/` 상대 경로는 그대로 통과. 빈 문자열은 그대로 반환. 출력 형식 `/livenews/api/img?url=<encodeURIComponent>` 불변.
-  - SSRF 차단 자체(사설 IP 등)는 `/api/img` 라우트의 몫(D24, S5). S1은 우리 페이지가 비 http(s) URL을 프록시에 보내지 않게만 한다.
-- **기대 효과**: 비정상 스킴이 프록시로 가지 않음(불필요한 500·콘솔 에러 감소), 프로토콜 상대 URL도 일관되게 프록시 경유.
-- **검증 방법**: `npm test`의 isValidArticleImage·proxyImageUrl·normalizeImageUrl 케이스.
-
-### 항목 11 [P2 · D6 후속]: 표시 제목·언어 태그 헬퍼
-- **대상 파일**: `src/lib/utils.ts`
-- **현재 문제**: 결함표 "D6 후속". 전역 `keep-all`(항목 3)의 중·일 예외는 `lang` 표기가 있어야 작동하는데 원문 블록에 `lang`이 없다. 제목 폴백 로직은 7곳에 복제되고 공백뿐인 `titleKo`(`' '`, truthy)는 빈 제목을 만든다.
-- **개선 방법**:
-  ```ts
-  export function toLangTag(language: string | null | undefined): string | undefined;
-  // trim+소문자, /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/ 만 허용, 그 외 undefined
-  export function getDisplayTitle(a: { titleKo?: string | null; titleOriginal: string; language?: string | null }):
-    { text: string; lang: string | undefined; isTranslated: boolean };
-  // isTranslated = titleKo.trim()이 비어 있지 않고 titleOriginal.trim()과 다름(영어 echo 제목은 미번역 취급, D17 표시 측면)
-  // text = isTranslated ? titleKo.trim() : titleOriginal ; lang = isTranslated ? 'ko' : toLangTag(language)
+  - 유지: `body`·`:lang()`·`table` 줄바꿈 규칙, `::selection`(`bg-accent/20 text-text`), reduced-motion 블록, `.scrollbar-none/.scrollbar-hide`, `.safe-area-bottom`.
+  - 정리 후 `globals.css`의 전체 구성: `@tailwind` 3줄 → base(body, lang, table, selection, focus-visible, scrollbar, reduced-motion) → components(`.nav-link`, `.nav-link-active`, `.dateline`, `.img-standin`) → utilities(`.scrollbar-none/.scrollbar-hide`, `.safe-area-bottom`). 전체 내용은 `qa-out/planner-s1-globals.css`.
+- **기대 효과**: 약 170줄 → 약 85줄. hex 0건, 강조색은 현재 위치에만.
+- **검증**
+  ```bash
+  grep -cE "#[0-9a-fA-F]{3,8}\b|uppercase|tracking-|italic|-[0-9]+\.5\b" src/app/globals.css      # 0
+  grep -cE "\.(news-card|category-pill|country-badge|tab-item|surface-interactive|breaking-ticker)" src/app/globals.css   # 0
+  npx tsx --test --test-name-pattern="globals.css source|global wrapping|scrollbar-hide" tests/design-tokens.test.ts    # 4 pass
   ```
-  | 입력 | 기대값 |
+
+### 항목 12: 시그니처 — `formatWireTime` + `.dateline`
+- **[패스 7 디테일 · "The signature detail" / 패스 5 서체 · 숫자는 `tabular-nums` 한 가지 형식]**
+- **대상**: `utils.ts` (`timeAgo` 뒤, `:344` 다음), `globals.css` `@layer components`
+- **현재 문제**: 통신 시각을 찍는 유틸이 없다. 카드 메타는 "3시간 전" 상대 시각뿐이고 숫자 폭이 글자마다 다르다.
+- **변경값**
+  ```ts
+  /**
+   * Wire time (KST): 'HH:mm' when the instant falls on the same KST calendar date as `now`,
+   * otherwise 'MM.DD HH:mm'. '' for invalid input.
+   * HYDRATION: depends on `now` (only around KST midnight). In client components put
+   * suppressHydrationWarning on the direct parent of the text, as with timeAgo().
+   */
+  export function formatWireTime(input: DateInput, now?: Date | number): string {
+    const p = toKstParts(input);
+    if (!p) return '';
+    const n = toKstParts(toEpochMs(now) ?? Date.now());
+    const time = `${pad2(p.hour)}:${pad2(p.minute)}`;
+    const sameDay = n !== null && n.year === p.year && n.month === p.month && n.day === p.day;
+    return sameDay ? time : `${pad2(p.month)}.${pad2(p.day)} ${time}`;
+  }
+  ```
+  - "같은 날"은 KST 달력 기준으로 **연·월·일이 모두 같을 때**만. 미래 시각도 같은 규칙.
+  - `now`가 없거나 무효면 현재 시각. ICU·`toLocale*` 사용 금지(`utils.ts:3-5` 규칙).
+  ```css
+  .dateline {
+    @apply font-mono text-meta tabular-nums text-text-muted;
+  }
+  ```
+  - components 레이어 → 유틸리티로 덮어쓸 수 있다(예: elevated 면 위에서 `dateline text-text-secondary`).
+- **기대 효과**: `14:02` / `11.05 14:02`가 목록·카드 메타·기사 머리에서 같은 폭·같은 모양으로 찍힌다. 서버(TZ=UTC)와 브라우저(TZ=Asia/Seoul) 출력이 같다.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="formatWireTime|process time zone" tests/utils.test.ts          # 7 pass (formatWireTime 5 + TZ 2)
+  npx tsx --test --test-name-pattern="dateline" tests/design-tokens.test.ts                           # 1 pass
+  TZ=America/Los_Angeles npx tsx -e "import {formatWireTime as f} from './src/lib/utils'; const N=Date.UTC(2026,9,5,3); console.log(f('2026-10-05T05:02:00Z',N), '|', f('2026-10-04T14:59:59Z',N), '|', JSON.stringify(f('garbage',N)))"
+  # → 14:02 | 10.04 23:59 | ""
+  ```
+
+### 항목 13: `formatCount` — 숫자 한 가지 형식
+- **[패스 5 서체 · "Numbers in mixed formats"]**
+- **대상**: `utils.ts` (`formatWireTime` 뒤)
+- **현재 문제**: 헤더 `164,917 건` vs 속보 페이지 `164917개`. `toLocaleString`은 서버·브라우저 ICU에 따라 달라질 수 있다.
+- **변경값**
+  ```ts
+  /** Count with thousands separators ('164,917'). No ICU. '0' for invalid input. */
+  export function formatCount(n: number): string {
+    if (typeof n !== 'number' || !Number.isFinite(n) || Math.abs(n) > Number.MAX_SAFE_INTEGER) return '0';
+    const i = Math.trunc(n);
+    const digits = String(Math.abs(i)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return i < 0 ? '-' + digits : digits;
+  }
+  ```
+  - 소수는 버림. 음수는 부호 유지. 숫자가 아닌 값(문자열 `'164917'` 포함)·NaN·±Infinity·안전 정수 범위 밖은 `'0'`.
+  - 단위(`건`)는 붙이지 않는다 — 호출하는 쪽에서 붙인다.
+- **기대 효과**: S2·S4가 모든 카운트를 `164,917` 한 형식으로 찍는다.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="formatCount" tests/utils.test.ts    # 4 pass
+  npx tsx -e "import {formatCount as f} from './src/lib/utils'; console.log(f(164917), f(0), f(NaN), f(1234.9), f(-1234))"   # 164,917 0 0 1,234 -1,234
+  ```
+
+### 항목 14: `.img-standin` — 대체 사진 인쇄 처리
+- **[패스 8 비주얼 · 모먼트는 실제 콘텐츠에서 / effects.md Duotone을 CSS만으로]**
+- **대상**: `globals.css` `@layer components`
+- **현재 문제**: 기사 사진이 없을 때 쓰는 카테고리 스톡 사진(Unsplash)이 실제 보도 사진과 똑같이 원색이라, 화면에서 무엇이 진짜 보도 사진인지 구분되지 않는다(`qa-out/unslop/before/prod/d-home-footer.jpg`의 국회의사당 스톡 사진).
+- **변경값**
+  ```css
+  .img-standin {
+    filter: grayscale(1) contrast(1.05) brightness(0.9);
+  }
+  ```
+  - 캔버스·애니메이션·블렌드 레이어 없음. hover 변화 없음.
+  - 클래스를 붙이는 것은 S3 `ArticleImage`(계약 6절: 대체 사진일 때만 `img-standin` + `data-standin`).
+- **기대 효과**: 원색은 실제 보도 사진에만 남는다(Moments ①).
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="img-standin" tests/design-tokens.test.ts    # 1 pass
+  ```
+
+### 항목 15: 이미지 플레이스홀더 SVG를 새 램프로
+- **[패스 2 색 · 한 개의 중립 램프]**
+- **대상**: `constants.ts:128-141`
+- **현재 문제**: 인라인 SVG가 옛 팔레트(`fill="#21262d"`, `stroke="#30363d"`)를 하드코딩. 새 면 위에 푸른 회색 사각형으로 남는다.
+- **변경값**
+  - `:136` `fill="#21262d"` → `fill="#262421"` (`surface-elevated`)
+  - `:137` `stroke="#30363d" stroke-width="8"` → `stroke="#efe9de" stroke-opacity="0.1" stroke-width="8"` (헤어라인과 같은 식: 글자색 10%. 합성 결과 #3a3834)
+  - `:130-131` 주석의 hex도 맞춘다. 800×500 viewBox, 도형, 외부 참조 없음은 그대로.
+- **기대 효과**: 플레이스홀더가 램프 안에 들어온다. 기존 테스트 `uses only dark-palette colors`가 새 값으로 통과한다.
+- **검증**
+  ```bash
+  npx tsx --test --test-name-pattern="IMAGE_PLACEHOLDER_SRC" tests/design-tokens.test.ts    # 3 pass
+  ```
+
+### 항목 16: 간격 규칙 — S1 파일은 4px 격자만
+- **[패스 1 간격 · "Arbitrary values"]**
+- **대상**: `globals.css` 전체, `tailwind.config.ts`
+- **현재 문제**: `.country-badge`의 `py-0.5`(삭제 대상). 그 밖의 S1 파일 값은 격자 위(`.nav-link` `px-3 py-2` = 12/8, 스크롤바 8px, 반경 4px).
+- **변경값**
+  - 정리 후 `globals.css`에 반 단계(`-N.5`)·임의 값(`-[…]`) 0건.
+  - Tailwind 간격 스케일은 **닫지 않는다**. 이유: 반 단계 클래스가 S2~S4에 69곳 있고, 생성이 멈추면 패딩이 0이 되어 화면이 깨진다(색·굵기와 달리 사라졌을 때의 모습이 결함). 간격 패스는 각 슬라이스가 수행한다.
+- **기대 효과**: S1이 내보내는 클래스는 전부 격자 위.
+- **검증**: 항목 11의 첫 번째 `grep` (0).
+
+### 항목 17: 단위 테스트 갱신과 신규 테스트
+- **[검증 기반 — 위 16개 항목 전부]**
+- **대상**: `tests/design-tokens.test.ts`, `tests/utils.test.ts`
+- **현재 상태**: `npm test` 209개 통과. 항목 1~15를 적용하면 **정확히 7개가 실패**한다(격리 복사본에서 확인). 모두 `design-tokens.test.ts`.
+
+  | 실패하는 테스트 (`design-tokens.test.ts`) | 원인 | 갱신 |
+  |---|---|---|
+  | `:45` every category: … consistent colors | 색 클래스 정규식(`/^border-l-[a-z]+-\d{3}$/` 등) | "모든 slug(알려진 16개 + 모르는 slug + `constructor`/`__proto__`/`''`) → 같은 중립 4클래스"로 교체 |
+  | `:56` unknown slug → unchanged neutral fallback | `FALLBACK_STYLE`(`:33`)이 `gray-500` | 위 테스트에 합침. `FALLBACK_STYLE` → `NEUTRAL` 상수 |
+  | `:80` default border color | `'#30363d'` | `'rgba(239,233,222,0.10)'` |
+  | `:85` headline-xl … weight unchanged | `{ lineHeight: '1.15', fontWeight: '800' }` | 타입 스케일 9개 토큰 전체를 `deepEqual` + `theme.fontWeight` 3단계 |
+  | `:94` dark palette snapshot is unchanged | 옛 hex | 계약 3절 팔레트 + `extend.colors` 키 7개 |
+  | `:171` every category class … exist | `classes.length === 68` | 중립 4클래스 + 계약 클래스가 생성되는지 |
+  | `:183` preflight paints uncolored borders | `'#30363d'` | `'rgba(239,233,222,0.10)'` |
+
+  그대로 통과하는 것: `CATEGORY_COLORS covers exactly the 16 categories`, `every class is a complete string literal`, `content scans`, `IMAGE_PLACEHOLDER_SRC` 3개, `paging constants`, `global wrapping`, `.scrollbar-hide`, `.text-headline-xl compiles to the fluid clamp()`, 그리고 `utils.test.ts` 등 나머지 21개 파일 전부.
+
+- **신규 테스트** (이름은 아래대로 — 각 항목의 검증 명령이 이 이름으로 고른다)
+
+  `tests/design-tokens.test.ts`
+  | describe | test | 단언 |
+  |---|---|---|
+  | category styles — neutral | CATEGORIES carry slug + label only: no icon field, no emoji | 각 원소 키 = `['label','slug']`, `constants.ts` 소스에 이모지 0 |
+  | 〃 | every slug … gets the same neutral style | 21개 slug `deepEqual(NEUTRAL)`, `CATEGORY_COLORS` 값의 서로 다른 클래스 수 = 4 |
+  | 〃 | constants.ts and utils.ts hold no hue classes, deleted tokens or animation classes | 두 소스에 Tailwind 색 이름 클래스(`(bg\|text\|border…)-(red\|…\|gray\|white\|black)(-NNN)?`), `accent-(blue\|red\|green)`, `animate-` 0건 |
+  | tailwind.config.ts | palette = UNSLOP-AUDIT §3 … | 항목 1의 값 전부 |
+  | 〃 | type scale: … nothing at 700+ | 항목 6 |
+  | 〃 | font families: … | 항목 5 |
+  | 〃 | radius: tag 6 / control 8 / card 12 / panel 16 | 항목 7 (별칭 `badge === tag`, `pill === control`, 키 6개) |
+  | 〃 | motion: one easing, three durations, named properties, one entrance | 항목 9의 다섯 스케일 `deepEqual` |
+  | 〃 | depth: the only shadow is shadow-float | 항목 8 |
+  | globals.css source | no @import, gradient, glow, keyframes, catch-all transition or hard-coded hex | 소스에 `@import`, `gradient`, `box-shadow`, `@keyframes`, `animation:`, `transition-all`, hex, `uppercase\|tracking-\|italic`, 반 단계·임의 값 0건 |
+  | 〃 | dead and decorative classes are gone | 항목 8·11의 삭제 클래스 9개 |
+  | generated CSS | the neutral category classes and every contract class exist | 아래 `CONTRACT_CLASSES` 전부 생성 |
+  | 〃 | deleted tokens, 700+ weights, catch-all transitions, shadows and looping animations generate nothing | 아래 `REMOVED_CLASSES` 전부 미생성, `@keyframes`는 `fade-in`·`spin`뿐 |
+  | 〃 | .text-overline: 12px/16px, weight 500, letter-spacing 0 | |
+  | 〃 | .dateline = mono + tabular figures + meta size + muted color | `font-family`가 `IBM Plex Mono`로 시작, 0.75rem/1rem/400, `--tw-numeric-spacing: tabular-nums`, 색 `rgb(138 132 122 …` |
+  | 〃 | .img-standin prints stand-in photos in greyscale | `filter` 값 일치 |
+  | 〃 | one focus ring: 2px accent outline, 2px offset | |
+  | 〃 | transitions use the one easing at 150ms; nav hover stays neutral | `.transition-colors`, `.duration-400`, `.nav-link:hover` 색 = `text`, `.nav-link-active` 색 = `accent`, `.animate-fade-in` |
+  | 〃 | prefers-reduced-motion still stops animations and transitions | |
+
+  ```ts
+  const CONTRACT_CLASSES =
+    'dateline img-standin nav-link nav-link-active font-serif font-mono text-meta text-overline rounded-tag rounded-control rounded-card rounded-panel ' +
+    'shadow-float animate-fade-in bg-surface-deep text-accent-ink bg-live text-live text-positive text-negative transition-colors duration-200 duration-400';
+  const REMOVED_CLASSES =
+    'text-accent-red bg-accent-blue text-accent-green bg-primary bg-dark bg-light font-bold font-extrabold font-black transition-all duration-300 duration-500 ' +
+    'ease-in ease-out ease-in-out shadow-card shadow-elevated shadow-dropdown shadow-lg animate-pulse animate-ping animate-bounce animate-pulse-dot ' +
+    'animate-bookmark-pop animate-slide-up animate-toast-in shimmer text-gradient-amber border-glow';
+  ```
+
+  `tests/utils.test.ts`
+  | describe | test |
   |---|---|
-  | `{titleKo:'미 연준 금리 인하 신호', titleOriginal:'Fed signals rate cuts', language:'en'}` | `{text:'미 연준 금리 인하 신호', lang:'ko', isTranslated:true}` |
-  | `{titleKo:null, titleOriginal:'日本銀行、…', language:'ja'}` | `{text:'日本銀行、…', lang:'ja', isTranslated:false}` |
-  | `{titleKo:'Fed signals', titleOriginal:'Fed signals', language:'en'}` (echo) | `{text:'Fed signals', lang:'en', isTranslated:false}` |
-  | `{titleKo:'   ', titleOriginal:'X', language:'en'}` | `{text:'X', lang:'en', isTranslated:false}` |
-  | `{titleKo:'번역', titleOriginal:'orig'}` | `{text:'번역', lang:'ko', isTranslated:true}` |
-  | `{titleKo:null, titleOriginal:'orig'}` | `{text:'orig', lang:undefined, isTranslated:false}` |
-  | `toLangTag`: `'ja'`→`'ja'`, `' ZH '`→`'zh'`, `'zh-CN'`→`'zh-cn'`, `''`/`null`/`'english'` → `undefined` | |
-- **기대 효과**: S3/S4가 `lang={t.lang}` 한 줄로 중·일 원문 줄바꿈 회귀를 막고, 스크린리더가 영어 원제목을 영어로 읽음. 제목 폴백 중복 제거 기반.
-- **검증 방법**: `npm test`의 표 케이스. 렌더링 적용(`lang` 속성)은 S3/S4 검수 항목.
+  | formatWireTime(t, NOW) — wire time, KST | same KST date → HH:mm (`14:02`, `12:00`, UTC 날짜는 다르고 KST 날짜는 같은 `00:00`, `23:59`) |
+  | 〃 | another KST date → MM.DD HH:mm (`10.04 23:59`, 내일 `10.06 00:00`, `01.09 09:05`, **월·일은 같고 연도만 다른 경우 `10.05 14:02`**) |
+  | 〃 | zero-padded, 24-hour, fixed shape (`/^(\d{2}\.\d{2} )?\d{2}:\d{2}$/`) |
+  | 〃 | invalid input → empty string (기존 `INVALID_DATES` 9개) |
+  | 〃 | now accepts a Date or a number; invalid or missing now → current time |
+  | formatCount | thousands separators (0, 7, 999, 1000, 164917, 1234567, MAX_SAFE_INTEGER) |
+  | 〃 | fractions are truncated; negatives keep the sign |
+  | 〃 | invalid input → "0" (NaN, ±Infinity, null, undefined, `'164917'`, `''`, `{}`, `[]`, `true`, `1e21`) |
+  | 〃 | same output in every process time zone / locale |
+  | date output does not depend on the process time zone (기존) | 기존 `snapshot()`에 `formatWireTime(d, NOW)` 결과를 이어 붙인다 → 4개 TZ에서 동일 |
+
+- **테스트를 쓸 때 반드시 지킬 것** (프로토타입에서 실제로 걸린 것)
+  1. **`@layer components`의 클래스는 쓰이지 않으면 CSS에서 빠진다.** `.dateline`, `.img-standin`, `rounded-tag` 등은 S3·S4가 쓰기 전까지 `src`에 없다. `compileGlobals()`의 `content`에 raw 항목을 더한다: `{ raw: '<i class="…CONTRACT_CLASSES… …REMOVED_CLASSES…"></i>', extension: 'html' }`.
+  2. **`tsconfig.json`은 `**/*.ts`를 포함하고 `target`이 없다(ES5).** 테스트도 `tsc`에 걸린다. 정규식 리터럴의 `u` 플래그(`/\p{…}/u`)는 TS1501, `[...new Set()]`은 TS2802로 실패한다 → `new RegExp('\\p{Extended_Pictographic}', 'u')`, `Array.from(new Set(…))`을 쓴다.
+  3. 같은 이유로 **`qa-out/` 아래에 `.ts` 파일을 남기지 않는다**(실험 파일은 `.mts`/`.mjs`/`.cjs`). 남기면 `npx tsc --noEmit`과 `next build`의 타입 검사가 그 파일까지 본다.
+  4. `theme.fontWeight` 등 닫힌 스케일은 `config.theme`에서, 나머지는 `config.theme.extend`에서 읽는다.
+- **기대 결과**: `npm test` — 실패 0. 프로토타입 기준 **232개**(209 + 23), 23 suites. 구성이 조금 달라도 되지만 위 표의 단언은 모두 있어야 한다.
+- **검증**
+  ```bash
+  npm test 2>&1 | tail -8          # fail 0, tests ≥ 230
+  npx tsc --noEmit; echo $?        # 0
+  ```
 
 ---
 
-## 범위 밖 (S1에서 하지 말 것)
+## 빌드 유지 — S1이 수정해야 하는 타 슬라이스 줄
 
-- 컴포넌트·페이지·API·워커 파일 수정(D2~D5, D8 페이지 로직, D9~D24는 각 슬라이스 담당). S1은 **공용 API·토큰·전역 CSS·테스트 기반**만.
-- 토큰 값 변경, 새 색·새 애니메이션·새 장식, AI 기능.
-- 미사용 CSS 클래스 정리(`.news-card`, `.text-gradient-amber` 등) — 결함 아님, 이번 라운드 변경 최소화.
-- 스크롤바 두께(`::-webkit-scrollbar` height) — headless에서 검증 불가하므로 근거 없는 변경 금지.
-- Pretendard `@import` — 빌드 CSS 맨 앞에 위치해 유효함을 확인, 손대지 말 것.
-- `categoryLabel`의 미지 slug 원문 표시, `estimateReadingTime`의 영어 기준 등 — 기준선 결함 목록에 없음.
+삭제·변경하는 export와 필드를 `src`, `tests`, `scripts` 전체에서 조사했다.
+
+| 삭제·변경 | 참조하는 타 슬라이스 파일 | S1의 조치 |
+|---|---|---|
+| `CATEGORIES[].icon` | **`src/components/Footer.tsx:178`** `{cat.icon}` | **그 한 줄 삭제** (항목 4) |
+| `CATEGORIES` (slug, label) | `Footer.tsx:6,14,172`, `category/[slug]/page.tsx:5,55`, `search/page.tsx:7,183`, `routing.ts:24`, `translation-text.ts:11,52` | 없음 (`slug`·`label`만 사용) |
+| `getCategoryStyle` (모양 유지) | `ArticleHeroImage.tsx:31`, `NewsCard.tsx:12`, `NewsCardLarge.tsx:12`, `app/page.tsx:128`, `article/[id]/page.tsx:112` | 없음 |
+| `CATEGORY_COLORS` (키 유지) | 테스트만 | 테스트 갱신 |
+| `PRIORITY_STYLES`, `AI_BADGE_STYLE`, `countryColor` | 없음 | 삭제만 |
+| `estimateReadingTime` | `NewsCard.tsx:4,14`, `NewsCardLarge.tsx:4,14` | **삭제하지 않는다** (S3가 사용을 지운 뒤 죽은 export로 남음 → "계약에서 발견한 문제" 5번) |
+| Tailwind 토큰·클래스(색, 그림자, 굵기, 모션, `.shimmer` 등) | S2~S4 다수 | 없음 — JSX의 모르는 클래스는 Tailwind가 무시한다. `@apply`는 `globals.css`에서만 쓰이고 그 파일은 S1이 고친다 |
+
+**결론: S1이 타 슬라이스 파일에서 고칠 줄은 `src/components/Footer.tsx:178` 한 줄뿐이다.**
+확인: 격리 복사본에 프로토타입을 적용해 `npx tsc --noEmit` 0 오류, `next build` 성공(17개 정적 페이지 생성, `qa-out/planner-s1-build.log`), `npm test` 232/232.
 
 ---
 
-## Evaluator 검증 절차 (요약)
+## S2~S4 인계 (S1 적용 뒤 달라지는 것)
+
+1. **[S2 필수] Pretendard `<link>`.** S1이 `globals.css`의 `@import`를 지운다. `layout.tsx`가 Google Fonts 두 개와 **같은 비차단 방식으로** 아래 스타일시트도 걸어야 한다. 빠지면 Pretendard가 영영 로드되지 않는다.
+   `https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css` (전송 12.8KB, `@font-face` 92개, 전부 `font-display: swap`, 굵기 45~920)
+2. **[S2] `layout.tsx:10` `themeColor: '#0d1117'`** → `#161513`. (`scripts/generate-favicon.py`의 빨강·파랑 파비콘은 로고 재작업과 함께 판단.)
+3. **CSS가 더는 생성되지 않는 클래스** — 빌드는 통과하지만 클래스 이름이 죽은 채 남는다. 각 슬라이스가 지우거나 바꾼다. 파일별 개수는 `bash qa-out/planner-s1-handoff.sh`.
+
+   | 클래스 | 남은 곳 | S1 뒤의 모습 | 바꿀 것 |
+   |---|---|---|---|
+   | `*-accent-blue/red/green` | 62 | 색 없음(상속) | `live`·`positive`·`negative`·중립 |
+   | `shadow-card/elevated/dropdown` | 20 | 그림자 없음 | 삭제. `Header.tsx:526`만 `shadow-float` |
+   | `font-bold/extrabold` | 29 | 크기 토큰 굵기 또는 400 | 삭제 또는 `font-medium`/`font-semibold` |
+   | `transition-all` | 8 | 전환 없음 | `transition-colors` 등 이름 있는 전환 |
+   | `duration-300/500`, `ease-in-out` | 12 | 150ms · 단일 easing | 삭제 또는 `duration-200`/`duration-400` |
+   | `animate-pulse-dot`, `animate-bookmark-pop` | 5 | 정지 | 삭제 |
+   | `shimmer` | 10 (`PageSkeleton.tsx`) | 정지한 면 | 삭제 |
+   | `rounded-badge` / `rounded-pill` | 27 | 6px / 8px (별칭) | `rounded-tag` / `rounded-control` |
+   | `animate-fade-in` | 7 | fade + 8px 오름 400ms | 페이지당 하나만 남긴다 (`app/page.tsx`에 4개) |
+   | `text-border` | 2 (`Footer.tsx:110,114`) | 글자색 10% — 거의 안 보임 | `text-text-muted` 또는 테두리로 |
+4. **대비 사용 규칙 3개** (실측 2 아래).
+5. **`font-mono`에는 숫자·구두점만.** IBM Plex Mono에는 한글이 없어 `건` 같은 단위가 섞이면 시스템 글꼴로 떨어진다. 단위는 mono 밖(sans)에 둔다.
+6. **`formatWireTime`을 클라이언트 컴포넌트**(`NewsCard.tsx`, `NewsCardLarge.tsx`는 `'use client'`)에서 쓸 때는 `timeAgo`와 같이 글자의 바로 위 요소에 `suppressHydrationWarning`. KST 자정을 사이에 두고 서버 렌더와 하이드레이션이 갈리면 `23:40` ↔ `10.04 23:40`으로 달라질 수 있다.
+7. **포커스.** 전역 링이 생겼다. `outline-none` + `focus:ring-*`(28곳)를 지우면 그 링 하나로 통일된다.
+8. `.dateline`, `.img-standin`, `rounded-tag/control/panel`, `shadow-float`, `bg-surface-deep`, `text-accent-ink`, `text-live`, `text-positive/negative`, `text-meta`, `font-serif`, `font-mono`, `duration-400`은 S1 직후부터 쓸 수 있다.
+
+---
+
+## 계약(UNSLOP-AUDIT.md)에서 발견한 문제
+
+값·이름은 바꾸지 않았다. 판단이 필요한 것만 적는다.
+
+1. **`text-muted` #8a847a가 `surface-elevated` 위에서 4.17:1** (4.5 미달). 사용 규칙 1로 피할 수 있다. 값을 고친다면 #918b81이 4.58 / 5.13 / 5.40(elevated / card / surface).
+2. **`live`·`negative` #e5484d가 `surface-card` 위에서 4.43:1, `surface-elevated` 위에서 3.95:1.** 관리자 표(카드 위 실패 글자)와 카드 안 "속보" 글자 라벨이 해당된다. 사용 규칙 2로 피할 수 있다. 값을 고친다면 #ea5d61이 4.60 / 5.15 / 5.42. 또 `live` 면 위의 흰 글자는 3.91:1이라 쓸 수 없다(`accent-ink`는 4.66).
+3. **Pretendard 로딩이 계약에 없다.** 3절은 Google Fonts 두 개만 "렌더를 막지 않는 방식"으로 정했고 6절 S2에도 Pretendard가 없다. 지금의 `@import`는 렌더를 막는다(실측 1). S1은 `@import`를 지우도록 설계했으므로 **S2 설계서에 인계 1번이 들어가야 한다.** 들어가지 않으면 S1에서 `@import`를 유지하는 쪽으로 되돌려야 한다(항목 5의 삭제 한 줄만 빼면 된다. 테스트의 `/@import/` 단언도 함께).
+4. **계약이 운명을 정하지 않은 기존 이름들.** S1의 결정: `rounded-badge`/`rounded-pill`은 별칭으로 유지(6px/8px), `shadow-card/elevated/dropdown`·`pulse-dot`·`bookmark-pop`·`slide-up`·`toast-in`·`.shimmer`는 삭제, `.nav-link`/`.nav-link-active`는 유지. 별칭 2개와 `.nav-link*`는 S2~S4가 쓰지 않게 되면 통합 단계에서 지울 수 있다.
+5. **`estimateReadingTime`(`utils.ts:516`)** 은 S3가 "N분 읽기"를 지우면 죽은 export가 된다. S1에서 지우려면 S3 파일 4줄 이상을 고쳐야 해서(계약 6절 "한 줄만") 남겼다. 통합 단계에서 삭제 대상.
+6. **닫힌 스케일은 계약 문구보다 한 걸음 더 나간 것이다.** `fontWeight`, `boxShadow`, `transitionTimingFunction`, `transitionDuration`, `transitionProperty`, `animation`, `keyframes`를 닫아서 금지 항목(700+, 그림자, `transition-all`, 여러 easing, 반복 애니메이션)이 클래스를 써도 생성되지 않게 했다. 사라졌을 때의 모습이 계약이 원하는 상태인 것만 닫았고, 사라지면 화면이 깨지는 것(기본 색 팔레트, 간격 반 단계, 모서리 별칭)은 닫지 않았다. 원하지 않으면 해당 키를 `extend` 안으로 옮기면 된다.
+7. **`formatWireTime`은 연도를 표시하지 않는다.** 계약대로 두 형식뿐이라, 1년 이상 지난 기사(검색·카테고리 깊은 페이지)에서는 `10.05 14:02`가 어느 해인지 알 수 없다. 기사 상세 머리처럼 연도가 필요한 곳은 기존 `formatDate`(`2026.10.05 14:02`)를 쓰는 것이 안전하다.
+8. **검증 환경.** `next build`를 저장소 루트에서 돌리면 :4000 서버가 쓰는 `.next`를 덮어쓴다. 빌드 검증은 오케스트레이터의 지침을 따르거나 격리 복사본에서 한다(아래 일괄 검증 4번).
+
+---
+
+## 하지 않는 것
+
+- 타 슬라이스 파일의 디자인 변경(`Footer.tsx:178` 한 줄 삭제 외).
+- 새 토큰 이름·새 유틸 클래스·새 export(계약에 적힌 것 외). `NEUTRAL_CATEGORY_STYLE`은 모듈 내부 상수.
+- 새 `@font-face`, 글꼴 파일 번들, 빌드 시점 다운로드.
+- 그레인·글래스·네온 등 대체 장식. `.img-standin`에 색 레이어·애니메이션 추가.
+- 날짜 헬퍼(`toKstParts` 등), 이미지 유틸, 페이지네이션 유틸의 동작 변경.
+- DB·API·워커(S5) 변경.
+
+---
+
+## Evaluator 일괄 검증
 
 ```bash
-SP=/tmp/claude-0/-home-user-hydro/0832edd1-f39e-53fc-97a8-a3a334add43a/scratchpad
 cd /home/user/hydro
-# 1) 단위 테스트 + TZ 독립성 (항목 5·6·7·8·10·11, 1·2 일부)
-npm test && TZ=UTC npm test && TZ=Asia/Seoul npm test && TZ=America/Los_Angeles npm test
-# 2) 타입·빌드
-npx tsc --noEmit && bash $SP/qa-env.sh restart          # restart = rm -rf .next → next build → :4000 기동
-# 3) 하위 호환 export + 신규 계약 API 존재 (exit 0이어야 함)
-npx tsx $SP/planner-s1-exports-check.ts
-# 4) 렌더링 검증 T1~T6 (항목 2·3·4·9) — 'S1 verify: 7/7 passed' 기대 (T7은 정보용)
-cd $SP && node planner-s1-verify.js
-# 5) 전 라우트 회귀 감사 — audit-baseline.json 대비: art-unbroken OVERFLOW 소멸, 신규 OVERFLOW·CONSOLE 0
-cd $SP && node audit.js s1
-# 6) D1 네트워크 실검증 (빈 출력이면 통과) / CSS 클래스 존재 (전부 OK)
-cd /home/user/hydro && for id in $(grep -ohE "photo-[0-9]+-[0-9a-f]+" src/lib/utils.ts src/lib/constants.ts | sort -u); do curl -s -o /dev/null -m 15 -w "%{http_code} $id\n" -I "https://images.unsplash.com/$id?w=64&q=10"; done | grep -v '^200'
-CSS=$(ls .next/static/css/*.css); for c in border-l-indigo-500 text-violet-400 'bg-cyan-500\\/10' border-l-blue-400 border-blue-500 border-gray-500 border-red-500; do grep -q "\.$c[{:,]" $CSS && echo "OK $c" || echo "MISSING $c"; done
-# 7) ICU/TZ 의존 제거
-grep -nE "toLocale|Intl\." src/lib/utils.ts      # 0건
+
+# 1. 단위 테스트 · 타입
+npm test 2>&1 | tail -8                    # fail 0, tests ≥ 230 (프로토타입 232)
+npx tsc --noEmit; echo "tsc=$?"            # tsc=0
+
+# 2. S1 파일에 남으면 안 되는 것 (모두 0)
+grep -cE "@import|gradient|box-shadow|@keyframes|animation:|transition-all|uppercase|tracking-|italic|#[0-9a-fA-F]{3,8}\b" src/app/globals.css
+grep -cE "icon|PRIORITY_STYLES|AI_BADGE_STYLE|animate-|accent-(blue|red|green)" src/lib/constants.ts
+grep -cE "countryColor|gray-500|toLocale" src/lib/utils.ts
+grep -cE "primary|9999|'(7|8|9)00'|pulse|pop|ease-(in|out)|0\.05em" tailwind.config.ts
+
+# 3. 수정 범위: S1 4개 파일 + 테스트 2개 + Footer 1줄
+git status --short                          # tailwind.config.ts, src/app/globals.css, src/lib/constants.ts, src/lib/utils.ts,
+                                            # src/components/Footer.tsx, tests/design-tokens.test.ts, tests/utils.test.ts (+ SELF_CHECK-S1.md)
+git diff --stat -- src/components/Footer.tsx   # 1 deletion(-)
+
+# 4. 빌드 (실행 중인 :4000의 .next를 건드리지 않게 격리 복사본에서)
+SB=$(mktemp -d) && cp -r src tests prisma public package.json tsconfig.json next.config.js postcss.config.js next-env.d.ts tailwind.config.ts "$SB"/ \
+  && ln -s "$PWD/node_modules" "$SB/node_modules" && (cd "$SB" && NEXT_TELEMETRY_DISABLED=1 npx next build 2>&1 | grep -E "Compiled|Generating static pages \(17|error|Error"); rm -rf "$SB"
+# → "✓ Compiled successfully", "✓ Generating static pages (17/17)", error 없음
+
+# 5. 생성 CSS와 화면 (실행 중인 앱의 마크업 + S1 CSS. 마크업은 수정 전 것이라 이모지·옛 클래스가 보이는 것은 정상)
+npx tailwindcss -i src/app/globals.css -o qa-out/eval-s1.css --minify
+head -c 40 qa-out/eval-s1.css               # '@import'로 시작하지 않음
+CSS=qa-out/eval-s1.css OUT=eval-s1 node qa-out/planner-s1-preview.cjs    # qa-out/eval-s1-home-0.jpg 등
+# 볼 것: 배경이 푸른 기 없는 따뜻한 검정, 색은 사진과 주황 활성 탭뿐, 카테고리 라벨 무채색, 제목 굵기 600 이하.
+# 비교: qa-out/unslop/before/prod/d-home-0.jpg (수정 전), qa-out/planner-s1-preview-home-0.jpg (프로토타입)
+
+# 6. 대비 표 재계산
+node qa-out/planner-s1-contrast.mjs
 ```
-- 기준선 대비 확인용 원본 자료: `$SP/audit-baseline.json`, `$SP/planner-s1-wrap-experiment.json`, `$SP/planner-s1-shots/`.
-- 현재(수정 전) 코드에서 `planner-s1-verify.js`는 T1·T2·T3·T5·T6 FAIL, `planner-s1-exports-check.ts`는 신규 API 누락으로 exit 1 — 도구가 결함을 실제로 잡는지 확인을 마쳤다.
 
-**회귀 안전 체크리스트**
-- [ ] 기존 export 16개(utils)·8개(constants) 이름·종류 유지, 기존 호출부 타입 오류 0 (`planner-s1-exports-check.ts`, `tsc`)
-- [ ] 양의 정수 id의 대체 사진 매핑 불변(교체 6슬롯 제외)
-- [ ] 관리자 표 기하 불변(T4), 공개 페이지 그리드·내비·티커·필 행 배치 불변(`audit.js` 신규 OVERFLOW 0)
-- [ ] 토큰 팔레트 값 불변(design-tokens 스냅샷 테스트), 데스크톱 h1 40px 불변(T3)
-- [ ] `npm run build` 성공, 워커 경로에서 utils 로드 정상: `npx tsx -e "import('./src/workers/normalizer.ts').then(m => console.log('OK', Object.keys(m.default ?? m)))"` → `OK [ 'normalizeArticle' ]` (부작용 없는 모듈, 현재 코드에서 확인함)
-
----
-
-## 슬라이스 간 계약
-
-S1이 제공하고 S2~S5가 사용하는 공용 API. **모든 추가는 additive** — 기존 export·시그니처·출력 형식(아래 명시한 날짜 형식 변경 제외)은 유지된다.
-경로: `@/lib/utils`, `@/lib/constants` (워커는 상대 경로 `../lib/utils`). `type DateInput = Date | string | number | null | undefined`.
-
-### A. 함수·상수
-
-| API | 위치 | 시그니처 | 반환 / 동작 | 사용 슬라이스 |
-|---|---|---|---|---|
-| `formatDate` | utils | `(input: DateInput) => string` | `'YYYY.MM.DD HH:mm'` KST 24h (예 `'2026.10.01 17:03'`), 무효 → `''` | S4 기사 상세; 관리자 화면(`toLocaleString` 대체 권장) |
-| `formatDateOnly` | utils | `(input: DateInput) => string` | `'YYYY.MM.DD'` KST | S3/S4 |
-| `timeAgo` | utils | `(input: DateInput, now?: Date \| number) => string` | `방금 전/N분 전/N시간 전/N일 전`, 7일 이상 `'YYYY.MM.DD'`, 60초 넘는 미래 → `formatDate`, 무효 → `''` | S3 카드, S4 |
-| `toIsoDateTime` | utils | `(input: DateInput) => string \| undefined` | ISO-8601 UTC(`…Z`), `<time dateTime>`용 | S3/S4 |
-| `toKstParts` | utils | `(input: DateInput) => KstParts \| null` | `{year,month,day,hour,minute,second,weekday}` (KST, weekday 0=일) | S2(LiveClock을 KST로 맞출 경우, 선택) |
-| `parseIntParam` | utils | `(raw: unknown, opts: {min:number; max:number; fallback:number}) => number` | ASCII 숫자 문자열/정수만 인정, 해석 불가 → fallback, 값은 [min,max] clamp | S4/S5 API의 `page`·`limit` |
-| `parsePage` | utils | `(raw: unknown) => number` | 1 ≤ 정수 ≤ `MAX_PAGE` (배열은 첫 요소) | S4 모든 목록 페이지·검색 페이지·목록 API |
-| `MAX_PAGE` / `BREAKING_ITEMS_PER_PAGE` / `ITEMS_PER_PAGE` | constants | `10_000` / `30` / `20` | 페이지 상한·페이지당 개수 | S4 `queries.ts`(하드코딩 20/30 대체) |
-| `getArticleImageSources` | utils | `(a: {id: number\|string; imageUrl?: string\|null; categoryPrimary?: string\|null}) => string[]` | `[프록시 원본?, Unsplash 대체, IMAGE_PLACEHOLDER_SRC]`, 마지막은 항상 플레이스홀더, 결정적 | S3 `NewsCard`·`NewsCardLarge`·`ArticleHeroImage`, S4 기사 상세 |
-| `IMAGE_PLACEHOLDER_SRC` | constants | `string` (data URI SVG, 800×500) | 절대 실패하지 않는 최종 대체 이미지 | S3 |
-| `getDefaultImage` | utils | `(category?: string\|null, articleId?: number\|string\|null) => string` | 항상 유효한 Unsplash URL (기존 시그니처 확장) | 기존 호출부 호환 |
-| `CATEGORY_COLORS` / `getCategoryStyle` | constants / utils | `(slug: string) => CategoryStyle` | `{border, text, bg, borderAll}` — `borderAll`은 전체 테두리 색 클래스(예 `'border-blue-500'`) | S3 카드, S4 기사 상세·홈·카테고리 |
-| `getDisplayTitle` | utils | `(a: {titleKo?: string\|null; titleOriginal: string; language?: string\|null}) => {text: string; lang: string\|undefined; isTranslated: boolean}` | 번역 제목 우선, echo·공백은 미번역 취급, 원문이면 원문 언어 태그 | S3 카드·티커·컴팩트, S4 기사 상세·메타데이터·관리자 |
-| `toLangTag` | utils | `(language: string\|null\|undefined) => string\|undefined` | `lang` 속성용 정규화 태그 | S4 원문 본문 블록, S3 |
-| `isValidArticleImage` / `normalizeImageUrl` / `proxyImageUrl` | utils | 기존 시그니처 | http(s)만 유효, `//` URL도 https로 프록시 | S5 워커·`/api/admin/fix-images`, S3 |
-| `CATEGORY_PHOTOS` | utils | `Readonly<Record<string, readonly string[]>>` | 카테고리별 Unsplash ID 4개 | 테스트 전용(직접 사용 지양) |
-
-### B. CSS·토큰 계약
-
-| 항목 | 내용 | 영향 슬라이스 |
-|---|---|---|
-| 전역 줄바꿈 | `body`: `overflow-wrap:anywhere; word-break:keep-all` / `:lang(ja),:lang(zh)`: `word-break:normal` / `table`: `break-word`+`normal`. 컴포넌트에 `break-all`을 쓰지 말 것. `whitespace-nowrap`은 짧은 UI 라벨에만(기사 제목·본문·태그·저자 등 데이터 텍스트에 금지). 그래도 넘치는 flex 행이 발견되면 해당 아이템에 `min-w-0`을 지역적으로 추가 | S2·S3·S4 |
-| `text-headline-xl` | 유동 크기(28px→40px). 기사 h1은 별도 반응형 클래스 불필요 | S4 |
-| `.scrollbar-hide` | `.scrollbar-none`과 동일 동작 | S4 (기존 클래스 그대로 사용 가능) |
-| 테두리 기본색 | 색 미지정 `border`는 다크 토큰 #30363d | 전 슬라이스 |
-| Tailwind 스캔 범위 | `src/app`·`src/components`·`src/lib`·`src/hooks`. **클래스는 항상 완전한 리터럴 문자열로**(문자열 치환·조합으로 만든 클래스는 생성되지 않음) | 전 슬라이스 |
-
-### C. 사용 규칙 (뒤 슬라이스 필수 준수)
-
-1. **상대 시간 하이드레이션 (S3, S4)**: 클라이언트 컴포넌트에서 `timeAgo`는 반드시 텍스트의 직접 부모 요소에 `suppressHydrationWarning`:
-   `<time dateTime={toIsoDateTime(article.publishedAt)} suppressHydrationWarning>{timeAgo(article.publishedAt)}</time>`
-   (아이콘 `<svg>`와 같은 `span`에 텍스트를 섞어 두는 경우에도 그 `span`에 붙이면 동작하지만, `<time>`으로 감싸는 형태를 표준으로 한다.) 서버 컴포넌트·절대 형식(`formatDate`)에는 불필요.
-2. **이미지 체인 (S3)**: `const sources = getArticleImageSources(article)` → `src = sources[idx]`; `onError` 시 `idx = min(idx+1, sources.length-1)`; **D3 대응으로 마운트 직후 `img.complete && img.naturalWidth === 0`이면 한 단계 전진**(하이드레이션 전에 난 오류 복구). 마지막 플레이스홀더는 절대 실패하지 않으므로 같은 src 재설정 루프가 생기지 않는다. 플레이스홀더를 `isValidArticleImage`로 검사하지 말 것. 대체 사진·플레이스홀더가 모두 16:10(800×500)이므로 고정 비율 컨테이너(예 `aspect-[16/10]`, D4)와 맞는다.
-3. **빌드 호환 순서 (S3 → S4)**: S3는 `ArticleHeroImage`에 `sources?: string[]`를 **추가**하되 기존 `src`/`fallback`/`alt` props를 유지해 S4 차례 전에도 빌드가 깨지지 않게 한다. S4가 기사 상세에서 `sources={getArticleImageSources(article)}`로 전환한다.
-4. **페이지 파라미터 (S4, API)**: `const page = parsePage(searchParams.page)`(클라이언트는 `parsePage(searchParams.get('page'))`). `page > totalPages && total > 0`(범위 초과)일 때의 처리(마지막 페이지로 `redirect` 또는 "해당 페이지 없음" 안내 + 1페이지/마지막 페이지 링크)와 "새로고침" 오안내 제거는 S4 결정 사항. API의 `limit`은 `parseIntParam(raw, {min:1, max:100, fallback:20})` 형태 권장.
-5. **언어 표기 (S3, S4)**: 제목은 `const t = getDisplayTitle(article)` → `<h3 lang={t.lang}>{t.text}</h3>`. 원문 본문(`contentOriginal`)·원제목 보조줄을 보여줄 때 컨테이너에 `lang={toLangTag(article.language)}`. 번역문에는 붙이지 않아도 됨(문서 `lang="ko"` 상속).
-6. **카테고리 배지 (S4)**: 기사 상세의 `catStyle.border.replace('border-l-','border-')`를 `catStyle.borderAll`로 교체(S1 이후엔 기존 코드도 동작하지만 동적 클래스 조합은 금지 규칙 위반).
-7. **테스트 (전 슬라이스, D25)**: 순수 로직은 `src/lib/` 등 React 의존 없는 모듈에 두고 `tests/<영역>.test.ts`(node:test + node:assert/strict, 상대 import, 네트워크 금지, 신규 의존성 금지)로 검증. `npm test`가 `tests/*.test.ts`를 모두 실행하며 `next build`가 테스트 파일도 타입 검사한다.
+회귀 확인 포인트: `getCategoryStyle`·`CATEGORY_COLORS`·`CATEGORIES` 사용처가 수정 없이 빌드되는가 / 날짜·이미지·페이지네이션 테스트 186개가 그대로 통과하는가 / `.scrollbar-hide`·`.safe-area-bottom`·`.nav-link`가 생성 CSS에 남아 있는가 / reduced-motion 블록이 남아 있는가.

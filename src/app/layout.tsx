@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import WebFontLinks from '@/components/WebFontLinks';
 
 // Web fonts, all fetched at runtime (the build never touches the network):
 // Pretendard — the interface face (dynamic subset: the browser downloads only the glyph ranges a page uses);
@@ -15,6 +16,7 @@ const FONT_STYLESHEETS = [PRETENDARD_URL, WEB_FONTS_URL];
 // A <link> inserted by script never blocks rendering, and the server HTML carries no attribute for
 // React to compare at hydration. If a font host is slow or down, the page paints at once in the
 // fallback fonts of each stack (tailwind.config.ts) and swaps when the stylesheet arrives.
+// <WebFontLinks> repeats this after mount for 404 pages, where this script is never run.
 const WEB_FONTS_SCRIPT = `(function(){${JSON.stringify(
   FONT_STYLESHEETS,
 )}.forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;l.setAttribute('data-webfonts','');document.head.appendChild(l)})})()`;
@@ -76,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <Footer />
+        <WebFontLinks hrefs={FONT_STYLESHEETS} />
       </body>
     </html>
   );

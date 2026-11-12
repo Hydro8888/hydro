@@ -122,6 +122,12 @@ describe('tailwind.config.ts', () => {
     assert.equal(extend.borderColor.DEFAULT, 'rgba(239,233,222,0.10)');
   });
 
+  test('default ring color = accent (not Tailwind blue-500)', () => {
+    const ringColor = (extend as unknown as { ringColor: Tokens }).ringColor;
+    assert.equal(ringColor.DEFAULT, extend.colors.accent.DEFAULT);
+    assert.equal(ringColor.DEFAULT, '#f0883e');
+  });
+
   test('type scale: sizes / line-heights / weights from the contract, nothing at 700+', () => {
     const fontSize = extend.fontSize as unknown as Record<string, [string, Tokens]>;
     assert.deepEqual(fontSize, {
@@ -311,7 +317,7 @@ describe('paging constants', () => {
 /** Class names the other slices will use; unused @layer classes are tree-shaken, so they are fed to Tailwind as raw content. */
 const CONTRACT_CLASSES =
   'dateline img-standin nav-link nav-link-active font-serif font-mono text-meta text-overline rounded-tag rounded-control rounded-card rounded-panel ' +
-  'shadow-float animate-fade-in bg-surface-deep text-accent-ink bg-live text-live text-positive text-negative transition-colors duration-200 duration-400';
+  'shadow-float animate-fade-in bg-surface-deep text-accent-ink bg-live text-live text-positive text-negative transition-colors duration-200 duration-400 font-semibold';
 /** Class names that must NOT generate CSS any more. */
 const REMOVED_CLASSES =
   'text-accent-red bg-accent-blue text-accent-green bg-primary bg-dark bg-light font-bold font-extrabold font-black transition-all duration-300 duration-500 ' +
@@ -454,6 +460,36 @@ describe('generated CSS (globals.css + tailwind.config.ts)', () => {
     assert.match(declsFor(root, '.nav-link:hover').color, /^rgb\(239 233 222/);
     assert.match(declsFor(root, '.nav-link-active').color, /^rgb\(240 136 62/);
     assert.match(declsFor(root, '.animate-fade-in').animation, /^fade-in 400ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/);
+  });
+
+  test('b / strong / th default to weight 500 (browser default 700 is outside the contract)', async () => {
+    const root = await compileGlobals();
+    for (const sel of ['b', 'strong', 'th']) assert.equal(declsFor(root, sel)['font-weight'], '500', sel);
+    // base layer: a weight utility still wins
+    assert.equal(declsFor(root, '.font-semibold')['font-weight'], '600');
+  });
+
+  test('placeholders stay on the ramp: text-muted, not preflight gray-400', async () => {
+    const root = await compileGlobals();
+    // preflight's gray-400 rule has the same selector; declsFor keeps the LAST declaration, i.e. the one that wins
+    for (const sel of ['input::placeholder', 'textarea::placeholder']) assert.equal(declsFor(root, sel).color, '#918b81', sel);
+  });
+
+  test('a lone duration-* still transitions named properties on the one easing', async () => {
+    const root = await compileGlobals();
+    const all = declsFor(root, '*');
+    assert.equal(all['transition-timing-function'], EASE);
+    assert.equal(all['transition-property'], 'color, background-color, border-color, text-decoration-color, fill, stroke, opacity, transform');
+    assert.doesNotMatch(all['transition-property'], /\ball\b/);
+    // no default duration: an element without a transition class does not move
+    assert.equal(all['transition-duration'], undefined);
+    for (const sel of ['::before', '::after']) assert.equal(declsFor(root, sel)['transition-timing-function'], EASE, sel);
+  });
+
+  test('a ring without a color class is accent, never blue', async () => {
+    const css = (await compileGlobals()).toString();
+    assert.match(css, /--tw-ring-color:\s*rgb\(240 136 62 \/ 0\.5\)/);
+    assert.doesNotMatch(css, /59 130 246/);
   });
 
   test('prefers-reduced-motion still stops animations and transitions', async () => {

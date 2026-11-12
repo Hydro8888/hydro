@@ -11,6 +11,9 @@ const borderTokens = {
   muted: 'rgba(239,233,222,0.06)',
 };
 
+/** The one accent. Also the default ring color, so a `ring` without a color class is never Tailwind's blue. */
+const ACCENT = '#f0883e';
+
 /** The one easing curve. `linear` exists only for continuous motion (spinner, ticker). */
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -63,7 +66,7 @@ const config: Config = {
         // muted: meta and captions only. #918b81 keeps 4.5:1 on every surface step (§7-1).
         text: { DEFAULT: '#efe9de', secondary: '#aaa398', muted: '#918b81' },
         // The one accent: current position and the one primary action. `ink` = text on an accent or live fill.
-        accent: { DEFAULT: '#f0883e', ink: '#161513' },
+        accent: { DEFAULT: ACCENT, ink: '#161513' },
         // Meaning-only colors. #ea5d61 keeps 4.5:1 as text on every surface step (§7-2).
         live: '#ea5d61', // breaking / live
         positive: '#4cc38a', // success
@@ -73,6 +76,7 @@ const config: Config = {
       // Preflight paints every border without a color class with borderColor.DEFAULT.
       // Tailwind's default is gray-200 (#e5e7eb), a light-theme line on our dark surfaces.
       borderColor: { DEFAULT: borderTokens.DEFAULT },
+      ringColor: { DEFAULT: ACCENT },
       fontFamily: {
         // Interface.
         sans: [

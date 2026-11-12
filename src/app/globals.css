@@ -41,6 +41,29 @@
     outline-offset: 2px;
   }
 
+  /* Element defaults that the closed weight scale cannot reach: 700 is outside the contract. */
+  b,
+  strong,
+  th {
+    font-weight: theme('fontWeight.medium');
+  }
+
+  /* Preflight paints placeholders with gray-400; keep them on the ramp.
+     (A bare ::placeholder would lose to preflight's input::placeholder.) */
+  input::placeholder,
+  textarea::placeholder {
+    color: theme('colors.text.muted');
+  }
+
+  /* A lone duration-* (no transition-* class) would otherwise fall back to the browser's
+     `all` + `ease`. The default duration stays 0s, so nothing moves without a transition class. */
+  *,
+  ::before,
+  ::after {
+    transition-property: theme('transitionProperty.DEFAULT');
+    transition-timing-function: theme('transitionTimingFunction.DEFAULT');
+  }
+
   ::-webkit-scrollbar {
     width: 8px;
   }

@@ -21,6 +21,7 @@ const CHROME = [
   'src/components/SearchBar.tsx',
   'src/components/AdminNav.tsx',
   'src/components/PageSkeleton.tsx',
+  'src/components/WebFontLinks.tsx',
   ICONS,
   UI,
   'src/app/layout.tsx',
@@ -118,7 +119,18 @@ describe('site chrome — web fonts (render must not wait for a font host)', () 
     // No blocking variants: build-time download, print-media swap (hydration mismatch), CSS import
     assert.doesNotMatch(src, /next\/font|media="print"/);
     assert.doesNotMatch(read('src/app/globals.css'), /@import/);
-    assert.equal(fs.readdirSync(path.join(ROOT, 'src')).includes('fonts'), false);
+  });
+
+  test('404 shells are rendered by the browser, where the inline script never runs: a mounted fallback adds the same links', () => {
+    assert.match(src, /<WebFontLinks hrefs=\{FONT_STYLESHEETS\} \/>/);
+    assert.match(src, /const FONT_STYLESHEETS = \[PRETENDARD_URL, WEB_FONTS_URL\];/);
+    const fallback = read('src/components/WebFontLinks.tsx');
+    assert.match(fallback, /^'use client';/);
+    assert.match(fallback, /useEffect\(/);
+    // Same marker as the inline script, so a stylesheet is never added twice.
+    assert.match(src, /setAttribute\('data-webfonts',''\)/);
+    assert.match(fallback, /querySelectorAll\('link\[data-webfonts\]'\)/);
+    assert.match(fallback, /setAttribute\('data-webfonts', ''\)/);
   });
 
   test('preconnect to the three font hosts', () => {

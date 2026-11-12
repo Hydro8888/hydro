@@ -110,7 +110,18 @@
 - TypeScript 오류: 없음.
 - S1 직후의 중간 상태(정상, 각 슬라이스가 정리):
   - 글꼴은 시스템 대체 글꼴 — S2가 `layout.tsx`에 Pretendard·Noto Serif KR·IBM Plex Mono `<link>`를 넣기 전까지.
-  - 죽은 클래스가 소스에 남아 있다(`*-accent-blue/red/green` 62, `shadow-*` 20, `font-bold/extrabold` 29, `transition-all` 8, `shimmer` 10 등 — `bash qa-out/planner-s1-handoff.sh`). CSS는 생성되지 않는다.
+  - 죽은 클래스가 소스에 남아 있다(`*-accent-blue/red/green` 62, `shadow-*` 20, `font-bold/extrabold` 29, `transition-all` 8, `shimmer` 10 등 — `bash qa-out/planner-s1-handoff.sh`). CSS는 생성되지 않는다. 단 `transition-all` 8곳 중 `duration-150/200`과 함께 쓰인 2곳(`Header.tsx:244`, `NewsletterBanner.tsx:117`)은 QA 반영 전에는 브라우저 기본값인 `all` + `ease`로 전환됐다(아래 "QA 피드백 반영" 2번으로 해소).
   - 홈에서 본 남은 징후는 모두 타 슬라이스 파일: `Footer.tsx`의 `<strong>` 3개(브라우저 기본 700, SPEC-S2 항목 16이 삭제), 홈 섹션 2곳의 `animate-fade-in`(S4가 삭제, 7절-9), `NewsCardLarge`·`BreakingTicker`·`NewsletterBanner`의 그라데이션과 `TrendingKeywords`의 `text-amber-400`(S3).
   - `/api/img` 415 응답은 픽스처의 가짜 이미지 주소(`images.example-cdn.com`) 때문이며 이번 변경과 무관하다(대체 사진으로 넘어감).
 - 참고: `.dateline`은 아직 쓰는 곳이 없는데도 운영 CSS에 들어간다(`utils.ts` 주석의 단어 "dateline"을 Tailwind가 읽음, 약 0.4KB). S3가 곧 쓰는 클래스라 그대로 뒀다.
+
+## QA 피드백 반영 (QA_REPORT-S1.md 6절, 판정: 합격 8.1)
+
+- [x] 지시 1: `globals.css` `@layer base`의 `:focus-visible` 뒤에 `b, strong, th { font-weight: theme('fontWeight.medium') }`(500)와 `input::placeholder, textarea::placeholder { color: theme('colors.text.muted') }` 추가. 닫힌 굵기 스케일이 닿지 않던 요소 기본값 700과 preflight의 placeholder 색(gray-400)을 막는다. base 레이어라서 `font-semibold` 같은 유틸은 그대로 덮는다.
+- [x] 지시 2: 같은 위치에 `*, ::before, ::after { transition-property: DEFAULT(이름 있는 8개 속성); transition-timing-function: 계약 easing }` 추가. `transition-*` 클래스 없이 `duration-*`만 붙은 요소가 `all` + `ease`로 전환되지 않는다. 기본 지속 시간은 0s 그대로라서 전환 클래스가 없는 요소는 움직이지 않는다.
+  - `transition-all` 예외 2곳: `src/components/Header.tsx:244`(S2), `src/components/NewsletterBanner.tsx:117`(S3). 이 규칙으로 화면 동작은 계약대로 되지만, 두 슬라이스는 클래스를 지우지만 말고 `transition-colors`로 **바꿔야** 한다(S1은 두 파일을 건드리지 않았다).
+- [x] 지시 3: `tests/design-tokens.test.ts`의 `generated CSS` describe에 단언 추가 — `b`/`strong`/`th` 500, placeholder 색 `#918b81`(preflight 규칙보다 뒤에 와서 이긴다), `*` 규칙의 easing·속성 목록·지속 시간 없음.
+- [x] 지시 4: `tailwind.config.ts` `extend`에 `ringColor: { DEFAULT: ACCENT }`. `accent.DEFAULT`와 같은 상수(`#f0883e`)를 써서 값의 출처는 하나다. 생성 CSS의 `--tw-ring-color`가 `rgb(240 136 62 / 0.5)`이고 파랑(`59 130 246`)이 0건인 것을 테스트로 고정. `font-semibold`를 `CONTRACT_CLASSES`에 추가(뒤 슬라이스가 사용처를 지워도 위 굵기 단언이 깨지지 않게).
+- [x] 지시 5: 위 "S1 직후의 중간 상태"의 `transition-all` 줄 정정.
+
+검증(이번에는 S2가 같은 작업 트리에서 :4000을 재빌드 중이라 `local-env.sh restart`·`next build`는 실행하지 않음): `npx tsc --noEmit` 종료 코드 0, `npm test` 274 통과 / 실패 0(29 suites, S2가 추가한 테스트 포함). `design-tokens.test.ts`는 신규 5개(굵기, placeholder, 전환 기본값, 링 색 2). SPEC 일괄 검증의 `globals.css`·`tailwind.config.ts` grep은 여전히 0. 빌드된 CSS와 화면에서의 확인은 다음 재빌드 때 필요하다.

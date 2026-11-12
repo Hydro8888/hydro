@@ -14,7 +14,7 @@ export default function NewsCard({ article }: { article: Article }) {
   const sources = getArticleImageSources(article);
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated">
+    <article className="relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated">
       <div className="relative h-40 w-full overflow-hidden bg-surface-elevated sm:h-44">
         <ArticleImage
           sources={sources}

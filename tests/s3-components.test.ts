@@ -71,7 +71,7 @@ describe('NewsCard', () => {
   test('one article link — the title — and it covers the whole card', () => {
     assert.equal(count(out, 'href="/article/7"'), 1);
     assert.match(out, /<a class="block after:absolute after:inset-0" href="\/article\/7"><h3 lang="ko"/);
-    assert.match(out, /^<article class="group relative /);
+    assert.match(out, /^<article class="relative /);
   });
 
   test('meta row: source · wire time in a <time> with the dateline class', () => {
@@ -105,6 +105,14 @@ describe('NewsCard', () => {
     // keyboard order = source order: title, original, bookmark
     assert.ok(out.indexOf('href="/article/7"') < out.indexOf('target="_blank"'));
     assert.ok(out.indexOf('target="_blank"') < out.indexOf('aria-pressed'));
+  });
+
+  test('the two buttons sit above the stretched title link, so pressing them does not open the article', () => {
+    const wrapper = out.match(/<div class="([^"]*)"><a href="https:\/\/example\.com\/a" target="_blank"/);
+    assert.ok(wrapper, 'original link and bookmark share one wrapper');
+    const classes = wrapper[1].split(/\s+/);
+    assert.ok(classes.includes('relative'), 'wrapper is positioned');
+    assert.ok(classes.includes('z-10'), 'wrapper is stacked above the title link overlay');
   });
 
   test('two icons, both 16px with a 1.5 stroke', () => {

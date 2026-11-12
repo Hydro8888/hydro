@@ -81,8 +81,8 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
         </a>
       ))}
 
-      {/* min-w-20 keeps the row still while the label changes. */}
-      <button type="button" onClick={handleCopy} className={`${BTN_SECONDARY_SM} min-w-20`}>
+      {/* min-w-24 keeps the row still while the label changes. */}
+      <button type="button" onClick={handleCopy} className={`${BTN_SECONDARY_SM} min-w-24`}>
         {copyLabel}
       </button>
       {/* Announces the copy result to assistive tech (the button label changes visually). */}

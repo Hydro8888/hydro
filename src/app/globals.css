@@ -110,7 +110,7 @@
   /* Stand-in (category stock) photos are printed in greyscale, so color is left to the
      real news photographs. Never on an article's own photo or the placeholder. */
   .img-standin {
-    filter: grayscale(1) contrast(1.05) brightness(0.9);
+    filter: grayscale(1) contrast(1.05) brightness(0.65);
   }
 }
 

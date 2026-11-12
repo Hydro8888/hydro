@@ -444,7 +444,7 @@ describe('generated CSS (globals.css + tailwind.config.ts)', () => {
   });
 
   test('.img-standin prints stand-in photos in greyscale', async () => {
-    assert.deepEqual(declsFor(await compileGlobals(), '.img-standin'), { filter: 'grayscale(1) contrast(1.05) brightness(0.9)' });
+    assert.deepEqual(declsFor(await compileGlobals(), '.img-standin'), { filter: 'grayscale(1) contrast(1.05) brightness(0.65)' });
   });
 
   test('one focus ring: 2px accent outline, 2px offset', async () => {

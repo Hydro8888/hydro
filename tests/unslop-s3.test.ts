@@ -194,7 +194,7 @@ describe('S3 components — shared pieces', () => {
     for (const name of ['NewsCard', 'NewsCardLarge']) {
       const src = read(c(name));
       assert.match(src, /<NewsCardMeta article=\{article\} \/>/, name);
-      assert.match(src, /className="group relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated"/, name);
+      assert.match(src, /className="relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated"/, name);
       assert.match(src, /<Link href=\{`\/article\/\$\{article\.id\}`\} className="block after:absolute after:inset-0">/, name);
       assert.equal((src.match(/<Link\b/g) ?? []).length, 1, `${name}: the title is the only article link`);
       assert.match(src, /<div className="flex flex-1 flex-col p-5">/, name);
@@ -281,7 +281,7 @@ describe('S3 components — generated CSS', () => {
       '.text-balance',
       '.min-w-9',
       '.min-w-10',
-      '.min-w-20',
+      '.min-w-24',
       '.min-h-32',
       '.w-12',
       '.h-56',

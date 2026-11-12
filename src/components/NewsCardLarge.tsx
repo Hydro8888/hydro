@@ -24,7 +24,7 @@ export default function NewsCardLarge({ article, priority = false, lead = false 
   return (
     <article
       data-lead={lead ? '' : undefined}
-      className="group relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated"
+      className="relative flex flex-col overflow-hidden rounded-card border border-border bg-surface-card transition-colors hover:bg-surface-elevated"
     >
       <div className={cn('relative w-full overflow-hidden bg-surface-elevated', lead ? 'h-56 sm:h-80 lg:h-96' : 'h-52 sm:h-64')}>
         <ArticleImage

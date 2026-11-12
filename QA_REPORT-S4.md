@@ -1,103 +1,282 @@
-# QA 리포트 — 슬라이스 S4 페이지 & UX (Round 5 · 결함 수정 라운드, 1회차)
+# QA 리포트 — 슬라이스 S4 페이지 & UX (unslop 재작업 라운드, 1회차)
 
-> 검수 대상: HEAD `68a8bf3` (`git diff HEAD~1`, 32개 파일). Evaluator가 독립적으로 직접 실행해 확인했다. SELF_CHECK-S4.md의 주장은 하나씩 재현해서 검증했다.
-> 환경: `qa-env.sh restart` → 18:37 새로 빌드(`✓ Compiled successfully`, Middleware 28.1 kB), `APP UP (2s, css 200)`. 로그는 `$SP/eval-s4-*.log`.
+> 검수 대상: 커밋 `481df7c` (S4 변경분은 `466dfd9` + `24db817` + `481df7c` — `git diff d988299 481df7c -- src tests`, 25개 파일).
+> 검수 방식: Generator와 분리된 독립 검수. `qa-out/eval-s4` 워크트리(481df7c)에서 직접 빌드하고 `127.0.0.1:4124`로 띄워 측정했다. 작업 트리·`:4000`은 건드리지 않았다. SELF_CHECK-S4의 주장은 믿지 않고 하나씩 다시 쟀다.
+> 마지막 슬라이스이므로 S1~S4 통합 결과(사이트 전체)도 함께 평가했다.
+
+**전체 판정**: 합격
+**가중 점수**: 7.9 / 10.0
+
+**항목별 점수**:
+- 디자인 품질: 8/10 — 헤더=본문=푸터 한 선, 간격 리듬 하나, 색·굵기·모서리·아이콘이 전 페이지에서 계약대로. 홈 카테고리 단의 정렬 3곳과 1024px 열 끝 차이가 남는다.
+- 독창성: 7/10 — 명조 머리기사·통신 시각 칸·데이트라인은 이 제품의 것으로 읽힌다. 목록 5종(속보·국가·카테고리·검색·랭킹)은 같은 3열 카드 격자라 이름을 바꿔도 통한다.
+- 기술적 완성도: 8/10 — tsc 0 · 416/416 · 빌드 통과 · 하이드레이션 0 · 공용 조각으로 중복 제거. 변이 24개 중 3개를 테스트가 놓치고, 제목 계층 건너뜀·죽은 export가 남았다.
+- 기능성: 8/10 — 검색·필터·쪽 이동·기사 상태·관리자 4화면 모두 동작. 공백뿐인 질의가 오류 화면으로 가는 것(이전부터), 소스 폼의 "취소" 2개.
+- 회귀 안전: 9/10 — 상태 코드·307·메타데이터·번역 표식이 수정 전과 같다. 바뀐 것은 계약이 승인한 3가지(통신 목록 행 순서, 메타 설명 2곳, 관리자 alert 문구).
+
+**방향 판단**: 현재 방향 유지
 
 ---
 
-## 0. 직접 실행 결과 (수치)
+## 0. 검수 환경과 직접 실행 결과
 
 | 검증 | 결과 |
 |---|---|
+| 격리 | `git worktree add qa-out/eval-s4 481df7c`, `node_modules` 심볼릭 링크. 서버 `next start -p 4124`(BUILD_ID `0ZvUccZHV7jn3Dtk7fscC`가 응답 HTML에 있음, `next.log`에 EADDRINUSE 없음, 홈에 `data-lead`·`dateline` 있음) |
 | `npx tsc --noEmit` | 0 오류 |
-| `npm test` | **106 pass / 0 fail**. `TZ=America/Los_Angeles`에서도 106/106 |
-| `planner-s4-verify.js` (원본) | **10/12**. FAIL은 T4·T11 두 건이며, 둘 다 오탐으로 확인했다(§3) |
-| `planner-s4-verify.js` (스크래치패드에서 오탐 2곳만 수정, `EVAL-S4` 주석, 원본은 `planner-s4-verify.pre-eval.js`로 보존) | **12/12** (`eval-s4-verify-fixed.log`) |
-| `planner-s3-verify.js` | **8/8**. T3에서 393/356/1은 모두 `band`(외부망 차단 환경) |
-| `planner-s2-verify.js` | 13/14. T3은 하네스(:4001)를 실행하지 않아 SKIPPED. S2 QA 때와 같다 |
-| `audit.js s4-eval` vs `s3-eval` (156 레코드) | NEW overflow 0, 문서 넘침 0, 깨진 이미지 0, spinner/빈 main 변화 0. **관리자 401 실패 요청 6 → 0**. 차이는 모두 의도된 변화다. `cat-unknown`·`art-inactive`가 200에서 404로 바뀌면서 기존 404 페이지들과 같은 S2 Pretendard `Event` 오류가 붙었다. `breaking-p999`는 p14로 이동해 p14에 원래 있던 `/api/img` 픽스처 500 콘솔 1건을 그대로 가진다(S5 범위) |
-| curl 인증 | 무인증 상태에서 `GET /api/admin/health` **200**, `HEAD`·`OPTIONS`는 200/204, `POST`는 401. `/api/admin/stats`·`/logs`·`/sources`는 **401 + `WWW-Authenticate: Basic realm="Admin", charset="UTF-8"`**. `GET`/`HEAD /api/articles`는 200. `PATCH /api/articles/1`은 401 + WWW-Authenticate. `/admin`은 401, `/adminx`는 404, `POST /api/collect`는 401. 잘못된 비밀번호는 401, 소문자 `basic` 스킴은 200 |
-| curl 파라미터 | `/api/search?page=abc&limit=abc` → 400(q 누락에 대한 기존 응답이며 500 아님), `?q=a&page=abc&limit=abc` → 200, `q=Federal&page=99999999999` → 200. `/api/articles?page=abc&limit=abc` → 200. `/api/articles/407` → 404, `/abc` → 400, `/99999999999` → 404. 인증 상태 `/api/admin/articles?page=99999999999` → 200 빈 목록, `status=bogus&country=xx` → 200 전체. `PATCH {"isActive":"nope"}` → 400, `PATCH /99999999999` → 404. `/api/articles?limit=5` 첫 행은 날짜가 있음(nulls last) |
-| 관리자/공개 "오늘" | `articlesToday` admin 31 = public 31 |
-| DB 장애 수동 절차 | 아래 §5 참조. PG 복구는 `qa-env.sh status`로 확인(`pg: 410 articles`). 끝에 `qa-env.sh reseed` 실행 |
+| `npm test` | 416 / 416 통과 |
+| `next build` | 통과(exit 0) |
+| `qa-out/eval-s4-verify.js` (gen-s4-verify 사본, 포트만 변경) | ALL PASS |
+| `qa-out/eval-s4-s3-verify.js` (gen-s4-s3-verify 사본) | S3 VERIFY CLEAN |
+| `qa-out/eval-s4-e2e.cjs` (gen-s4-e2e 사본) | 50 / 50 |
+| `planner-s4-verify.js` 원본 | 4 FAIL — 전부 `rgb(234, 93, 97)`(7-2로 바뀐 `negative`)가 허용 목록에 없어서. 구현 결함 아님 |
+| `planner-s3-verify.js` 원본 | 카드 요약 hover에서 시간 초과(제목 링크가 카드 전체를 덮음, 7-23). S3 검수 때와 같은 원인 |
+| `planner-s4-audit.sh`(워크트리 대상 사본 `eval-s4-audit.sh`) | 징후 29행 전부 0. 백스톱 14개 중 `admin/layout.tsx` 1(S2 워드마크 `font-semibold`) |
+| 독립 측정 `eval-s4-audit.cjs` (28화면 × 1440·1024·768·390·320) | 가로 넘침 0 / 140, h1 정확히 1개 / 140, 페이지 오류·하이드레이션 경고 0 |
+| 독립 기능 검사 `eval-s4-func.cjs` | 76개 중 실질 실패 2(제목 계층 건너뜀, 공백 질의). 나머지 7개 FAIL 표시는 내 선택자가 관련 기사 카드까지 잡은 것 — 3절에 풀어 적음 |
+| 독립 관리자 검사 `eval-s4-admin.cjs` | 46개 중 실질 실패 0. 변경 요청은 전부 가로채 응답(서버에 도달한 쓰기 0건) |
+| 변이 테스트(`tests/unslop-pages.test.ts`) | 24개 중 21개 검출 |
+
+사본에서 바뀐 기대값 판정:
+- `negative`/`live` 색 `229, 72, 77` → `234, 93, 97` — 7-2와 일치. **타당.**
+- 통신 시각에 `YYYY.MM.DD` 허용 — 7-4와 일치. **타당.**
+- 관리자 자격을 리터럴 대신 실행 시 읽음, 브라우저 경로 — 환경 문제. **타당.**
+- "통신 목록 제목 x 일치를 목록별로 검사" — **타당.** 실측: 통신 목록은 1440·1024px에서 2단(제목 x = 193 / 590, 113 / 425)이고, 카테고리 단의 행은 단마다 다른 열에 있다. 한 목록 안에서는 시각 칸 48px·제목 시작선이 전부 같다(768·390px에서는 8행 모두 x 105 / 97). `<main>` 전체에 x 하나를 요구하던 원본 검사는 `rank`를 지우기 전(시각 칸이 통신 목록에만 있던 때)의 전제다. 단, 이 변경이 가린 것이 하나 있다: 카테고리 단 안에서 제목·카드·행의 시작선이 서로 다르다(2절 간격 참조).
 
 ---
 
-## 1. SPEC 개선 항목 검증
+## 1. SPEC 항목 검증
 
-- **[PASS] 항목 1 (D12/D13/D14)**: `src/lib/auth-policy.ts`의 `requiresAuth`는 SPEC 규칙 1~6을 그대로 따른다. 경로는 세그먼트 단위로 비교하고, 끝의 `/` 하나는 무시한다. `isValidBasicAuth`는 엄격한 base64와 `fatal` UTF-8 디코딩을 쓰고, 첫 `:`에서 나누며, 어떤 입력에도 throw하지 않는다. `middleware.ts:10-32`는 이 정책 하나만 따르고, API와 페이지의 모든 401에 challenge 헤더를 붙인다. `isPublicRead`는 삭제됐다. matcher에 `/api/stats`는 없다. T1·T2·T3 PASS. 새 컨텍스트에서 `/admin/sources`·`/admin/articles`를 열면 데이터가 표시된다(audit에서 401이 사라짐).
-- **[PASS] 항목 2 (D15)**: `fetchAdminJson`은 auth/server/network/invalid를 구분하고, AbortError는 다시 throw하며, `withBasePath`를 쓴다. 관리자 4개 화면은 모두 loading/ready/error 상태를 쓰고, 오류일 때 h1에 `(N)`이 없다. 직접 실행 결과: 500을 강제하면 h1은 "기사 관리", `role=alert` 박스에 "데이터를 불러오지 못했습니다(서버 오류) … (HTTP 500)"과 "다시 시도"가 나온다(`peek/eval-s4-adm-err.png`). T9 PASS. 관리자 페이지에 `'/livenews/api'`는 0건, `toLocaleString('ko-KR')`는 0건이다(남은 것은 숫자 `toLocaleString()`뿐).
-- **[PASS] 항목 3**: `GET /api/admin/articles`는 select로 목록 필드만 반환하고, 정렬은 `createdAt desc, id desc`, 캐시는 없으며, status/country를 정규화한다. 직접 브라우저로 수행: 상태=비활성 → 407 한 행("기사 관리 (1)") → 토글 → 공개 `/api/articles/407`이 200 → API로 원복 → 404. 페이지 표시는 "1 / 14"이고, 마지막 페이지에서 "다음"이 비활성화된다. PATCH는 타입 검증 후 400을 반환하고, 깨진 JSON도 400이며, `invalidateCache('*')`를 호출한다.
-- **[PASS] 항목 4 (D8)**: `parsePage`/`resolvePageRequest`를 쓴다. `/breaking?page=999` → **307 `?page=14`**, `/category/economy?page=50` → **307 `?page=2`**, `/world?page=999` → 307 `?page=6`. `/category/international-politics?page=3` → 307로 페이지 번호 없는 URL. 주 목록 쿼리 5개는 throw하고, 보조 쿼리 3개는 `[]`를 반환한다. 빈 상태 문구는 정직하다(`international-politics`에서 "국제정치 분야 기사가 아직 없습니다", '새로고침' 0건). 범위 초과 처리 위치가 SPEC과 다르지만 §2(a)에서 승인했다.
-- **[PASS] 항목 5**: API 4종 모두 `parsePage`/`parseIntParam`을 쓰고, 정렬은 nulls last + `id desc`다. 상세 API는 형식 불량 400, 범위 밖 404, 비활성 404를 반환한다. 응답 형식은 바뀌지 않았다(`articles,total,page,totalPages`).
-- **[PASS] 항목 6 (D9)**: `/category/zzz`·`/quantum-weird-category`·`/article/{12abc,abc,0,407,999999}`·`/nope`·`/xyz`는 모두 **HTTP 404**이고, 하이드레이션 뒤 탭 제목은 "페이지를 찾을 수 없습니다 | LiveNews"다(직접 확인 7건, T5 4건). 이중 브랜드는 제거됐다(속보·세계 뉴스·경제 뉴스·랭킹·뉴스 검색 `| LiveNews`). 소분류 11개는 모두 200이다. generateMetadata에서 notFound를 호출하는 점은 SPEC과 다르지만 §2(b)에서 승인했다.
-- **[PASS] 항목 7 (D16)**: `getArticleView`로 bodyMode 5종을 구분한다. `/article/356` 스크린샷(`peek/eval-s4-body-0.jpg`): 2px accent 띠 "본문 번역 준비 중 · 한국어 요약과 원문을 먼저 제공합니다" → accent 오버라인 "요약" → 원문 순서. `/article/341`(`eval-s4-echo-0.jpg`): 영어 h1 아래 "제목 번역 준비 중 · 원문 제목을 표시합니다". `/article/393`(`eval-s4-ja-0.jpg`): 일본어 h1이 자연스럽게 줄바꿈되고, 제목·본문 상태 표시가 있으며, "원문 · 日本語" 오버라인이 붙는다. T6 PASS.
-- **[PASS] 항목 8**: 히어로는 `ArticleHeroImage`를 쓰고 alt가 없다(장식용). 이미지가 없으면 띠와 출처 워드마크가 나온다. 배지는 `borderAll`을 쓴다. 카테고리는 알려진 slug일 때만 링크하고, 날짜가 없으면 항목을 생략하며, `<time dateTime>`을 쓴다. 공유 제목은 `view.title.text`다. T7·T8 PASS, S3 T3 8/8.
-- **[PASS] 항목 9**: 홈은 40건을 가져와 기사가 한 번씩만 배치되고, h1은 sr-only 1개, 티커에 `language`가 들어가며, 뉴스레터 섹션은 플래그로 제어된다. `as any`는 0건이다. T12 PASS.
-- **[PASS·경미 결함] 항목 10**: 이전 검색어의 결과가 남아 있던 문제가 해결됐고, `retryKey`로 다시 시도하면 실제로 재요청한다. `page=abc`이면 1페이지 결과와 `Pagination`이 나온다("1 2 3"). label/htmlFor가 연결되어 있고 `role=alert`가 있다. T11 PASS. 단, **오류 화면에서도 `"Fed" 검색 결과: 0건`이 같이 표시된다**(DB 장애 실측: `검색 결과: 0건 검색 중 오류가 발생했습니다`). 이번 슬라이스의 "정직한 상태" 원칙에 어긋난다. 또 SPEC은 `language: string | null`을 요구했지만 구현은 `language?: string`이다(타입만 다르고 동작은 같다).
-- **[PASS] 항목 11**: `/ranking?country=xyz`는 200이고 기사 링크 30개가 나온다. 관리자 통계 "오늘"은 KST 기준이다(31 = 31).
-- **[PASS] 항목 12**: 테스트 4개 파일, 신규 25건. SPEC의 표 케이스(health GET/HEAD/OPTIONS/POST, `articlesfoo`, `__proto__`, `2147483648`, `resolvePageRequest` 경계 등)를 모두 포함한다. 대상 모듈은 순수 모듈이다.
+### SPEC-S4 항목 0~21
 
-**SPEC 항목: 12/12 PASS** (항목 10은 경미 결함 1건)
+- [PASS] **0 공용 조각**: `PageHeading`·`EmptyState` 존재, `ui.ts`는 S1 것을 사용(7-7·7-15). 추가로 `ChipNav`·`ArticleListing`·`AdminParts`. `grep "px-4 py-2\|px-6 py-3" src/app --include=page.tsx` 0. 주요 버튼 실측 40px·8px·`rgb(239, 233, 222)`(검색, 관리자, 404). 컨트롤 높이는 전 화면에서 24 / 32 / 40 / 56(하단 탭)뿐.
+- [PASS] **1 여백·리듬**: 로고 = h1/h2 = 푸터 왼쪽 선 112 / 32 / 24 / 16 / 16px(1440 / 1024 / 768 / 390 / 320), 공개 23화면 전부. 헤더→첫 요소 32, 제목 줄→다음 24, 칩·필터→목록 32, 카드 사이 20, 섹션 사이 48·48, h2 아래 16 × 3, 마지막→푸터 80(전 페이지 동일). 반 단계·임의 값 0.
+- [PASS] **2 머리기사 3장 그리드**: 768px에서 첫 카드 720px(한 줄) + 350px 두 장, 1024·1440px에서 큰 카드 3장과 아래 3열의 left가 같다(112 / 524 / 936). 속보·국가·카테고리 동일(`ArticleListing` 하나).
+- [PASS] **3 홈 섹션 머리**: 색 막대 0, h2 3개 20px/500/`text`, 제목 중복 없음("그 밖의 뉴스"), 카테고리 단은 헤어라인 + 단 이름(색 `rgb(239, 233, 222)`), 카드 안 카드 0(실측).
+- [PASS] **4 lead·통신 목록**: `article[data-lead]` 1개, 제목 Noto Serif KR 600 40px/48px(390px에서 28px), 옆 카드는 Pretendard 20px/500. 순번 0, `KST`는 mono·자간 0·대문자 변환 없음. 8행의 `<time datetime>` 내림차순(4폭 모두). `fetchpriority="high"` 1.
+- [PASS] **5 제목 줄**: `속보 409건`, `세계 뉴스 112건`, `경제 뉴스 26건` — 숫자만 mono + tabular, h1 28px/500. 이모지 0. 메타 설명 2곳은 4절.
+- [PASS] **6 칩**: 16개, 현재 1개(`rgb(240, 136, 62)` 글자 + `rgb(38, 36, 33)` 면), 32px·8px·간격 8, 아래 32. 390px에서 줄 안에서만 가로 스크롤. 포커스 링은 안쪽(-2px, 7-19) — 4변이 보인다(`eval-s4-shots/d-chip-focus.jpg`).
+- [PASS] **7 랭킹**: `<ol>` 30개, `1위`…`30위`(sr-only "위"), mono·tabular 16px, 1~3위 `text`·이하 `text-muted`, 사진 위 요소 0. `?country=zz` 200.
+- [PASS] **8 기사 머리**: 경로(`/`) → 사진 → 데이트라인 `Reuters · 2026.11.12 10:09 · Jane Doe` → 명조 h1(600, 40px, 자간 0) → 원제목(기울임 없음). 색 배지·시계·상대 시각 0, 그림자 0. 날짜 없는 기사(395)는 시각 없이 매체만, 줄 끝에 점이 남지 않는다. 긴 기자명(402, 390px)은 다음 줄로 넘어가고 넘침 0.
+- [PASS] **9 본문**: 단 폭 672px, 18px/32px(390px 16px/28px), 문단 사이 24, 문단 6개로 나뉨. 대문자·자간·강조색 0(24개 기사에서 `<article>` 안 강조색 글자 0). 안내 레일 중립. 표식: 1=`d`, 305·345=`td`, 360=`b`, 393=`tbe`, 405=없음 + 안내문, 406=`b`, 407=404.
+- [PASS] **10 꼬리**: 같은 데이트라인 + `원문 보기`(새 탭, `noopener noreferrer`) + `목록으로`. 태그 24px·6px(401: 10개). 관련 기사 6장 2열(326px).
+- [PASS] **11 검색**: placeholder·aria-label "검색어", 입력·버튼 40px 한 줄(390px 포함), 결과 줄 `“AI” 검색 결과 52건`, 로딩(`role="status"` "검색 중"), 오류(`role="alert"` "검색하지 못했습니다" + 다시 시도 → 1회 재요청 후 복구), 없음, 초기 상태. 로직 diff는 렌더 부분뿐.
+- [PASS] **12 빈 상태**: 6곳 `EmptyState`. `/category/climate`(0건)에서 실물 확인 — 두 줄 + 보조 버튼 하나, 그림 0(`d-category-empty.jpg`). `py-20|py-24` 0.
+- [PASS] **13 숫자**: `toLocaleString` 0(src/app·components). 관리자 조회 `2,769` 오른쪽 정렬·mono, ID는 쉼표 없이 muted, 쪽번호 `1 / 14`.
+- [PASS] **14 아이콘**: 전 화면 `svg` 1,462개가 16×16 / stroke 1.5 한 가지. 이모지 0. S4 파일의 인라인 `<svg>` 0.
+- [PASS] **15 관리자 머리**: 네 화면 h1 28px/500, 밝은 면 버튼 화면당 ≤ 1(대시보드 "수동 수집 실행", 소스 "소스 추가" → 폼이 열리면 폼의 제출 버튼). 390·320px에서 제목 한 줄 + 버튼 한 줄.
+- [PASS] **16 통계 카드**: 4장 높이 118 동일, 숫자 28px/500/IBM Plex Mono, 기준 문구 한 줄. 빨강은 "수집 실패 소스 5"와 로그 "실패 6"뿐. "국가별" 패널이 자기 높이.
+- [PASS] **17 표**: `thead` 배경 투명 + 헤어라인 + 12px/500 muted, 행 44px, 숫자 열 오른쪽·mono·tabular, hover·포커스 `rgba(38, 36, 33, 0.5)`, 편집 중 행 `rgb(38, 36, 33)` + 2px 강조색 선(다른 행은 투명 2px라 글자 시작선 동일), 포커스 링 2px. 상태 `성공/실패/부분`(점만 의미색), 국가·언어 한글, 빈 오류 칸 중립. 원시 enum 노출 0.
+- [PASS] **18 폼·알림**: 레이블 6개 전부 `for`↔`id`, 입력 40px·8px, 선택지 한글. alert 7종 한국어·느낌표·끝 마침표 없음(가로채기로 5종 직접 확인: 수집 성공/실패, 보정 숫자 문장/대체 문장/실패 + 소스 저장 실패 + 토글 실패 2종). 로드 오류 500/401/네트워크/형식 오류가 각각 다른 두 줄.
+- [PASS] **19 모션**: 진입 애니메이션 0. 전 페이지의 `animation`은 티커(reduced-motion에서 정지)와 로딩 스피너뿐. 전환은 색 계열 150ms와 `transform`뿐, easing 하나. `transition: all` 0, hover 확대 0.
+- [PASS] **20 비주얼·첫 화면**: 추가된 이미지·아이콘 0. 1440×900 첫 화면에 티커 → 제목 → 머리기사 사진 → 명조 제목 → 통신 목록 머리. 120px 이상 죽은 띠 없음.
+- [PASS] **21 회귀 잠금**: `tests/unslop-pages.test.ts` 39개. 품질은 5절. 백스톱은 고치지 않고 보고(라운드 규칙상 타당).
 
----
+### 7절 결정
 
-## 2. Generator가 SPEC과 다르게 구현한 2건 판정
+| # | 결정 | 판정 |
+|---|---|---|
+| 6 | 공통 컨테이너 | PASS — 공개 7페이지 전부 `cn(CONTAINER, 'py-8')`, 기사는 그 안에서 `max-w-2xl` |
+| 7·15 | `src/lib/ui.ts` 하나 | PASS — S4 파일에 손으로 만든 컨트롤 0(테스트가 잠금) |
+| 9 | 진입 애니메이션 0 | PASS — 공개·관리자 모두 0 |
+| 10 | 죽은 클래스 소스에서 삭제 | PASS — S4 파일 0. 남은 것은 S2의 `admin/layout.tsx:23` `text-lg font-semibold` |
+| 11 | 통신 목록 발행 시각 내림차순 | PASS — 2곳 `byWireTime`, `queries.ts` 불변 |
+| 12 | 제목 문구 | PASS — h1 "속보", "그 밖의 뉴스" |
+| 18 | 스켈레톤 정지 면 | PASS — `/breaking` 전환 중 `aria-busy`, 애니메이션 0 |
+| 22 | `TrendingKeywords` | PASS — "카테고리별 기사 수", 한글 이름, `/category/{slug}` 링크 |
+| 25 | S3 → S4 연동 | PASS — 아래 |
 
-### (a) 범위 초과 리다이렉트를 layout으로 옮기고 `x-livenews-query` 헤더로 쿼리 전달 → **승인**
-- **보안(직접 실험)**: 클라이언트가 `x-livenews-query: ?page=999`를 보내도 `/breaking`, `/category/economy`, `/breaking?page=2`는 모두 **200(리다이렉트 없음)**이다. 미들웨어가 `headers.set(LIST_QUERY_HEADER, search)`로 항상 덮어쓰기 때문이다(`middleware.ts:15-17`). 이 헤더를 읽는 곳은 breaking·category layout뿐이고, 두 경로는 모두 `forwardsListQuery`가 true여서 반드시 덮어써진다. `/category`(slug 없음)는 덮어쓰지 않지만 읽는 layout이 없고 404다. 값은 URL에 이미 인코딩된 `search`라서 CRLF 주입이 불가능하다. 응답 헤더로도 새지 않는다(`curl -D -`로 확인). 최악의 경우를 가정해도 효과는 "다른 페이지 번호로 리다이렉트"뿐이라 위험하지 않다.
-- **인증**: 공개 경로에서는 `requiresAuth`가 false이므로 인증 분기에 들어가지 않는다. `/breaking`, `/category/*`는 무인증 200이고, 401이나 WWW-Authenticate 헤더가 붙지 않는다.
-- **성능**: Edge 미들웨어는 헤더 복사만 한다. `/breaking` 26–30 ms vs 미들웨어가 없는 `/ranking` 29–31 ms로 차이가 측정되지 않는다. layout의 추가 쿼리는 `page > 1`일 때만 실행되고, page와 같은 `getCached` 키를 쓰므로 DB 중복 조회는 없다.
-- **효과**: SPEC이 받아들였던 "스트리밍 리다이렉트(200 + meta refresh + 하이드레이션 뒤 전체 페이지 재로드)" 대신 진짜 **307**이 나온다. `/world`와 같은 동작이고, 크롤러·캐시·브라우저 히스토리 모두에 더 낫다. 클라이언트 내비게이션용으로 page.tsx의 검사도 남겨 두어 두 경로를 모두 커버한다. `?page=999&page=2`는 첫 값 기준으로 일관되게 처리된다(307 → 14).
-- **부작용**: DB 장애 + `page > 1`이면 layout에서 throw가 나서 **세그먼트가 아닌 루트 `error.tsx`**가 잡고 HTTP 500을 반환한다(`/breaking?page=3` 500). 오류 화면 자체는 정직하므로 감점하지 않는다.
+### QA_REPORT-S3 "S4에 넘길 것"
 
-### (b) 미존재 리소스는 generateMetadata에서 `notFound()` → **승인**
-- `/article/{12abc,abc,0,407,999999}`, `/nope`, `/xyz`, `/category/zzz`는 모두 HTTP **404**이고, 하이드레이션 뒤 `document.title`이 "페이지를 찾을 수 없습니다 | LiveNews"다. `article/[id]`·`[country]`에는 loading이 없어서 404가 유지된다. category는 layout이 404를 결정하고, generateMetadata는 제목 처리만 맡는다. SPEC의 `return {}`는 Generator 실측대로 루트 기본 제목으로 돌아가므로 SPEC 쪽이 틀렸다. S2 계약 D-5와도 맞는다. `React.cache`로 조회를 1회로 묶어 DB 이중 조회도 없다.
-- 부수 관찰: DB 장애 중 `/article/1`은 generateMetadata가 throw해서 탭 제목이 빈 문자열이 된다(오류 화면 자체는 정상). 경미하며, S2 error.tsx 쪽 개선 사항이다.
-
----
-
-## 3. "스크립트 오탐" 주장 검증 → **둘 다 오탐 맞음**
-- **T4**: raw HTML에서 매칭된 "불러오는 중"은 `src/components/PageSkeleton.tsx:13`의 sr-only `뉴스를 불러오는 중입니다`(S2 loading 폴백)뿐이다. 소스 전체에서 이 문구가 나오는 곳은 이 하나다. 수정하지 않은 `/breaking`·`/ranking`에서도 동일하게 나온다. 브라우저 하이드레이션 뒤 `main` innerText에는 "불러오는 중"이 없고, `[aria-busy=true]`는 0개, 기사 링크는 60–90개, '새로고침'은 0건이다(`eval-s4-fp.js`). 옛 거짓 빈 상태(`<p …text-headline-sm>뉴스를 불러오는 중입니다</p>`)는 sr-only span이 아니므로, 수정한 판정식으로도 계속 잡힌다.
-- **T11**: `?q=Federal&page=abc`에서 body의 '오류'는 Footer 면책 문구 "번역 과정에서 오류가 발생할 수 있으므로…" 1건뿐이다. `main`에는 '오류'가 없고 `role=alert`도 0개, 카드 60개, NaN 0, 페이지네이션 "1 2 3"이다. 다른 페이지 Footer에도 같은 문구가 있다.
-- 조치: 스크래치패드의 `planner-s4-verify.js`를 고쳤다. T4는 S2 스켈레톤 sr-only 문구(HTML과 RSC 두 형태)를 제거한 뒤 검사하고, T11은 `main` 범위로 검사한다. 원본은 `planner-s4-verify.pre-eval.js`로 보존했다. 결과 **12/12**. S5 이후에는 이 수정본을 기준으로 쓴다.
-
----
-
-## 4. 채점
-
-**전체 판정**: 합격
-**가중 점수**: 8.3 / 10.0
-
-**항목별 점수**:
-- 디자인 품질: 8/10 — 정직한 상태 화면(오류, 없음, 번역 준비 중)이 기존 다크 토큰 안에서 한 가지 문법으로 통일됐다. 관리자 오류 카드와 번역 상태 띠가 같은 2px accent 선을 쓴다. 감점 요인은 두 가지다. 관리자 기사 표의 국가·카테고리 열이 원시 코드(`global`, `ai-tech`)로 남아 대시보드(라벨 표시)와 어긋난다. 검색 오류 화면에 "0건"이 같이 나온다.
-- 독창성: 8/10 — "편집자 노트" 톤의 번역 상태 띠와 데이터에서 결정되는 `원문 · 日本語` 오버라인이 이 프로젝트만의 특징이다. 스트리밍 리다이렉트 문제를 미들웨어 헤더와 layout 307로 푼 것, 탭 제목 문제를 generateMetadata notFound로 푼 것은 SPEC보다 나은 해법이다.
-- 기술적 완성도: 8.5/10 — tsc 0, 테스트 106/106(두 TZ), 정책·파서·뷰 로직을 순수 함수로 분리했고, 헤더 위조를 막으며, `React.cache` 단일 조회와 nulls last 정렬을 쓴다. 감점 요인: 관리자 기사 국가 select가 `COUNTRIES` 대신 하드코딩 옵션이다(`admin/articles/page.tsx:131-136`). 검색 `Article.language` 타입이 SPEC과 다르다. `api/admin/sources/route.ts:94`에 `parseInt`가 남아 있다(계약 C, S4 대상 밖이지만 같은 API 계층).
-- 기능성: 8.5/10 — 북마크로 연 관리자 화면, 비활성 기사 복구, 307 정규화, 404, 검색 재시도가 모두 직접 실행에서 동작했다. 감점은 검색 오류 상태의 "0건" 표시 1건.
-- 회귀 안전: 9/10 — audit에서 새 회귀 0건(차이는 모두 의도된 변화), S3 8/8, S2 13/14(하네스 SKIP만), 금지 파일 diff 없음(신규 `AdminLoadError.tsx`만 추가), 루트 loading/Suspense 없음. 공개 크롬은 `/api/stats`만 사용(S2 T7 PASS). DB 픽스처 410건 보존(reseed 완료).
-
-가중: 8×0.3 + 8×0.2 + 8.5×0.25 + 8.5×0.15 + 9×0.1 = 2.4 + 1.6 + 2.125 + 1.275 + 0.9 = **8.3**
+1. [PASS] `lead` 추가, `rank` 2곳 삭제.
+2. [PASS] 오른쪽 칼럼을 늘리지 않음(`items-start`). 실측 열 끝 차: **1440px 11 / 1280px 11 / 1024px 90**. 큰 카드 3장 모두 요약↔메타 사이 빈 띠 0px. 90px 판정은 2절.
+3. [PASS] 발행 시각 내림차순, 패널 `p-5`, `NewsCardCompact`는 서버 페이지에서만 임포트(테스트 잠금).
+4. [PASS] 티커 래퍼 반지름 0, 헤어라인이 컨테이너 양끝(112~1328)까지.
+5. [PASS] 카드 안 카드 0, 색 막대 0, `animate-fade-in` 0.
+6. [PASS] 기사 상세: uppercase·자간·italic 0, 아이콘 16px/1.5, `border-accent/60` 0, 태그 좌우 8·간격 8, 상대 시각·시계 0.
+7. [PASS] 랭킹 주황 원형 배지 삭제, 속보 태그·`409개` 배지 삭제.
 
 ---
 
-## 5. 회귀 검증 · DB 장애 절차
+## 2. unslop 9개 패스 — 직접 측정 (공개 24화면 + 관리자 4화면)
 
-- `redis flushall` 후 PG를 `stop -m fast`로 정지하고 브라우저(375px)로 확인했다:
-  - `/` 500, `/world` 500, `/article/1` 500, `/japan` 500. `/breaking`·`/category/economy`·`/ranking`은 200(loading 경계 때문)이다. **모두 h1 "문제가 발생했습니다" + "다시 시도"가 나온다.** 거짓 "없음"이나 "아직 없습니다"는 0건이고, 'loading' 텍스트는 error.tsx 문구 "페이지를 불러오는 중 오류가…"뿐이다. `/api/articles`, `/api/articles/1`은 500(정직)이다.
-  - `/search?q=Fed`: `role=alert` 오류와 재시도가 있지만 **"검색 결과: 0건"이 같이 표시된다**(개선 지시 1).
-- `bash $SP/qa-env.sh status` → `pg: 410 articles`. 복구 뒤 `/world`, `/breaking`, `/article/1`, `/api/articles`는 모두 200이다.
-- TypeScript 호환: tsc 0. 임포트 경로는 빌드 성공으로 확인했다. API 응답 형식은 바뀌지 않았다.
-- 금지 파일: `git diff --stat HEAD~1 HEAD -- utils/constants/site/newsletter/layout.tsx/workers/prisma`는 빈 출력이다. `src/components`에는 신규 `AdminLoadError.tsx`만 추가됐다(SPEC 신규 목록에 있음). `src/app/loading.tsx`는 없고, 루트 Suspense도 없다.
-- 데이터: 407 토글 실험은 원복한 뒤 `qa-env.sh reseed`(RESEEDED)까지 했다.
+### 간격
+- 왼쪽 선: 위 표. 예외 둘 — ① 기사 읽기 단은 가운데 정렬(1440px에서 384, 1024px 176, 768px 48). 좁은 단을 왼쪽에 붙이면 오른쪽이 비므로 수용. ② 404는 가운데 정렬(S2).
+- 4px 격자: 계산값이 4의 배수가 아닌 여백은 세 종류뿐 — `sr-only`의 -1px, `mt-auto`·`ml-auto` 자동 여백, 표 칸의 브라우저 기본 `padding: 1px`(높이는 `h-10/h-11`로 고정돼 화면 차이 없음).
+- **홈 두 열 끝 차**: 1440·1280px 11px — 보이지 않는다. **1024px 90px**: `seg-home-1024-1.jpg`에서 오른쪽 열 아래가 한 카드의 1/5쯤 비어 보인다. 통신 목록 행이 2줄 제목으로 85px가 되기 때문이다. 섹션 사이 48px에 더해져 138px 빈 모서리가 되지만, 카드를 늘려 생기던 150px 띠(S3 지적)보다 낫고 운영 데이터의 제목 길이에 따라 달라진다. **눈에 띄는 결함은 아니다 — 개선 여지(P3).**
+- **홈 카테고리 단(1440·768px)**: 세 가지가 어긋난다.
+  - 세 번째 단의 카드만 20px 높다(373 / 373 / 393). 아래 행이 한 줄 시각(`06:30`)이라 20px 짧고, 카드가 남는 높이를 채우게(`grid flex-1`) 해서다. 카드 메타 줄이 옆 두 장보다 19px 아래 있고(`seg-home-1440-1.jpg`), 그 카드 안에 요약↔메타 43px 빈 띠가 생긴다. "같은 것 같은 크기" 위반.
+  - 한 단 안에 글자 시작선이 셋: 단 이름 112 / 행의 시각 120 / 카드 속 글자 133.
+  - 행의 시각 칸이 통신 목록에서는 패널 제목과 같은 선(133)인데 여기서는 단 이름보다 8px 안쪽이다.
+- 카드 안 빈 띠: 목록·랭킹 카드는 같은 행 높이에 맞춰 메타 줄을 바닥에 붙인다(`mt-auto` 22~76px). 랭킹에서 제목 줄 수가 크게 다른 행은 53~76px까지 벌어진다. 행 맞춤의 대가로 수용 범위.
+- 관리자 화면만 상단 여백이 24px(공개 32px): `admin/layout.tsx:37` `py-6`(S2 파일).
+
+### 색
+- 사이트 전체 글자색 6가지: `text` 239,233,222 / `secondary` 170,163,152 / `muted` 145,139,129 / `accent` 240,136,62 / `live·negative` 234,93,97 / `accent-ink` 22,21,19. 면: 램프 4단 + 헤어라인 + `positive`·`negative` 점 + 밝은 버튼 면. 그 밖의 색 0.
+- 강조색이 쓰인 곳(페이지별 전수): 헤더 현재 메뉴(글자 + 밑줄), 현재 칩, 현재 쪽번호, 랭킹 현재 탭, 관리자 현재 메뉴, 편집 중인 소스 행의 2px 선. 홈·기사·404·검색 초기 화면의 본문에는 강조색 0. `live`는 티커의 "속보" 라벨 하나.
+- 대비: 최저 `muted` on `elevated` 4.58:1, `muted` on `card` 5.13, `live` on `surface` 5.42, `accent` on `elevated` 6.11 — 전부 4.5 이상.
+- 그라데이션은 티커 양끝의 같은 중립색 투명도 페이드뿐(S3). 그림자·글로우·블러 0.
+
+### 아이콘
+- 16px·stroke 1.5 한 벌(헤더·본문·푸터 1,462개 전부). 이모지 0. 자체 색 없음.
+- 예외 하나(S1/S3): 사진을 전혀 못 불러올 때의 자리표시 그림은 48px 그림 아이콘이다(`d-article-1-nophoto.jpg`).
+
+### 문구
+- 제목: "속보", "{나라} 뉴스", "{분야} 뉴스", "뉴스 랭킹", "뉴스 검색". 빈 상태·오류·alert 전부 구체적이고 느낌표·끝 마침표·말줄임표 없음. "실시간"·"AI가" 같은 확인 불가 주장 0(src 전체 grep).
+- 수 표기: `409건`, `52건`, `2,769`, `1 / 14`, `1,234건`(alert) — 한 형식. 날짜: 카드·통신 목록 `HH:mm` / `MM.DD HH:mm`, 기사·관리자 `YYYY.MM.DD HH:mm`.
+- **메타 설명 2곳**: `/breaking` "해외 주요 언론의 최신 기사를 수집 순서대로 전합니다" — `getBreakingArticles`가 `createdAt desc`이므로 사실. 국가 "{나라} 주요 뉴스를 한국어로 번역해 전합니다" — 사실. **타당.** `<title>`·OG·twitter·나머지 설명은 수정 전 캡처(`qa-out/gen-s4-before/*.html`)와 10개 경로에서 동일.
+- 작은 것: 홈 한 섹션 안에 "카테고리별 뉴스"(h2)와 "카테고리별 기사 수"(h2)가 나란히 있다. 소스 폼이 열리면 "취소" 버튼이 머리와 폼에 하나씩 있다.
+
+### 서체
+- 굵기: 400 / 500 / 600뿐. 600은 홈 lead 헤드라인, 기사 h1, 워드마크 18px(헤더·푸터·관리자 — S2, 스킬 토큰표의 "Logo wordmark 500~600" 범위).
+- 명조는 두 곳뿐(홈 `data-lead` h2, 기사 h1). uppercase 0, italic 0, 0이 아닌 자간 0.
+- 기사 본문: 672px ÷ 18px ≈ 한글 37자/줄(390px: 358px ÷ 16px ≈ 22자), 줄 높이 32 / 28.
+- 숫자: 시각·건수·순위·쪽번호·통계 전부 IBM Plex Mono + `tabular-nums`.
+
+### 레이아웃
+- 카드 안 카드 0. 사진 위에 얹힌 요소 0(북마크는 메타 줄로 내려감).
+- 두 모먼트: ① 홈 머리기사 — 804×384px 사진 + 40px 명조 제목으로 화면에서 가장 큰 덩어리. ② 통신 목록 — 시각 칸 + `KST`, lg부터 2단. 둘 다 첫 화면~한 번 스크롤 안에 서 있다.
+- **같은 격자의 반복만 있는 화면**: `/breaking`, 국가 4종, 카테고리, `/search`, `/ranking`, 홈 "그 밖의 뉴스"(23장). 큰 카드 3장도 폭이 같고 사진 높이만 다르다. 섹션 구성 유지가 이번 라운드 규칙이라 결함은 아니지만 템플릿 느낌이 남는 곳이다(4절).
+
+### 디테일
+- 모서리: 6(태그·키캡) / 8(버튼·입력·칩) / 12(카드·패널·표) / 원(상태 점)뿐. 16은 쓰이지 않음.
+- 포커스: 홈 34·카테고리 40·기사 30·검색 26개 탭 정지점 전부 2px 강조색 링(offset 2 또는 스크롤 줄 안 -2). 첫 Tab에 "본문 바로가기"가 보이고 Enter로 `<main>` 안으로 들어간다. 순서는 헤더 → 본문.
+- 상태: hover(카드·행·칩 = 면 한 단계, 확대·그림자 없음), current(위), disabled(관리자 이전/다음·진행 중 버튼 = opacity 0.5 + not-allowed), 빈(EmptyState·표의 빈 행), 오류(검색 alert·관리자 오류 상자), 로딩(검색·관리자 스피너, 정지 스켈레톤) 모두 확인.
+
+### 비주얼·모션
+- 스톡 대체 사진만 흑백(`grayscale(1) contrast(1.05) brightness(0.65)`). 이미지 프록시 응답을 컬러 사진으로 흉내 냈을 때 프록시 사진 7장 전부 `filter: none`, `data-standin` 없음(`real-home-proxy.jpg`). 로컬 lead는 자체 사진이 없어 DOM에서 흉내 내 확인(`real-home-lead.jpg`) — 원색 사진 + 명조 제목이 모먼트로 선다.
+- 단, 운영에서는 옆 카드·아래 카드의 실제 사진도 전부 원색이므로 "화면에서 유일하게 색이 풍부한 곳"은 문자 그대로는 성립하지 않는다. lead는 크기와 명조로 구분된다(계약 수준의 한계, S4 결함 아님).
+- AI·테크 분야의 대체 사진이 장난감 로봇이다(signs.md "Stock robots … for anything AI"). `constants.ts` 소관.
 
 ---
 
-## 6. 구체적 개선 지시 (합격이지만 S5 진입 전에 반영하면 좋음, 재검수 불필요)
+## 3. 기능 회귀
 
-1. **`src/app/search/page.tsx:189-193`**: `q && (… 검색 결과: {total}건)`이 오류 상태와 로딩 상태에서도 렌더된다. 오류일 때는 "0건"(사실이 아님)이 나오고, 새 검색어로 로딩하는 동안에는 이전 검색어의 개수가 남는다. 이는 "정직한 상태" 원칙(SPEC 디자인 방향)에 어긋난다. 조건을 `q && !error && !loading`으로 바꿔라.
-2. **`src/app/admin/articles/page.tsx:186-189`**: 국가·카테고리 열이 원시 코드(`global`, `ai-tech`)다. 대시보드(`admin/page.tsx:159,172`)처럼 `countryLabel(article.country)`, `categoryLabel(slug)`을 써라(라벨이 없으면 원시 값, NULL이면 '-'). 같은 파일 `:131-136`의 하드코딩 국가 옵션은 `COUNTRIES.filter(c => c.code !== 'all')`로 생성해 중복을 없애라.
-3. **`src/app/search/page.tsx:17`**: SPEC 항목 10대로 `language: string | null`로 맞춰라(공개 API는 NULL을 반환할 수 있다).
-4. (S5 참고) **`src/app/api/admin/sources/route.ts:94`**: `parseInt(String(id), 10)`이 남아 있다. 계약 C에 따라 `parseArticleId`와 같은 엄격한 정수 파서를 쓰거나, S5에서 API를 정리할 때 함께 바꿔라.
-5. (도구) 앞으로는 `$SP/planner-s4-verify.js` 수정본(T4: 스켈레톤 sr-only 제외, T11: `main` 범위)을 기준으로 써라. 원본은 `planner-s4-verify.pre-eval.js`다.
+| 영역 | 결과 |
+|---|---|
+| 상태 코드 | 200: 홈·속보·국가 4·카테고리·랭킹·검색·기사 / 404: `/nope` `/xx` `/article/999999` `/article/abc` `/category/nope` `/article/407` / 401: `/admin` 4화면·`/api/admin/stats` / `?country=zz` 200 |
+| 307 | `/breaking?page=99999` → `?page=14`, `/category/economy?page=99999` → `?page=2`, `/world?page=99999` → `?page=6`. `?page=0·-3·abc·1.5` 200 + 카드 |
+| 메타데이터 | 홈·카테고리·랭킹·검색·기사 3종 동일, `/breaking`·국가는 `description`만 변경. 404 제목 유지 |
+| 검색 | 질의, 쪽 이동(q 유지), 국가·카테고리 필터 누적, 범위 초과 → 마지막 쪽, 빈 제출 무동작, 특수문자 `% ' "<script> & # \ _`·300자 질의 모두 오류·넘침 없이 처리(스크립트 주입 0) |
+| 국가·카테고리 칩 | 국가 4종의 세부 분야 칩 20개 링크 전부 200. 카테고리 칩 이동 후 현재 표시 이동 |
+| 통신 목록 | 4폭에서 발행 시각 내림차순 |
+| 기사 상세 | 번역 표식 7종, 발췌 안내 + "전체 기사 원문 보기", 문단 나누기, 접힌 원문 열림, 관련 기사 6, 북마크 토글, 링크 복사("복사됨" + live 영역), 원문 링크, 일본어·중국어 원제 `lang`, 경로 규칙(398 분야 없음 / 399 미등록 숨김 / 400 오피니언 라벨만) |
+| 관리자 읽기 | 4화면 표·필터(상태·국가)·쪽 이동·빈 결과·로드 오류 4종·재시도 |
+| 관리자 변경(가로채기) | 소스 토글: 응답 대기 중 낙관적 반전(라벨·점·aria-label 함께) → 500이면 롤백 + alert, 200이면 조용한 재조회 뒤에도 유지. 기사 토글: 반전 중 제목 링크 제거 → 실패 시 롤백 + alert. 소스 저장: 400이면 사유가 든 alert + 폼 유지, 200이면 폼 닫힘 + 재조회. 수집·보정 버튼: 진행 중 라벨·disabled |
+| 넘침 | 320~1440px 140화면 0. 관리자 표는 래퍼 안에서만 가로 스크롤, 칸 줄바꿈 없음 |
+| 콘솔 | 페이지 오류·하이드레이션 경고 0(브라우저 시간대 LA·Kiritimati·UTC 포함). 리소스 오류는 픽스처의 가짜 이미지 호스트 415/502와 의도한 404뿐 |
+| 키보드·제목 | h1은 전 화면 1개. 본문 바로가기 동작 |
 
-**방향 판단**: 현재 방향 유지
+실질 결함 2건(둘 다 S4 이전부터 있던 것, 회귀 아님):
+1. **제목 계층 건너뜀**: `/ranking`과 `/search`는 h1 다음이 카드의 h3다(h2 없음). 다른 목록은 큰 카드의 h2가 있어 이어진다.
+2. **공백뿐인 질의**: `/search?q=%20%20%20` → API 400 → "검색하지 못했습니다 · 다시 시도"(다시 눌러도 같은 결과). 초기 안내("검색어를 입력하세요")가 맞다.
+
+내 스크립트의 FAIL 표시 중 구현 결함이 아닌 것: 데이트라인·북마크 개수(선택자가 관련 기사 카드의 `time`·북마크까지 셈), 탭 순서 정규식(첫 정지점인 건너뛰기 링크가 헤더 밖), 무인증 `/admin` 이동(Chromium이 401 응답에서 예외 — curl로 401 확인), 오류 상자 문구 정규식(HTTP 코드 앞 간격이 여백이라 글자로는 붙음), 폼을 연 직후 버튼 색(150ms 전환 도중 측정 — 350ms 뒤 측정에서는 밝은 면 1개).
+
+---
+
+## 4. 화면 비교 — 방향이 읽히는가
+
+수정 전(`qa-out/unslop/before/prod/*.jpg`)과 같은 경로·폭으로 다시 찍어 직접 봤다(1440·390 전 화면, 1024·768 홈·세계·기사·랭킹·관리자).
+
+읽히는 곳:
+- **홈 첫 화면**: 4색 로고·빨간 속보 알약·주황 막대·색 배지·"자세히 보기"가 사라지고, 따뜻한 중립 면 위에 명조 머리기사 하나가 가장 크게 선다. 메타 줄 `Reuters · 10:09`, 그 아래 `KST` 통신 목록.
+- **기사 상세**: 경로 → 사진 → 데이트라인 → 명조 제목 → 원제목 → 공유. 800 굵기 고딕·기울임·색 배지·시계가 있던 자리다. 꼬리에 같은 데이트라인이 다시 나온다. 이 사이트에서 "통신 전문"이 가장 잘 읽히는 화면.
+- **관리자**: 수집 로그의 시작·완료 시각이 같은 고정폭 숫자라 운영 화면까지 같은 제품으로 이어진다. 색은 실패 수와 오류 문구뿐.
+
+템플릿 느낌이 남은 곳(화면·요소):
+1. **`/breaking`** — 이름이 "속보"인데 3열 카드 격자다. 시그니처는 카드 메타의 12px 시각뿐. 제품 이름을 바꿔도 그대로 쓸 수 있다. 통신 목록 형식이 가장 어울릴 화면이지만 섹션 구성 유지 규칙 안에서는 손댈 수 없었다(다음 라운드 제안).
+2. **국가·카테고리·검색 결과·홈 "그 밖의 뉴스"** — 같은 카드의 반복. 로컬에서는 분야마다 같은 흑백 스톡 사진이 줄지어 더 그렇게 보인다(운영에서는 실제 사진).
+3. **홈 섹션 제목** "주요 헤드라인 / 카테고리별 뉴스 / 그 밖의 뉴스" — 어느 뉴스 사이트에나 맞는 말.
+4. **검색 초기 화면·404** — 가운데 두 줄. 조용하지만 이 제품의 것이라는 표시는 없다(장식을 넣지 않기로 한 결정의 결과).
+5. **사진이 없을 때의 띠** — 48px 그림 아이콘 + 매체명, 바로 아래 데이트라인에 매체명이 또 나온다.
+
+---
+
+## 5. 테스트 품질 — 변이 24개
+
+워크트리에서 한 줄씩 바꿔 `tests/unslop-pages.test.ts`만 돌리고 되돌렸다.
+
+검출 21: `uppercase`, `animate-fade-in`, `max-w-7xl` 컨테이너, `timeAgo` 임포트, `toLocaleString`, 통신 목록 `rank=`, `font-bold`, `tracking-tight`, 이모지, `lead` 삭제, 기사의 `text-accent`, EmptyState의 `<svg>`, 칩 `hover:text-accent`, `gap-1.5`, `leading-[1.9]`, `italic`, `{log.status}` 원시 출력, 서버 페이지의 `<Suspense>`, `rounded-full` 태그, `shadow-card`, `byWireTime` 삭제.
+
+놓침 3:
+- 대시보드의 보조 버튼을 `BTN_PRIMARY`로 바꿈(밝은 면 2개) — 통과.
+- 빈 상태 문구 끝에 `!` — 통과.
+- 홈 섹션 간격 `mt-12` → `mt-10` — 통과.
+
+금지 패턴·구조·시그니처를 폭넓게 잠갔고 실제 값을 본다(문자열 존재만 보는 테스트가 아니다). "화면당 주요 버튼 1개", "느낌표 없음", "섹션 간격 48"만 빠져 있다.
+
+---
+
+## 6. unslop Checklist (사이트 전체)
+
+| 항목 | 답 | 근거 |
+|---|---|---|
+| The direction is written and every pass follows it | 예 | UNSLOP-AUDIT 2절, 9패스 측정 위 |
+| Every spacing value is on the 4px scale and equal things have equal sizes | **대체로 예** | 격자 위반 0. 같은 것 다른 크기 1곳: 홈 카테고리 단의 카드 373 / 373 / 393 |
+| Icons, labels and numbers each sit in one aligned column | **대체로 예** | 통신 목록·표·랭킹은 한 열. 홈 카테고리 단은 시작선 3개(112 / 120 / 133) |
+| One tinted neutral ramp, three text roles, one accent with enough contrast | 예 | 글자색 6, 최저 대비 4.58 |
+| No hue gradients, gradient text, glows, colored shadows or color blobs | 예 | 그림자 0, 티커 페이드는 같은 중립색 |
+| No emoji left in the interface | 예 | 0 |
+| One icon set at one size and stroke | 예 | 16px / 1.5 (자리표시 그림만 예외) |
+| Type chosen for the character, weights 400 to 600, no uppercase tracked labels, no italic, no negative tracking on small text | 예 | 측정값 위 |
+| No exclamation marks, no trailing periods on short strings, no greeting headline, no unverified claims | 예 | 문구 전수, 메타 설명 2곳 정리 |
+| Numbers in one format with tabular figures | 예 | |
+| Nested radii add up | 예 | 카드 12 안에 8·6, 카드 안 카드 없음 |
+| Table row states read apart | 예 | 머리글 / hover·포커스 반 단계 / 선택 한 단계 + 선 / 포커스 링 |
+| Buttons share the control radius | 예 | 8px 하나 |
+| A hero has a real visual or a product preview with at least one moment | **조건부 예** | 실제 보도 사진이 있을 때. 자체 사진이 없는 머리기사는 흑백 스톡이라 모먼트가 약하다 |
+| The first screen is composed as a whole with no dead empty band | 예 | 1440·390 확인. 1024px 홈 오른쪽 열 끝 90px는 첫 화면 밖 |
+| No looping or bouncy motion, one easing curve, no animated layout properties | 예 | 티커(기능)·스피너뿐 |
+| Template check | **부분** | 홈 첫 화면·기사·관리자 로그는 통과. 목록 5종은 이름을 바꿔도 맞는다 |
+
+---
+
+## 7. SELF_CHECK-S4 주장 검증
+
+일치: tsc·테스트 416·verify 사본·e2e 50, 왼쪽 선 112 / 24 / 16, 섹션 48·h2 16, 열 끝 차 11 / 11 / 90, 큰 카드 빈 띠 0, 기사 h1·본문·단 폭 672·관련 카드 326, 관리자 실측값, 포커스 링, 상태 코드·307, 메타데이터, 수정 12 / 신규 6 파일.
+
+빠진 것(자체 평가에 없던 것): 홈 카테고리 단의 카드 높이 차와 시작선 3개("약점 3"은 카드가 늘어날 수 있다고만 적음 — 그 결과 형제 카드의 높이·메타 줄이 어긋난다는 점은 없음), 제목 계층 건너뜀, 공백 질의.
+
+"SPEC과 다르게 한 점" 15건 판정 — 전부 **타당**:
+1 컨테이너(7-6)·읽기 단 672 / 2 오른쪽 열을 늘리지 않고 통신 목록 2단(1440·1280에서 11px, 대가는 1024의 90px) / 3 칩 포커스 안쪽(7-19) / 4 검색 40px(7-7) / 5 `ui.ts`는 S1 것 / 6 `AdminLoading` 치수 유지(S3 테스트가 잠금) / 7 원제목 `text-secondary`(문장 길이의 글에 muted를 쓰지 않음 — 스킬 규칙과 일치) / 8 색은 안쪽 span / 9 선택 행은 `TR_SELECTED`만(hover가 선택을 덮지 않는 것 확인) / 10 "50건 중" / 11 데이트라인 점 처리(줄 끝·줄 머리에 점 없음 확인. 복사하면 앞에 `·`가 붙는 것은 사소) / 12 표 `whitespace-nowrap` + 래퍼 스크롤 / 13 "시작" / 14 폼 레이블 한글 / 15 `TrendingKeywords`를 카테고리 격자의 넷째 칸으로(수정 전에는 1/3 폭 패널 옆 2/3가 비어 있었음. 순서는 유지).
+
+"결정이 필요한 것"(메타 설명 2곳): 2절 문구 — 사실에 맞고 SPEC 항목 5가 지시한 변경이다. 유지 권고.
+
+---
+
+## 구체적 개선 지시
+
+합격이므로 재작업 반복은 필요 없다. 통합 전에 고칠 가치가 있는 순서:
+
+**P1 — 통합 전 권장 (S4 파일)**
+1. `src/app/page.tsx:182-217` — 카테고리 단의 세 줄(단 이름 / 카드 / 행 목록)을 단끼리 같은 행 트랙에 놓는다. 지금은 단마다 따로 `flex flex-col`이고 카드가 남는 높이를 채워(`:195` `grid flex-1`) 카드 높이가 373 / 373 / 393으로 갈린다. 방법: 단 래퍼(`:182`)를 `row-span-3 grid grid-rows-subgrid gap-y-0 border-t border-border pt-4`로, 단 이름 링크의 `self-start`를 `justify-self-start`로, 카드 래퍼를 `<div className="grid">`로, 기사 수 패널 래퍼(`:214`)에 `row-span-3`. (Tailwind 3.4.19에 `grid-rows-subgrid` 있음.) 실행 중인 화면에 인라인 스타일로 그대로 적용해 확인했다: 1440px 카드 373 / 373 / 373, 메타 줄 y 1672 × 3, 행 목록 시작 y 1733 × 3, 단 끝 1817 유지. 768px의 2×2에서도 같은 줄의 두 장이 373 / 373(`eval-s4-shots/proposal-category-subgrid-1440.jpg`, 스크립트 `eval-s4-subgrid.cjs`). 근거: "Same thing, same size", 카드 안 43px 빈 띠. `tests/unslop-pages.test.ts:173`의 단 래퍼 문자열 잠금도 함께 바꾼다.
+2. `src/app/search/page.tsx:39` — `const q = (searchParams.get('q') || '').trim();`. 공백뿐인 질의가 초기 안내로 간다.
+3. `tests/unslop-pages.test.ts` — 놓친 변이 3개를 잠근다: ① `banned`(`:37`)에 `['exclamation marks in interface text', /[가-힣]!/]`, ② 각 관리자 페이지에서 `className={BTN_PRIMARY}` 일치 수 ≤ 1(소스 페이지는 삼항 1 + 폼 제출 1을 따로 명시), ③ 홈에 `<section className="mt-12">`가 정확히 3개(뉴스레터 포함)이고 `mt-(8|10|16)`인 `<section`이 없음.
+
+**P2 — 통합 단계 (4번은 S4 파일, 나머지는 S1~S3 파일)**
+4. `src/app/ranking/page.tsx:36` 앞과 `src/app/search/page.tsx:210` 앞에 `<h2 className="sr-only">순위</h2>` / `<h2 className="sr-only">검색 결과</h2>`. h1 → h3 건너뜀이 없어진다.
+5. `src/lib/ui.ts:20,22` — `FIELD`·`FIELD_SM`의 `text-body-md`(14px)는 iOS Safari에서 입력 포커스 때 화면을 확대한다. `text-base sm:text-body-md`로(390px 실측 14px).
+6. `src/app/admin/layout.tsx:37` `py-6` → `py-8`(공개 화면과 같은 32px), `:23` `text-lg font-semibold` → 헤더 워드마크와 같은 클래스 상수를 쓰도록(지금은 문자열이 따로 있음. `tests/chrome-unslop.test.ts`의 잠금 값도 함께).
+7. `src/components/ArticleHeroImage.tsx:41` `sizes="(min-width: 920px) 896px, 100vw"` → `(min-width: 720px) 672px, 100vw`. `:17`의 `categoryPrimary` prop은 호출하는 곳이 없다.
+8. 죽은 export 삭제(7-13): `utils.ts:331 timeAgo`, `:525 getCategoryStyle`, `:539 estimateReadingTime`, `NewsCardCompact`의 `rank` prop(호출 0).
+
+**P3 — 여유가 있으면**
+9. `src/app/page.tsx:126,127,165` — 1024px의 90px: 세 곳의 `lg:`를 `xl:`로 바꾸면(3열은 1280px부터) 1024~1279px에서 옆 카드 2장이 통신 목록 아래 나란히 놓여 빈 모서리가 없어진다. 통신 목록 2단(`lg:grid …`)은 그대로 둔다. 운영 데이터로 1024·1280px을 본 뒤 결정(적용 전 화면 확인 필요 — 이 안은 직접 띄워 보지 않았다).
+10. `src/app/page.tsx:202` + `src/components/NewsCardCompact.tsx:38` — 카테고리 단의 행은 시각이 단 이름(112)보다 8px 안쪽(120)에서 시작한다. 래퍼의 `px-2`만 빼면 글자는 맞지만 행의 헤어라인이 카드 가장자리 밖으로 8px 나간다. 둘 다 맞추려면 행 컴포넌트에 좌우 여백 없는 변형이 필요하다(S3 파일). 작은 어긋남이라 그대로 둬도 된다.
+11. `src/lib/ui.ts:37-44` — `TH`·`TD` 계열에 `py-0`(브라우저 기본 1px 제거).
+12. `src/app/admin/sources/page.tsx:166` — 폼이 열렸을 때 머리의 "취소"는 폼의 "취소"와 같은 동작이다. 머리 버튼을 숨기거나 하나만 남긴다.
+
+**범위 밖 사실 (보고서에 기록)**
+- `ShareButtons.tsx:44` "카카오톡" 버튼이 `story.kakao.com/share`(카카오스토리)를 연다 — S3 보고에서 이어짐.
+- 기사 페이지의 `og:title`·`og:description`이 사이트 기본값이다(수정 전부터). canonical 없음.
+- `/api/search`가 `%`·`_`를 그대로 LIKE에 넣어 `q=%`에 전체 409건이 나온다(백엔드).
+- AI·테크 대체 사진(장난감 로봇), 사진 없음 띠의 48px 자리표시 그림 + 매체명 중복.
+- `scripts/qa/ui-audit.js`·`qa-out/planner-s4-verify.js`에 관리자 기본 자격이 리터럴로 들어 있다.
+- 다음 라운드 제안(이번 규칙 밖): `/breaking`을 통신 목록 형식(시각 칸 + 제목 + 매체)으로 — 시그니처가 가장 어울리는 화면이다.
+
+---
+
+## 검수 산출물 (`qa-out/`, 소스 아님)
+
+`eval-s4-audit.cjs`(+`.json`·`.log`), `eval-s4-detail.cjs`, `eval-s4-wire.cjs`, `eval-s4-func.cjs`(+`.log`), `eval-s4-admin.cjs`(+`.log`), `eval-s4-extra.cjs`, `eval-s4-rhythm.cjs`, `eval-s4-tz.cjs`, `eval-s4-subgrid.cjs`, `eval-s4-creds.cjs`, 사본 `eval-s4-verify.js`·`eval-s4-s3-verify.js`·`eval-s4-e2e.cjs`·`eval-s4-audit.sh`, 화면 `eval-s4-shots/*.jpg`(전 화면 1440·390 + 일부 1024·768, 구간 캡처 `seg-*`, 실제 사진 흉내 `real-*`, 관리자 `adm-*`). 워크트리 `qa-out/eval-s4`는 검수 뒤 제거했다(스크립트를 다시 돌리려면 481df7c를 빌드해 `:4124`에 띄운다).

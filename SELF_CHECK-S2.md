@@ -145,3 +145,62 @@ S1 파일(`tailwind.config.ts`, `globals.css`, `utils.ts`, `ui.ts`, `constants.t
 - 기존 기능 영향: 없음. 상태코드 12종 동일, 키보드 동작(`/`, ESC 포커스 복귀 3종, 본문 바로가기, 닫힌 패널 Tab 제외), aria 속성, `/admin`의 사이트 크롬 숨김, 통계 요청 1회 공유, 404의 HTTP 404, 루트 `loading.tsx` 없음을 다시 확인했다. Header·Footer의 훅·효과·핸들러 코드는 수정하지 않았다(클래스와 JSX만).
 - TypeScript 오류: 없음.
 - 알려진 중간 상태: 위 "S4에 넘기는 것"의 16px 어긋남. 카드·페이지 안의 남은 징후(주황 "자세히 보기", 섹션 색 막대, 이모지 국기, 관리자 주황 버튼 등)는 S3·S4 파일이다.
+
+## QA 피드백 반영 (2회차)
+
+대상: `QA_REPORT-S2.md`(합격 7.8)의 "구체적 개선 지시" 1~9. 10번(640px 미만 시계 표시)은 사용자 확인이 필요한 선택 항목이라 하지 않았다. 방향 판단은 "현재 방향 유지" — 새 요소·새 장식 없음.
+
+검증은 작업 트리가 아니라 격리된 `git worktree`(`qa-out/gen-s2b`, 커밋 `8735a9b` + 이번 S2 파일 7개)에서 운영 빌드를 `next start`로 띄워서 했다(끝난 뒤 worktree 삭제). 산출물은 `qa-out/gen-s2b-*`.
+
+### 항목별 수정
+
+| # | 지시 | 수정 | 검증 수치 |
+|---|---|---|---|
+| 1 (F1) | 고정 크롬이 키보드 포커스를 가림 | `src/app/layout.tsx` `<html className="dark scroll-pt-24 scroll-pb-16 lg:scroll-pb-0">` | 계산값 `scroll-padding` 1440px `96px / 0px`, 390px `96px / 64px`. Tab 90회 + 푸터에서 Shift+Tab 70회 × (`/`, `/article/1`) × (1440·390) = 8회 순회, 본문·푸터 요소 543개: 헤더·탭 바와 **겹친 요소 0, 포커스 링(4px)까지 닿은 것 0**. 헤더까지 최소 간격 6.2px(1440 Shift+Tab), 탭 바까지 최소 6.7px(390 Tab) |
+| 2 (T1) | 컨테이너 문자열 5중 복사 | `Header.tsx`·`Footer.tsx`의 로컬 `CONTAINER` 삭제, `PageSkeleton.tsx`·`admin/layout.tsx`의 리터럴 3곳을 `cn(CONTAINER, …)`로. 네 파일 모두 `import { CONTAINER } from '@/lib/ui'`. 테스트는 리터럴 고정 → "import + 사용 + 파일 안에 `max-w-screen-`·로컬 상수 없음"(+ `ui.ts`의 값 한 곳 고정) | 1440px 왼쪽 선: 헤더·내비 첫 글자·푸터·관리자 바·관리자 본문·스켈레톤 모두 x=112, 390px 16 |
+| 3 (T2) | 정적 테스트 구멍 | `BANNED`에 4개 추가: ① 기본 팔레트 색(보고서 정규식 그대로, `white`·`black` 포함) ② `(bg\|text\|border)-live` ③ 계약 밖 모서리 ④ `text-(xs\|sm\|base)`. 새 `describe` 1개(스크롤 여백·접힘 클래스·플라이아웃 blur) + 푸터 중복·가운뎃점 테스트 1개 | `chrome-unslop.test.ts` 28 → **36개 통과**. 변이 16종 **16/16 잡힘**(아래) |
+| 4 (D1) | 모바일 메뉴 왼쪽 선 3개 | 카테고리 `<ul>`에 `-mx-3`, 칸 `justify-center` 삭제(왼쪽 정렬), Hacker News 행에 `-mx-3` | 390·320px: 라벨 2개·1열 칸 5개·Hacker News 글자·국가 칩 상자 **모두 x=16**(= 워드마크 16). 768px: 모두 x=24(= 워드마크 24). 행 높이 40px 한 가지, 메뉴·문서 가로 넘침 0 |
+| 5 (D2·D3) | 푸터 `경제` 중복, 가운뎃점 표기 | `QUICK_LINKS` 필터에 `!m.href.startsWith('/category/')`(남는 5개라 죽은 `.slice(0, 6)` 삭제), `번역 · 요약되었으며` → `번역·요약되었으며` | 푸터 링크 19 → 18개, **같은 href 0쌍**, 바로가기 = `속보 세계 미국 일본 중국`, 행 높이 32px 한 가지 |
+| 6 (D4) | 스켈레톤 4px 모서리 | `PageSkeleton.tsx` `rounded` 7곳 → `rounded-tag` | `/breaking` 응답을 2.5초 붙잡아 측정: 모서리 `0 / 6px / 12px`뿐, 애니메이션 0, `role=status`·`aria-live=polite`·sr-only 문구 유지 |
+| 7 (D5) | 14px 줄 높이 둘 | `text-sm` → `text-body-md`: Header 4곳(내비 링크, 모바일 메뉴 칸, Hacker News 행, 플라이아웃 행), `AdminNav`, `admin/layout`(사이트로 돌아가기), `layout`(본문 바로가기) | 헤더·푸터·하단 탭의 글자 있는 요소 91개: 14px는 **모두 `22.4px`**(56개). 관리자 내비·돌아가기 `14px/22.4px`, 높이 32px 그대로. 내비 링크 40px 한 줄(체커 PASS) |
+| 8 (F3) | 모바일에서 접힌 헤더 1px 잔여 | `collapsed && '-translate-y-full lg:-translate-y-12'`, 주석을 사실대로 고침 | 접힘 시 헤더 `bottom`: 390px **0**(전 1), 820px 0, 1440px 42(내비 줄 41 + 아래 테두리 1 — 의도). 위로 스크롤하면 0~49 / 0~90으로 복귀 |
+| 9 (F2) | Tab으로 빠져나가도 플라이아웃이 남음 | `<li ref={countryRef}>`에 `onBlur`: 다음 포커스 대상이 `li` 밖이면 `setCountryOpen(false)` | Enter로 열고 Tab: 행 4개를 도는 동안 `aria-expanded=true`, 본문으로 나가면 **`false` + `visibility: hidden`**. Shift+Tab으로 나가도 닫힘. ESC → 국가 버튼 포커스(유지). Enter 두 번 = 열림/닫힘. 바깥 탭 → 닫힘. 행 탭 → `/japan` 이동. 키보드로 연 뒤 행을 마우스로 눌러도 `/us` 이동 |
+
+### 지시와 다르게 한 곳 (4가지)
+
+1. **본문 바로가기는 `focus:py-2` 대신 `focus:inline-flex focus:h-10 focus:items-center`.** `text-sm` → `text-body-md`만 하면 줄 높이가 20 → 22.4px가 되어 높이가 36 → 38.4px(4px 격자 밖)이 된다. 보고서의 "고정 높이 컨트롤이라 배치는 그대로"가 이 한 곳에는 맞지 않아 높이를 컨트롤 높이 40px로 고정했다. 측정: 40px / 14px·22.4px·500 / 8px 모서리 / 면 `rgb(239,233,222)` / 글자 `rgb(22,21,19)`, Enter → `main#main`.
+2. **모바일 메뉴 칸·Hacker News 행에 `focus-visible:-outline-offset-2`.** `-mx-3`로 행이 패널 가장자리 4px까지 가서, 바깥 링(2px + offset 2px)이 뷰포트 x=0에 딱 붙는다(잘리지는 않지만 여유 0). 패널이 스크롤 컨테이너이므로 7-19대로 같은 링을 안쪽에 그렸다(데스크톱 내비 줄과 같은 처리). 측정: `solid 2px rgb(240,136,62)`, offset −2px, 링 왼쪽 끝 x=4(390px)·12(768px).
+3. **플라이아웃 `onBlur`는 다음 포커스 대상이 있을 때만 닫는다**(`relatedTarget`이 `null`이면 그대로). Safari는 링크·버튼을 눌러도 포커스를 주지 않아, `null`에서도 닫으면 "키보드로 열고 행을 클릭"할 때 mousedown에서 플라이아웃이 숨어 클릭이 사라진다. 빈 곳 클릭·탭은 기존 바깥 클릭 핸들러가 닫는다(측정: 바깥 탭 → 닫힘).
+4. **`BANNED`의 범위.** ② `-live`는 `src/lib/ui.ts`를 예외로 뒀다 — 금지의 맥락은 "S2 크롬(헤더·푸터·내비)은 live 빨강을 쓰지 않는다"이고, `ui.ts`는 S3·S4와 함께 쓰는 클래스 파일이라 크롬 마크업이 아니다(현재 `ui.ts`에 `-live`는 0건). ③ 모서리는 보고서의 `rounded-(sm|md|lg|xl|2xl|3xl)`에 더해 **맨 `rounded`(4px — D4 그 자체)** 와 방향형(`rounded-t-lg` 등)도 잡는다. ④ `text-(xs|sm|base)`는 보고서에 없던 추가(D5 회귀 방지).
+
+### 변이 검사 (`qa-out/gen-s2b-mutate.py`, 로그 `gen-s2b-mutate.log`)
+
+작업 트리 파일은 건드리지 않고 격리 worktree 안에서 한 줄씩 바꿔 `tests/chrome-unslop.test.ts`를 돌린 뒤 되돌렸다(끝에 기준선 통과 재확인). **16/16 실패(=잡힘)**:
+Hacker News에 `text-green-400` / `bg-white` / 워드마크 옆 `bg-live` 점 / 푸터 라벨 `text-live` / 버튼 `rounded-3xl` / `rounded-lg` / 스켈레톤 맨 `rounded` / `rounded-t-xl` / `text-sm` / 컨테이너 리터럴 복사 / 로컬 `CONTAINER` 상수 / `scroll-pt-*` 삭제 / `-translate-y-12`로 되돌림 / 플라이아웃 blur 처리 삭제 / 바로가기 카테고리 필터 삭제 / `번역 · 요약`.
+
+### 전체 검증 수치
+
+| 검증 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 격리 worktree 0, 작업 트리 0 |
+| `npm test` | 격리 worktree(S2만) **282 통과 / 실패 0**. 작업 트리(S3 커밋 `5582735` 포함) **376 통과 / 실패 0** |
+| `NODE_ENV=production next build` (격리) | `Compiled successfully`, 종료 코드 0 (2회) |
+| 상태코드 | `/livenews` 200, `/nope` 404, `/article/999999` 404, `/us` `/breaking` `/search?q=AI` `/article/1` 200, `/admin` 무인증 401 / 인증 200 |
+| 체커 사본 `qa-out/gen-s2b-check.js` | **131 / 131**. `eval-s2-check.js`와의 차이는 주소와 스크린샷 파일명뿐 — **기대값은 하나도 바꾸지 않았다** |
+| 가로 넘침 | 320·360·390·480·640·768·820·1024·1100·1280·1440px × (`/`, `/nope`, `/us`, `/search?q=AI`) + 1024px 미만 7폭의 메뉴 열림 = **51회 모두 0**, 뷰포트 밖 크롬 요소 0 |
+| 콘솔 | React·하이드레이션 경고/오류 **0**, pageerror 0. 남은 로그는 모두 네트워크 줄: `/api/img` 415(픽스처의 가짜 이미지), `/nope` 문서 404, `/api/img` 502 6건(이미지 프록시의 원본 요청 실패 — S2 파일과 무관) |
+
+참고: 지시에는 포트 4104였으나, 메뉴 행 포커스 링(위 2)을 고친 뒤 다시 빌드한 판은 **4105**에 띄웠다(`kill` 금지라 4104의 첫 판을 내릴 수 없었다). 위 수치는 모두 4105(최종 판) 기준이고, 4104·4105 서버는 `timeout`으로 스스로 끝난다.
+
+### 반영하지 않은 것
+
+- **지시 10** (640px 미만에서 시계의 시각만 표시, D6): 사용자 확인 후 진행할 선택 항목.
+- **T2-4** (통계 숫자에 `text-accent`): 개선 지시에 없고 정적으로 잡기 어렵다. 런타임 체커도 내비·탭만 본다 — 그대로 남은 구멍.
+- **D2의 뒷부분** (3열 구성에서 연락처 열이 메일 한 줄뿐이라 균형이 약함): 지시가 없고, 고치려면 열 구성을 바꿔야 한다. 그대로 뒀다.
+- **`scroll-pb-16`은 `env(safe-area-inset-bottom)`을 더하지 않는다.** 홈 인디케이터가 있는 iPhone에서는 탭 바가 57 + 34px라 외장 키보드 포커스가 아래쪽에서 일부 가려질 수 있다. 지시된 클래스를 그대로 썼다(같은 가정이 푸터의 `pb-16`에도 있다).
+
+### 회귀 위험 확인 (2회차)
+
+- 기존 기능 영향: 없음. ESC 포커스 복귀 3종, `/` 단축키, 본문 바로가기, 닫힌 패널의 `invisible`, 관리자의 사이트 크롬 숨김, 404의 HTTP 404, 글꼴 링크 2개 비차단(체커 131건에 포함)을 다시 확인했다. Header에서 바뀐 것은 클래스 문자열과 `li`의 `onBlur` 하나다.
+- TypeScript 오류: 없음.
+- 수정 파일(7): `src/app/layout.tsx`, `src/app/admin/layout.tsx`, `src/components/Header.tsx`, `src/components/Footer.tsx`, `src/components/PageSkeleton.tsx`, `src/components/AdminNav.tsx`, `tests/chrome-unslop.test.ts`. `icons.tsx`·`ui.ts`·`globals.css`·S3 파일은 건드리지 않았다.

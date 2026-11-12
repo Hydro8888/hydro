@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { NEWSLETTER_ENABLED, subscribeNewsletter } from '@/lib/newsletter';
+import { BTN_GHOST_SM, BTN_PRIMARY, FIELD } from '@/lib/ui';
 import { cn } from '@/lib/utils';
+import { CloseIcon } from './icons';
 
 const DISMISSED_KEY = 'livenews_newsletter_dismissed';
 
@@ -55,7 +57,7 @@ export default function NewsletterBanner() {
       setStatus('error');
       setErrorMsg(
         r.reason === 'invalid'
-          ? '올바른 이메일 주소를 입력해 주세요.'
+          ? '올바른 이메일 주소를 입력해 주세요'
           : '구독 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       );
     }
@@ -64,32 +66,17 @@ export default function NewsletterBanner() {
   if (!NEWSLETTER_ENABLED || dismissed) return null;
 
   return (
-    <div className="relative rounded-card border border-accent/30 bg-surface-card p-5 sm:p-6">
-      {/* Close button */}
-      <button
-        type="button"
-        onClick={handleDismiss}
-        aria-label="배너 닫기"
-        className="absolute top-3 right-3 w-7 h-7 inline-flex items-center justify-center rounded-full
-          text-text-muted hover:text-text hover:bg-surface-elevated transition-colors"
-      >
-        <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+    <div className="relative rounded-card border border-border bg-surface-card p-5">
+      <button type="button" onClick={handleDismiss} aria-label="배너 닫기" className={cn(BTN_GHOST_SM, 'absolute right-3 top-3')}>
+        <CloseIcon />
       </button>
-
-      {/* Accent top bar */}
-      <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
 
       {status !== 'success' && (
         <>
-          <h3 className="text-headline-sm text-text mb-1 pr-6">
-            매일 아침 AI가 정리한 글로벌 뉴스를 받아보세요
-          </h3>
-          <p className="text-body-md text-text-secondary mb-4">
-            주요 뉴스 요약과 시장 동향을 이메일로 받아보세요. 언제든 구독 해지 가능.
-          </p>
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          {/* Same wording as the footer form. Nothing here promises a schedule or contents. */}
+          <h3 className="pr-8 text-headline-sm text-text">뉴스레터 구독</h3>
+          <p className="mt-1 text-body-md text-text-secondary">주요 뉴스를 이메일로 받아 보세요</p>
+          <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
             <label htmlFor="banner-newsletter-email" className="sr-only">
               이메일 주소
             </label>
@@ -101,21 +88,11 @@ export default function NewsletterBanner() {
               placeholder="이메일 주소"
               autoComplete="email"
               required
-              className="flex-1 min-w-0 px-3 py-2 rounded-badge
-                bg-surface-elevated border border-border-muted
-                text-body-md text-text placeholder:text-text-muted
-                focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
-                transition-colors"
+              aria-invalid={status === 'error' || undefined}
+              aria-describedby="banner-newsletter-status"
+              className={cn(FIELD, 'min-w-0 flex-1')}
             />
-            <button
-              type="submit"
-              disabled={status === 'submitting'}
-              className="flex-none px-4 py-2 rounded-badge
-                bg-accent text-white text-body-md font-semibold
-                hover:bg-accent/90 active:scale-[0.98]
-                disabled:opacity-60 disabled:cursor-wait
-                transition-all duration-150"
-            >
+            <button type="submit" disabled={status === 'submitting'} className={cn(BTN_PRIMARY, 'shrink-0')}>
               구독
             </button>
           </form>
@@ -124,14 +101,12 @@ export default function NewsletterBanner() {
 
       {/* One live region that is always mounted; only its text changes (success / error). */}
       <p
+        id="banner-newsletter-status"
         role="status"
         aria-live="polite"
-        className={cn(
-          'empty:hidden',
-          status === 'success' ? 'py-2 text-center text-headline-sm text-accent' : 'mt-2 text-caption text-accent-red',
-        )}
+        className={cn('empty:hidden', status === 'success' ? 'pr-8 text-body-md text-text' : 'mt-2 text-caption text-negative')}
       >
-        {status === 'success' ? '구독 신청이 접수되었습니다.' : status === 'error' ? errorMsg : ''}
+        {status === 'success' ? '구독 신청이 접수되었습니다' : status === 'error' ? errorMsg : ''}
       </p>
     </div>
   );

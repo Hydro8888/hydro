@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn, imageSrcSet } from '@/lib/utils';
 import { IMAGE_PLACEHOLDER_SRC } from '@/lib/constants';
-import { nextImageIndex, resolveImageSources } from '@/lib/image-chain';
+import { isStandInImage, nextImageIndex, resolveImageSources } from '@/lib/image-chain';
 
 interface ArticleImageProps {
   /** Ordered candidates, usually getArticleImageSources(article). Always ends in the inline placeholder. */
@@ -26,7 +26,8 @@ interface ArticleImageProps {
  * original (proxied) → Unsplash → inline SVG placeholder. Never shows a broken icon or alt text.
  * Also recovers images that failed before hydration (onError never fired) by checking
  * `complete && naturalWidth === 0` after mount. The <img> carries `data-placeholder` when it
- * shows the placeholder.
+ * shows the placeholder, and `data-standin` + `img-standin` (greyscale print) while it shows a
+ * category stock photo — color is left to the story's own photograph.
  */
 export default function ArticleImage({ sources, alt = '', className, loading = 'lazy', sizes = '100vw', priority = false, onSettled }: ArticleImageProps) {
   const list = resolveImageSources({ sources });
@@ -70,6 +71,7 @@ function ImageChain({
   settledRef.current = onSettled;
   const src = list[Math.min(idx, list.length - 1)];
   const isPlaceholder = src === IMAGE_PLACEHOLDER_SRC;
+  const isStandIn = isStandInImage(src);
   const srcSet = isPlaceholder ? undefined : imageSrcSet(src);
   // React 18 has no fetchPriority prop; the lowercase attribute passes through to the DOM.
   const priorityAttr = priority ? ({ fetchpriority: 'high' } as Record<string, string>) : {};
@@ -102,9 +104,10 @@ function ImageChain({
       decoding="async"
       draggable={false}
       data-placeholder={isPlaceholder ? '' : undefined}
+      data-standin={isStandIn ? '' : undefined}
       onError={advance}
       onLoad={isPlaceholder ? undefined : () => settledRef.current?.(false)}
-      className={cn(className, 'text-transparent')}
+      className={cn(className, 'text-transparent', isStandIn && 'img-standin')}
     />
   );
 }

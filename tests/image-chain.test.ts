@@ -3,9 +3,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextImageIndex, resolveImageSources } from '../src/lib/image-chain';
-import { getArticleImageSources } from '../src/lib/utils';
-import { IMAGE_PLACEHOLDER_SRC } from '../src/lib/constants';
+import { imageSourceKind, isStandInImage, nextImageIndex, resolveImageSources } from '../src/lib/image-chain';
+import { getArticleImageSources, getDefaultImage } from '../src/lib/utils';
+import { CATEGORIES, IMAGE_PLACEHOLDER_SRC } from '../src/lib/constants';
 
 test('nextImageIndex advances and stops at the last entry', () => {
   const cases: [number, number, number][] = [
@@ -58,5 +58,43 @@ test('resolveImageSources: placeholder is always last and only once', () => {
     for (const imageUrl of [null, '', 'https://cdn.example.com/p.jpg', 'notaurl']) {
       assertChain(resolveImageSources({ sources: getArticleImageSources({ id, imageUrl, categoryPrimary: 'world' }) }));
     }
+  }
+});
+
+// --- stand-in detection (unslop pass 8: only the story's own photograph keeps its color) ---
+
+test('imageSourceKind: an article chain reads photo → standin → placeholder', () => {
+  const withPhoto = getArticleImageSources({ id: 1, imageUrl: 'https://cdn.example.com/a.jpg', categoryPrimary: 'economy' });
+  assert.deepEqual(withPhoto.map(imageSourceKind), ['photo', 'standin', 'placeholder']);
+  const withoutPhoto = getArticleImageSources({ id: 1, imageUrl: null, categoryPrimary: 'economy' });
+  assert.deepEqual(withoutPhoto.map(imageSourceKind), ['standin', 'placeholder']);
+  assert.deepEqual(
+    resolveImageSources({ src: '/x.jpg', fallback: 'https://images.unsplash.com/p' }).map(imageSourceKind),
+    ['photo', 'standin', 'placeholder'],
+  );
+});
+
+test('every category stock photo is a stand-in', () => {
+  for (const { slug } of CATEGORIES)
+    for (const id of [0, 1, 2, 3]) assert.equal(isStandInImage(getDefaultImage(slug, id)), true, `${slug} #${id}`);
+  assert.equal(isStandInImage(getDefaultImage('no-such-category', 9)), true);
+});
+
+test('an original hosted on Unsplash arrives through the proxy, so it stays a photo', () => {
+  const sources = getArticleImageSources({ id: 5, imageUrl: 'https://images.unsplash.com/photo-1?w=800', categoryPrimary: 'world' });
+  assert.match(sources[0], /^\/livenews\/api\/img\//);
+  assert.equal(imageSourceKind(sources[0]), 'photo');
+});
+
+test('stored AI-generated images keep their color (UNSLOP-AUDIT §7-24)', () => {
+  const src = '/livenews/api/generated-image/0123456789abcdef0123456789abcdef.jpg';
+  assert.equal(imageSourceKind(src), 'photo');
+  assert.equal(isStandInImage(src), false);
+});
+
+test('placeholder and blank values are neither photo nor stand-in', () => {
+  for (const src of [IMAGE_PLACEHOLDER_SRC, '', '  ', null, undefined]) {
+    assert.equal(imageSourceKind(src), 'placeholder', JSON.stringify(src));
+    assert.equal(isStandInImage(src), false, JSON.stringify(src));
   }
 });

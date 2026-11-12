@@ -1,8 +1,12 @@
+import { cn } from '@/lib/utils';
+
 interface AdSlotProps {
   size: 'banner' | 'sidebar' | 'native';
   className?: string;
 }
 
+// The four pixel values are IAB ad unit sizes (728x90 leaderboard, 300x250 medium rectangle),
+// which the 4px spacing scale cannot express.
 const SIZE_CONFIG = {
   banner: {
     width: 'w-full max-w-[728px]',
@@ -16,7 +20,7 @@ const SIZE_CONFIG = {
   },
   native: {
     width: 'w-full',
-    height: 'min-h-[120px]',
+    height: 'min-h-32',
     label: '네이티브 광고',
   },
 } as const;
@@ -25,26 +29,19 @@ const SIZE_CONFIG = {
 // real ad serving is wired up (flip NEXT_PUBLIC_ADS_ENABLED=true).
 const ADS_ENABLED = process.env.NEXT_PUBLIC_ADS_ENABLED === 'true';
 
-export default function AdSlot({ size, className = '' }: AdSlotProps) {
+export default function AdSlot({ size, className }: AdSlotProps) {
   const config = SIZE_CONFIG[size];
 
   if (!ADS_ENABLED) return null;
 
   return (
     <div
-      className={`${config.width} ${config.height} mx-auto
-        flex items-center justify-center
-        border border-dashed border-border-muted rounded-card
-        bg-surface-card/50
-        ${className}`}
+      className={cn(config.width, config.height, 'mx-auto flex items-center justify-center rounded-card border border-dashed border-border', className)}
       role="complementary"
       aria-label={config.label}
       data-ad-slot={size}
     >
-      <div className="text-center">
-        <p className="text-caption text-text-muted">{config.label}</p>
-        <p className="text-overline text-text-muted mt-0.5">광고 영역</p>
-      </div>
+      <p className="text-caption text-text-muted">광고</p>
     </div>
   );
 }

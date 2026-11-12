@@ -16,51 +16,37 @@ export default function BreakingTicker({ articles }: BreakingTickerProps) {
   const doubled = [...items, ...items];
 
   return (
+    // `news-ticker` carries no style: it marks the one place where a scroll animation and a fade are expected.
     <div
-      className="flex w-full items-stretch overflow-hidden bg-accent-red/10 border-y border-accent-red/20"
+      className="news-ticker flex h-10 w-full items-stretch overflow-hidden border-y border-border bg-surface"
       role="marquee"
       aria-label="속보"
     >
-      {/* "속보" badge */}
-      <div className="flex flex-none items-center gap-1.5 bg-accent-red px-3 py-2 z-10">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-accent-red animate-pulse-dot opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-        </span>
-        <span className="whitespace-nowrap text-overline tracking-wider text-white">
-          속보
-        </span>
+      <div className="flex flex-none items-center border-r border-border px-4">
+        <span className="whitespace-nowrap text-overline text-live">속보</span>
       </div>
 
-      {/* Scrolling track */}
+      {/* Scrolling track. Both ends fade into the band's own surface color. */}
       <div className="relative flex flex-1 items-center overflow-hidden">
-        {/* Left fade mask */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-surface to-transparent" />
-        {/* Right fade mask */}
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-surface to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-surface to-surface/0" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-surface to-surface/0" />
 
-        <ul
-          className="ticker-track flex min-w-max animate-ticker items-center gap-0 py-2"
-          aria-label="속보 뉴스 목록"
-        >
+        <ul className="ticker-track flex min-w-max animate-ticker items-center" aria-label="속보 뉴스 목록">
           {doubled.map((article, idx) => {
             const t = getDisplayTitle(article);
             return (
-              <li
-                key={`${article.id}-${idx}`}
-                className="flex items-center whitespace-nowrap"
-                aria-hidden={idx >= items.length}
-              >
+              <li key={`${article.id}-${idx}`} className="flex items-center whitespace-nowrap" aria-hidden={idx >= items.length}>
+                {/* The band clips its content, so the focus ring is drawn inside the link. */}
                 <Link
                   href={`/article/${article.id}`}
                   tabIndex={idx >= items.length ? -1 : 0}
                   lang={t.lang}
-                  className="px-4 text-body-md text-text hover:text-accent-red transition-colors"
+                  className="inline-flex h-8 items-center rounded-control px-4 text-body-md text-text transition-colors hover:bg-surface-elevated focus-visible:-outline-offset-2"
                 >
                   {t.text}
                 </Link>
-                <span className="text-text-muted select-none" aria-hidden="true">
-                  /
+                <span className="select-none text-text-muted" aria-hidden="true">
+                  ·
                 </span>
               </li>
             );

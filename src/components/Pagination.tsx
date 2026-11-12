@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { NUM } from '@/lib/ui';
 import { cn } from '@/lib/utils';
 import { getPageItems, getPrevNext, normalizeTotalPages, type PageItem } from '@/lib/pagination';
+import { ChevronLeftIcon, ChevronRightIcon } from './icons';
 
 interface PaginationProps {
   currentPage: number;
@@ -24,33 +26,28 @@ function buildHref(pattern: string, page: number): string {
 
 type Size = 'mobile' | 'desktop';
 
-// Mobile: fixed 5 slots, narrow tabular buttons (worst case ≈256px, fits a 320px screen).
-// Desktop (sm+): the previous 9-slot look.
+// Mobile: fixed 5 slots with narrow fixed-width figures. Measured on a 320px screen (288px usable):
+// 268px on page 1 of 5497, 283px on the last of 5497; only five-digit pages wrap to a second line.
+// Desktop (sm+): 9 slots.
 const BTN_SIZE: Record<Size, string> = {
-  mobile: 'h-10 min-w-9 px-1.5',
-  desktop: 'h-10 min-w-[2.5rem] px-2',
+  mobile: 'h-10 min-w-9 px-1',
+  desktop: 'h-10 min-w-10 px-2',
 };
 const GAP_SIZE: Record<Size, string> = {
   mobile: 'h-10 w-5',
-  desktop: 'h-10 min-w-[2.5rem]',
+  desktop: 'h-10 min-w-10',
 };
 const ROW: Record<Size, string> = {
   mobile: 'flex sm:hidden flex-wrap items-center justify-center gap-1',
-  desktop: 'hidden sm:flex flex-wrap items-center justify-center gap-1.5',
+  desktop: 'hidden sm:flex flex-wrap items-center justify-center gap-1',
 };
 
-const BASE = 'inline-flex items-center justify-center rounded-card border text-body-md font-medium tabular-nums transition-colors';
-const ACTIVE = 'bg-accent border-accent text-white';
-const NORMAL = 'bg-surface-card border-border text-text-secondary hover:bg-surface-elevated hover:text-text';
-const DISABLED = 'bg-surface border-border-muted text-text-muted cursor-not-allowed pointer-events-none';
-
-function Chevron({ dir }: { dir: 'prev' | 'next' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d={dir === 'prev' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'} />
-    </svg>
-  );
-}
+// Page numbers are identifiers (the same figure as ?page= in the URL), so they take no thousands separator.
+const BASE = `inline-flex items-center justify-center rounded-control border text-body-md transition-colors ${NUM}`;
+// Current page: one surface step, a hairline and accent figures — never an accent fill.
+const ACTIVE = 'border-border bg-surface-elevated text-accent';
+const NORMAL = 'border-transparent text-text-secondary hover:bg-surface-elevated hover:text-text';
+const DISABLED = 'border-transparent text-text-muted opacity-50 pointer-events-none';
 
 function PageRow({
   size,
@@ -72,11 +69,11 @@ function PageRow({
     <div className={ROW[size]}>
       {prev != null ? (
         <Link href={buildHref(basePath, prev)} aria-label="이전 페이지" className={btn(NORMAL)}>
-          <Chevron dir="prev" />
+          <ChevronLeftIcon />
         </Link>
       ) : (
         <span aria-disabled="true" className={btn(DISABLED)}>
-          <Chevron dir="prev" />
+          <ChevronLeftIcon />
         </span>
       )}
 
@@ -102,11 +99,11 @@ function PageRow({
 
       {next != null ? (
         <Link href={buildHref(basePath, next)} aria-label="다음 페이지" className={btn(NORMAL)}>
-          <Chevron dir="next" />
+          <ChevronRightIcon />
         </Link>
       ) : (
         <span aria-disabled="true" className={btn(DISABLED)}>
-          <Chevron dir="next" />
+          <ChevronRightIcon />
         </span>
       )}
     </div>

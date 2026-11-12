@@ -38,3 +38,24 @@ export function resolveImageSources(p: {
   withoutPlaceholder.push(IMAGE_PLACEHOLDER_SRC);
   return withoutPlaceholder;
 }
+
+export type ImageSourceKind = 'photo' | 'standin' | 'placeholder';
+
+/** Origin of the category stock photos built by getDefaultImage() (utils.ts). */
+const STANDIN_ORIGIN = 'https://images.unsplash.com/';
+
+/**
+ * What one step of an image chain shows.
+ * - 'standin': a category stock photo, not a photo of this story. Article originals always arrive as a
+ *   proxied '/livenews/api/img/…' path (getArticleImageSources), so a raw Unsplash URL is never an original.
+ * - 'placeholder': the inline SVG (or a blank value).
+ * - 'photo': everything else (proxied original, stored AI-generated image, same-origin path).
+ */
+export function imageSourceKind(src: string | null | undefined): ImageSourceKind {
+  if (typeof src !== 'string' || src.trim() === '' || src === IMAGE_PLACEHOLDER_SRC) return 'placeholder';
+  return src.startsWith(STANDIN_ORIGIN) ? 'standin' : 'photo';
+}
+
+export function isStandInImage(src: string | null | undefined): boolean {
+  return imageSourceKind(src) === 'standin';
+}

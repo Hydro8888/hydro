@@ -93,3 +93,28 @@ export function CheckIcon() {
     </Icon>
   );
 }
+
+/** Outline = not saved; `filled` = saved (the shape fills with the current text color). */
+export function BookmarkIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <Icon>
+      <path fill={filled ? 'currentColor' : undefined} d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+    </Icon>
+  );
+}
+
+export function ChevronLeftIcon() {
+  return (
+    <Icon>
+      <path d="M15 19l-7-7 7-7" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon() {
+  return (
+    <Icon>
+      <path d="M9 5l7 7-7 7" />
+    </Icon>
+  );
+}

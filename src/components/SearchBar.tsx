@@ -2,6 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useRef, type FormEvent } from 'react';
+import { cn } from '@/lib/utils';
+import { BTN_PRIMARY, FIELD } from '@/lib/ui';
+import { SearchIcon } from './icons';
 
 interface SearchBarProps {
   defaultValue?: string;
@@ -10,7 +13,7 @@ interface SearchBarProps {
 
 export default function SearchBar({
   defaultValue = '',
-  placeholder = '뉴스 검색...',
+  placeholder = '뉴스 검색',
 }: SearchBarProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,28 +25,14 @@ export default function SearchBar({
     router.push(`/search?q=${encodeURIComponent(q)}`);
   }
 
+  // Input + button side by side (same shape as the footer subscribe form): two 40px controls, 8px apart.
   return (
-    <form onSubmit={handleSubmit} role="search" className="w-full">
-      <div className="relative flex items-center">
-        {/* Search icon */}
-        <span className="pointer-events-none absolute left-3 flex items-center text-text-muted">
-          <svg
-            aria-hidden="true"
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-            />
-          </svg>
+    <form onSubmit={handleSubmit} role="search" className="flex w-full gap-2">
+      <div className="relative min-w-0 flex-1">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-text-muted">
+          <SearchIcon />
         </span>
-
+        {/* pl-10 = 12px inset + 16px icon + 12px gap */}
         <input
           ref={inputRef}
           type="search"
@@ -52,17 +41,12 @@ export default function SearchBar({
           placeholder={placeholder}
           aria-label="뉴스 검색"
           autoComplete="off"
-          className="w-full rounded-pill border border-border bg-surface-elevated py-2 pl-9 pr-20 text-sm text-text outline-none placeholder:text-text-muted
-            focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
+          className={cn(FIELD, 'pl-10')}
         />
-
-        <button
-          type="submit"
-          className="absolute right-1.5 rounded-pill bg-accent px-4 py-1.5 text-xs font-semibold text-surface hover:bg-accent/90 active:bg-accent/80 transition-colors"
-        >
-          검색
-        </button>
       </div>
+      <button type="submit" className={cn(BTN_PRIMARY, 'shrink-0')}>
+        검색
+      </button>
     </form>
   );
 }

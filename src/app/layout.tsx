@@ -3,11 +3,28 @@ import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+// Web fonts, all fetched at runtime (the build never touches the network):
+// Pretendard — the interface face (dynamic subset: the browser downloads only the glyph ranges a page uses);
+// Noto Serif KR — the two large headlines; IBM Plex Mono — times, figures, counts.
+const PRETENDARD_URL =
+  'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css';
+const WEB_FONTS_URL =
+  'https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap';
+const FONT_STYLESHEETS = [PRETENDARD_URL, WEB_FONTS_URL];
+
+// A <link> inserted by script never blocks rendering, and the server HTML carries no attribute for
+// React to compare at hydration. If a font host is slow or down, the page paints at once in the
+// fallback fonts of each stack (tailwind.config.ts) and swaps when the stylesheet arrives.
+const WEB_FONTS_SCRIPT = `(function(){${JSON.stringify(
+  FONT_STYLESHEETS,
+)}.forEach(function(h){var l=document.createElement('link');l.rel='stylesheet';l.href=h;l.setAttribute('data-webfonts','');document.head.appendChild(l)})})()`;
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#0d1117',
+  // = surface token (page background)
+  themeColor: '#161513',
 };
 
 export const metadata: Metadata = {
@@ -15,7 +32,7 @@ export const metadata: Metadata = {
     default: 'LiveNews - 글로벌 라이브 뉴스',
     template: '%s | LiveNews',
   },
-  description: '전 세계 주요 뉴스를 실시간 AI 번역·요약으로 한국어 제공하는 글로벌 뉴스 허브',
+  description: '전 세계 주요 뉴스를 한국어로 번역·요약해 전하는 뉴스 서비스',
   icons: {
     icon: [
       { url: '/livenews/favicon.ico', sizes: '48x48' },
@@ -34,10 +51,21 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className="dark">
+      <head>
+        {/* Font files come from cdn.jsdelivr.net (Pretendard) and fonts.gstatic.com; both are CORS fetches */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <script dangerouslySetInnerHTML={{ __html: WEB_FONTS_SCRIPT }} />
+        <noscript>
+          <link rel="stylesheet" href={PRETENDARD_URL} />
+          <link rel="stylesheet" href={WEB_FONTS_URL} />
+        </noscript>
+      </head>
       <body className="bg-surface text-text min-h-screen flex flex-col overflow-x-hidden">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-card focus:bg-accent focus:text-surface focus:text-sm focus:font-semibold"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded-control focus:bg-text focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-ink"
         >
           본문 바로가기
         </a>

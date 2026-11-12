@@ -14,7 +14,7 @@ export default function AdminNav({ items }: { items: readonly AdminMenuItem[] })
   const pathname = usePathname() ?? '';
 
   return (
-    <nav aria-label="관리자 메뉴" className="flex flex-wrap gap-x-4 gap-y-1">
+    <nav aria-label="관리자 메뉴" className="flex flex-wrap gap-x-4">
       {items.map((item) => {
         const active =
           item.href === '/admin'
@@ -26,7 +26,7 @@ export default function AdminNav({ items }: { items: readonly AdminMenuItem[] })
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'whitespace-nowrap text-sm transition-colors',
+              'inline-flex h-8 items-center whitespace-nowrap text-sm font-medium transition-colors',
               active ? 'text-accent' : 'text-text-secondary hover:text-text',
             )}
           >

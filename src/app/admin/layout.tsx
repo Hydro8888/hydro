@@ -13,23 +13,26 @@ const adminMenu = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-surface">
-      {/* Admin bar — same max-w-7xl + px-4 box as the content, so the logo and content align */}
+      {/* Admin bar — same container as the content below (and the public site), so the wordmark and content align */}
       <div className="bg-surface-card border-b border-border py-3">
         {/* < sm: row 1 = brand + back link, row 2 = AdminNav (order + w-full).
             >= sm: order reset → brand · nav · (ml-auto) back link, as before. */}
-        <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-          <Link href="/admin" className="whitespace-nowrap font-bold text-lg text-accent">
+        <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Link href="/admin" className="whitespace-nowrap text-lg font-semibold text-text">
             LiveNews Admin
           </Link>
           <div className="order-3 w-full sm:order-none sm:w-auto">
             <AdminNav items={adminMenu} />
           </div>
-          <Link href="/" className="order-2 ml-auto whitespace-nowrap text-sm text-text-muted hover:text-text sm:order-none">
+          <Link
+            href="/"
+            className="order-2 ml-auto inline-flex h-8 items-center whitespace-nowrap text-sm text-text-secondary transition-colors hover:text-text sm:order-none"
+          >
             사이트로 돌아가기
           </Link>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 py-6">{children}</div>
+      <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8 py-6">{children}</div>
     </div>
   );
 }

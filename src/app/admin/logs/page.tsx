@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { fetchAdminJson, hasRowsWithId, isAbortError, isRecord, type AdminFetchErrorKind } from '@/lib/admin-fetch';
-import { formatDate } from '@/lib/utils';
+import { FIELD_SM, TABLE_WRAP, TD, TD_MAIN, TD_NUM, TD_TIME, TH, TH_NUM, TR } from '@/lib/ui';
+import { cn, countryLabel, formatCount, formatDate } from '@/lib/utils';
 import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
+import { AdminPager, AdminStat, LogStatus } from '@/components/AdminParts';
+import PageHeading from '@/components/PageHeading';
 
 interface Log {
   id: number;
@@ -62,38 +65,34 @@ export default function AdminLogsPage() {
 
   const successCount = logs.filter((l) => l.status === 'success').length;
   const failedCount = logs.filter((l) => l.status === 'failed').length;
+  // What the two figures are counted over: the rows on this page
+  const pageBasis = `${formatCount(logs.length)}건 중`;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text">{load.status === 'ready' ? `수집 로그 (${total})` : '수집 로그'}</h1>
+      {/* No count unless it was actually loaded */}
+      <PageHeading title="수집 로그" count={load.status === 'ready' ? total : null}>
+        <label htmlFor="admin-log-status" className="sr-only">상태</label>
         <select
+          id="admin-log-status"
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="text-sm bg-surface border border-border text-text rounded px-2 py-1 focus:border-accent focus:outline-none"
+          className={FIELD_SM}
         >
           <option value="">전체 상태</option>
           <option value="success">성공</option>
           <option value="failed">실패</option>
           <option value="partial">부분</option>
         </select>
-      </div>
+      </PageHeading>
 
+      {/* The success / failure figures count the rows of this page, and say so. */}
       {load.status === 'ready' && (
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-surface-card rounded-lg shadow-card p-4 border border-border text-center">
-          <p className="text-sm text-text-secondary">이 페이지</p>
-          <p className="text-2xl font-bold text-text">{logs.length}</p>
-        </div>
-        <div className="bg-surface-card rounded-lg shadow-card p-4 border border-border text-center">
-          <p className="text-sm text-text-secondary">성공</p>
-          <p className="text-2xl font-bold text-accent-green">{successCount}</p>
-        </div>
-        <div className="bg-surface-card rounded-lg shadow-card p-4 border border-border text-center">
-          <p className="text-sm text-text-secondary">실패</p>
-          <p className="text-2xl font-bold text-accent-red">{failedCount}</p>
-        </div>
-      </div>
+        <dl className="mb-6 grid grid-cols-3 gap-4">
+          <AdminStat label="이 페이지" value={logs.length} basis={`전체 ${formatCount(total)}건 중`} />
+          <AdminStat label="성공" value={successCount} basis={pageBasis} />
+          <AdminStat label="실패" value={failedCount} basis={pageBasis} alert={failedCount > 0} />
+        </dl>
       )}
 
       {load.status === 'error' ? (
@@ -102,72 +101,52 @@ export default function AdminLogsPage() {
         <AdminLoading />
       ) : (
         <>
-          <div className="bg-surface-card rounded-lg shadow-card border border-border overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-elevated">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">ID</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">소스</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">국가</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">상태</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">발견</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">신규</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">시작</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">완료</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">에러</th>
+          <div className={TABLE_WRAP}>
+            <table className="w-full text-body-md">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className={TH_NUM}>ID</th>
+                  <th className={TH}>소스</th>
+                  <th className={cn(TH, 'hidden sm:table-cell')}>국가</th>
+                  <th className={TH}>상태</th>
+                  <th className={cn(TH_NUM, 'hidden sm:table-cell')}>발견</th>
+                  <th className={cn(TH_NUM, 'hidden sm:table-cell')}>신규</th>
+                  <th className={TH}>시작</th>
+                  <th className={cn(TH, 'hidden sm:table-cell')}>완료</th>
+                  <th className={cn(TH, 'hidden sm:table-cell')}>오류</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-muted">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-surface-elevated/50">
-                    <td className="px-4 py-3 text-text-muted">{log.id}</td>
-                    <td className="px-4 py-3 font-medium text-text">{log.source.sourceName}</td>
-                    <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{log.source.country}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        log.status === 'success' ? 'bg-accent-green/15 text-accent-green' :
-                        log.status === 'failed' ? 'bg-accent-red/15 text-accent-red' :
-                        'bg-accent/15 text-accent'
-                      }`}>
-                        {log.status}
-                      </span>
+                  <tr key={log.id} className={TR}>
+                    {/* An identifier, not a quantity: no thousands separator, muted */}
+                    <td className={TD_NUM}>
+                      <span className="text-text-muted">{log.id}</span>
                     </td>
-                    <td className="px-4 py-3 text-text hidden sm:table-cell">{log.articlesFound}</td>
-                    <td className="px-4 py-3 font-medium text-text hidden sm:table-cell">{log.articlesNew}</td>
-                    <td className="px-4 py-3 text-text-secondary tabular-nums">{formatDate(log.startedAt) || '-'}</td>
-                    <td className="px-4 py-3 text-text-secondary tabular-nums hidden sm:table-cell">{formatDate(log.completedAt) || '-'}</td>
-                    <td className="px-4 py-3 text-accent-red truncate max-w-xs hidden sm:table-cell">{log.errorMessage || '-'}</td>
+                    <td className={cn(TD_MAIN, 'whitespace-nowrap')}>{log.source.sourceName}</td>
+                    <td className={cn(TD, 'hidden sm:table-cell')}>{countryLabel(log.source.country)}</td>
+                    <td className={TD}>
+                      <LogStatus log={log} />
+                    </td>
+                    <td className={cn(TD_NUM, 'hidden sm:table-cell')}>{formatCount(log.articlesFound)}</td>
+                    <td className={cn(TD_NUM, 'hidden sm:table-cell')}>{formatCount(log.articlesNew)}</td>
+                    <td className={TD_TIME}>{formatDate(log.startedAt) || '-'}</td>
+                    <td className={cn(TD_TIME, 'hidden sm:table-cell')}>{formatDate(log.completedAt) || '-'}</td>
+                    <td className={cn(TD, 'hidden max-w-xs truncate sm:table-cell')} title={log.errorMessage ?? undefined}>
+                      {log.errorMessage ? <span className="text-negative">{log.errorMessage}</span> : '-'}
+                    </td>
                   </tr>
                 ))}
                 {logs.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-text-muted">수집 로그가 없습니다</td>
+                    <td colSpan={9} className="h-24 px-4 text-center text-text-muted">수집 로그가 없습니다</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-center gap-2 mt-6">
-            <button
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-              className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated disabled:opacity-50"
-            >
-              이전
-            </button>
-            <span className="px-4 py-2 text-sm text-text-secondary">
-              {page} / {totalPages || 1}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
-              className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated disabled:opacity-50"
-            >
-              다음
-            </button>
-          </div>
+          <AdminPager page={page} totalPages={totalPages} onPage={setPage} />
         </>
       )}
     </div>

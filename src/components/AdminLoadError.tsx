@@ -5,9 +5,9 @@ import { BTN_SECONDARY, NUM, PANEL } from '@/lib/ui';
 
 const MESSAGES: Record<AdminFetchErrorKind, { title: string; detail: string }> = {
   auth: { title: '관리자 인증이 필요합니다', detail: '페이지를 새로고침해 다시 로그인하세요' },
-  server: { title: '데이터를 불러오지 못했습니다(서버 오류)', detail: '잠시 후 다시 시도하세요' },
-  invalid: { title: '데이터를 불러오지 못했습니다(서버 오류)', detail: '응답 형식이 올바르지 않습니다. 잠시 후 다시 시도하세요.' },
-  network: { title: '네트워크 연결을 확인하세요', detail: '서버에 연결할 수 없습니다' },
+  server: { title: '데이터를 불러오지 못했습니다', detail: '서버 오류 · 잠시 후 다시 시도하세요' },
+  invalid: { title: '데이터를 불러오지 못했습니다', detail: '응답 형식이 올바르지 않습니다 · 잠시 후 다시 시도하세요' },
+  network: { title: '서버에 연결할 수 없습니다', detail: '네트워크 연결을 확인하세요' },
 };
 
 interface AdminLoadErrorProps {

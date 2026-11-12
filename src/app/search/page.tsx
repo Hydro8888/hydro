@@ -4,8 +4,11 @@ import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import NewsCard from '@/components/NewsCard';
 import Pagination from '@/components/Pagination';
+import EmptyState from '@/components/EmptyState';
+import PageHeading from '@/components/PageHeading';
 import { CATEGORIES, COUNTRIES } from '@/lib/constants';
-import { parsePage } from '@/lib/utils';
+import { BTN_PRIMARY, BTN_SECONDARY, CONTAINER, FIELD, FIELD_SM, NUM } from '@/lib/ui';
+import { cn, formatCount, parsePage } from '@/lib/utils';
 import { withBasePath } from '@/lib/site';
 
 interface Article {
@@ -24,7 +27,7 @@ interface Article {
 
 export default function SearchPageWrapper() {
   return (
-    <Suspense fallback={<div className="text-center py-20 text-text-muted">로딩 중...</div>}>
+    <Suspense fallback={<div className="py-16 text-center text-body-md text-text-secondary">불러오는 중</div>}>
       <SearchPage />
     </Suspense>
   );
@@ -123,31 +126,27 @@ function SearchPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-8">
-      <h1 className="text-headline-lg text-text mb-6">뉴스 검색</h1>
+    <div className={cn(CONTAINER, 'py-8')}>
+      <PageHeading title="뉴스 검색" />
 
-      {/* Search Form */}
-      <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="키워드를 입력하세요..."
-            className="flex-1 px-4 py-3 bg-surface-card border border-border rounded-card text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-body-lg transition-colors"
-          />
-          <button
-            type="submit"
-            className="px-6 py-3 bg-accent text-white rounded-card font-medium hover:bg-accent/90 transition-colors"
-          >
-            검색
-          </button>
-        </div>
+      {/* The one primary action of this screen */}
+      <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="검색어"
+          placeholder="검색어"
+          className={cn(FIELD, 'min-w-0 flex-1')}
+        />
+        <button type="submit" className={BTN_PRIMARY}>
+          검색
+        </button>
       </form>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 mb-6">
-        <div className="flex gap-2 items-center">
+      <div className="mb-8 flex flex-wrap gap-x-4 gap-y-3">
+        <div className="flex items-center gap-2">
           <label htmlFor="search-country" className="text-body-md text-text-secondary">국가</label>
           <select
             id="search-country"
@@ -158,7 +157,7 @@ function SearchPage() {
               if (category) params.set('category', category);
               router.push(`/search?${params}`);
             }}
-            className="text-body-md bg-surface-elevated border border-border text-text rounded-badge px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
+            className={FIELD_SM}
           >
             <option value="">전체</option>
             {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
@@ -166,7 +165,7 @@ function SearchPage() {
             ))}
           </select>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex items-center gap-2">
           <label htmlFor="search-category" className="text-body-md text-text-secondary">카테고리</label>
           <select
             id="search-category"
@@ -177,7 +176,7 @@ function SearchPage() {
               if (e.target.value) params.set('category', e.target.value);
               router.push(`/search?${params}`);
             }}
-            className="text-body-md bg-surface-elevated border border-border text-text rounded-badge px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent"
+            className={FIELD_SM}
           >
             <option value="">전체</option>
             {CATEGORIES.map((c) => (
@@ -189,51 +188,34 @@ function SearchPage() {
 
       {/* Results — count only once it is actually known (not while loading / after an error) */}
       {q && !error && !loading && (
-        <div className="mb-4 text-body-md text-text-secondary">
-          &quot;{q}&quot; 검색 결과: {total}건
-        </div>
+        <p className="mb-4 text-body-md text-text-secondary">
+          “{q}” 검색 결과 <span className={cn(NUM, 'text-text')}>{formatCount(total)}</span>건
+        </p>
       )}
 
       {error ? (
-        <div className="text-center py-20">
-          <div role="alert">
-            <p className="text-headline-sm text-accent-red">검색 중 오류가 발생했습니다</p>
-            <p className="text-body-md text-text-muted mt-2">잠시 후 다시 시도해주세요</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setRetryKey((k) => k + 1)}
-            className="mt-4 px-4 py-2 bg-accent text-white rounded-card text-body-md font-semibold hover:bg-accent/90 transition-colors"
-          >
+        <EmptyState alert title="검색하지 못했습니다" detail="잠시 후 다시 시도하세요">
+          <button type="button" onClick={() => setRetryKey((k) => k + 1)} className={BTN_SECONDARY}>
             다시 시도
           </button>
-        </div>
+        </EmptyState>
       ) : loading ? (
-        <div role="status" className="text-center py-20 text-text-muted">
-          <div aria-hidden="true" className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto mb-4"></div>
-          검색 중...
+        <div role="status" className="py-16 text-center text-body-md text-text-secondary">
+          {/* `animate-spin` is what scripts/qa/ui-audit.js looks for to detect a stuck spinner */}
+          <div aria-hidden="true" className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-border border-t-text-secondary" />
+          검색 중
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {articles.map((article) => (
               <NewsCard key={article.id} article={{ ...article, language: article.language ?? undefined }} />
             ))}
           </div>
 
-          {q && articles.length === 0 && (
-            <div className="text-center py-20">
-              <p className="text-headline-sm text-text-secondary">검색 결과가 없습니다</p>
-              <p className="text-body-md text-text-muted mt-2">다른 키워드로 검색해보세요</p>
-            </div>
-          )}
+          {q && articles.length === 0 && <EmptyState title="검색 결과가 없습니다" detail="다른 검색어로 다시 찾아보세요" />}
 
-          {!q && (
-            <div className="text-center py-20">
-              <p className="text-headline-sm text-text-secondary">검색어를 입력해주세요</p>
-              <p className="text-body-md text-text-muted mt-2">글로벌 뉴스를 키워드, 국가, 카테고리별로 검색할 수 있습니다</p>
-            </div>
-          )}
+          {!q && <EmptyState title="검색어를 입력하세요" detail="국가와 카테고리로 결과를 좁힐 수 있습니다" />}
 
           {/* Pagination — shared component (mobile-safe, numbered) */}
           {q && totalPages > 1 && (

@@ -76,6 +76,14 @@ export default async function HomePage() {
 
   const latestNews = remaining.filter((a) => !usedIds.has(a.id));
 
+  // Three category columns and the count panel make four cells: two by two from md, one row at xl.
+  // With fewer cells the section keeps the three-column grid of the rest of the page.
+  const categoryCells = categorySections.length + (trendingKw.length > 0 ? 1 : 0);
+  const categoryGrid =
+    categoryCells === 4
+      ? 'grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 xl:grid-cols-4'
+      : 'grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 lg:grid-cols-3';
+
   return (
     <div className={cn(CONTAINER, 'py-8')}>
       <h1 className="sr-only">LiveNews 주요 뉴스</h1>
@@ -119,9 +127,9 @@ export default async function HomePage() {
               )}
             </div>
 
-            {/* Two rows of equal height, so the column ends level with the left one at lg. */}
+            {/* Side by side at md; at lg two rows of equal height, so the column ends level with the left one. */}
             {subHeroes.length > 0 && (
-              <div className={subHeroes.length > 1 ? 'grid gap-5 lg:grid-rows-2' : 'grid gap-5'}>
+              <div className={subHeroes.length > 1 ? 'grid gap-5 md:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2' : 'grid gap-5'}>
                 {subHeroes.map((article) => (
                   <NewsCardLarge key={article.id} article={article} />
                 ))}
@@ -136,12 +144,12 @@ export default async function HomePage() {
         <section className="mt-12">
           <h2 className={SECTION_TITLE}>카테고리별 뉴스</h2>
 
-          <div className="grid grid-cols-1 gap-x-5 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
+          <div className={categoryGrid}>
             {categorySections.map(({ slug, label, featured, secondary }) => (
-              <div key={slug} className="border-t border-border pt-4">
+              <div key={slug} className="flex flex-col border-t border-border pt-4">
                 <Link
                   href={`/category/${slug}`}
-                  className="mb-4 inline-flex items-center gap-2 text-headline-sm text-text transition-colors hover:text-text-secondary"
+                  className="mb-4 inline-flex items-center gap-2 self-start text-headline-sm text-text transition-colors hover:text-text-secondary"
                 >
                   {label}
                   <span className="text-text-muted">
@@ -149,7 +157,12 @@ export default async function HomePage() {
                   </span>
                 </Link>
 
-                {featured && <NewsCard article={featured} />}
+                {/* The card takes the height the column has left, so the lists below end on one line. */}
+                {featured && (
+                  <div className="grid flex-1">
+                    <NewsCard article={featured} />
+                  </div>
+                )}
 
                 {/* px-2 takes back the 8px the rows hang out, so their hairlines end on the column edges. */}
                 {secondary.length > 0 && (
@@ -162,8 +175,13 @@ export default async function HomePage() {
               </div>
             ))}
 
-            {/* Article count per category — the index of this section, in the same grid. */}
-            {trendingKw.length > 0 && <TrendingKeywords keywords={trendingKw} />}
+            {/* Article count per category — the index of this section, in the same grid.
+                The wrapper keeps the panel at its own height when the row is taller. */}
+            {trendingKw.length > 0 && (
+              <div>
+                <TrendingKeywords keywords={trendingKw} />
+              </div>
+            )}
           </div>
         </section>
       )}

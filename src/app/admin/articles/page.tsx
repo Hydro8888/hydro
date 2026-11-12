@@ -4,9 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { fetchAdminJson, hasRowsWithId, isAbortError, isRecord, type AdminFetchErrorKind } from '@/lib/admin-fetch';
 import { withBasePath } from '@/lib/site';
-import { categoryLabel, countryLabel, getDisplayTitle, toLangTag } from '@/lib/utils';
+import { FIELD_SM, TABLE_WRAP, TD, TD_NUM, TH, TH_NUM, TR } from '@/lib/ui';
+import { categoryLabel, cn, countryLabel, formatCount, getDisplayTitle, toLangTag } from '@/lib/utils';
 import { COUNTRIES } from '@/lib/constants';
 import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
+import { ActiveToggle, AdminPager } from '@/components/AdminParts';
+import PageHeading from '@/components/PageHeading';
 
 interface Article {
   id: number;
@@ -100,7 +103,7 @@ export default function AdminArticlesPage() {
     } catch {
       // Roll back optimistic change and notify
       setArticles((prev) => prev.map((a) => (a.id === id ? { ...a, isActive } : a)));
-      alert('상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      alert('기사 상태를 바꾸지 못했습니다\n잠시 후 다시 시도하세요');
     }
   }
 
@@ -108,35 +111,32 @@ export default function AdminArticlesPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        {/* No "(0)" unless the count was actually loaded */}
-        <h1 className="text-2xl font-bold text-text">{ready ? `기사 관리 (${total})` : '기사 관리'}</h1>
-        <div className="flex gap-2">
-          <label htmlFor="admin-article-status" className="sr-only">상태</label>
-          <select
-            id="admin-article-status"
-            value={filter.status}
-            onChange={(e) => { setFilter({ ...filter, status: e.target.value as StatusFilter }); setPage(1); }}
-            className="text-sm bg-surface border border-border text-text rounded px-2 py-1 focus:border-accent focus:outline-none"
-          >
-            <option value="all">전체 상태</option>
-            <option value="active">활성</option>
-            <option value="inactive">비활성</option>
-          </select>
-          <label htmlFor="admin-article-country" className="sr-only">국가</label>
-          <select
-            id="admin-article-country"
-            value={filter.country}
-            onChange={(e) => { setFilter({ ...filter, country: e.target.value }); setPage(1); }}
-            className="text-sm bg-surface border border-border text-text rounded px-2 py-1 focus:border-accent focus:outline-none"
-          >
-            <option value="">전체 국가</option>
-            {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
-              <option key={c.code} value={c.code}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* No count unless it was actually loaded */}
+      <PageHeading title="기사 관리" count={ready ? total : null}>
+        <label htmlFor="admin-article-status" className="sr-only">상태</label>
+        <select
+          id="admin-article-status"
+          value={filter.status}
+          onChange={(e) => { setFilter({ ...filter, status: e.target.value as StatusFilter }); setPage(1); }}
+          className={FIELD_SM}
+        >
+          <option value="all">전체 상태</option>
+          <option value="active">활성</option>
+          <option value="inactive">비활성</option>
+        </select>
+        <label htmlFor="admin-article-country" className="sr-only">국가</label>
+        <select
+          id="admin-article-country"
+          value={filter.country}
+          onChange={(e) => { setFilter({ ...filter, country: e.target.value }); setPage(1); }}
+          className={FIELD_SM}
+        >
+          <option value="">전체 국가</option>
+          {COUNTRIES.filter((c) => c.code !== 'all').map((c) => (
+            <option key={c.code} value={c.code}>{c.label}</option>
+          ))}
+        </select>
+      </PageHeading>
 
       {load.status === 'loading' && <AdminLoading />}
       {load.status === 'error' && (
@@ -145,74 +145,69 @@ export default function AdminArticlesPage() {
 
       {ready && (
         <>
-          <div className="bg-surface-card rounded-lg shadow-card border border-border overflow-x-auto" aria-busy={refreshing}>
-            <table className="w-full text-sm">
-              <thead className="bg-surface-elevated">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">ID</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">제목</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">소스</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">국가</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">카테고리</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">조회</th>
-                  <th className="px-4 py-3 text-left font-medium text-text-secondary">상태</th>
+          <div className={TABLE_WRAP} aria-busy={refreshing}>
+            <table className="w-full text-body-md">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className={cn(TH_NUM, 'hidden sm:table-cell')}>ID</th>
+                  <th className={TH}>제목</th>
+                  <th className={TH}>소스</th>
+                  <th className={cn(TH, 'hidden sm:table-cell')}>국가</th>
+                  <th className={cn(TH, 'hidden sm:table-cell')}>카테고리</th>
+                  <th className={TH_NUM}>조회</th>
+                  <th className={TH}>상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-muted">
                 {articles.map((article) => {
                   const t = getDisplayTitle(article);
                   return (
-                    <tr key={article.id} className="hover:bg-surface-elevated/50">
-                      <td className="px-4 py-3 text-text-muted tabular-nums hidden sm:table-cell">{article.id}</td>
-                      <td className="px-4 py-3 max-w-md">
-                        <div className="flex items-baseline gap-1.5 min-w-0">
+                    <tr key={article.id} className={TR}>
+                      {/* An identifier, not a quantity: no thousands separator, muted */}
+                      <td className={cn(TD_NUM, 'hidden sm:table-cell')}>
+                        <span className="text-text-muted">{article.id}</span>
+                      </td>
+                      <td className={cn(TD, 'max-w-md')}>
+                        <div className="flex min-w-0 items-baseline gap-2">
                           {article.isActive ? (
-                            <Link href={`/article/${article.id}`} lang={t.lang} className="text-text hover:text-accent line-clamp-1">
+                            <Link href={`/article/${article.id}`} lang={t.lang} className="line-clamp-1 text-text underline-offset-4 hover:underline">
                               {t.text}
                             </Link>
                           ) : (
                             // Inactive articles are not public (their page is a 404)
-                            <span lang={t.lang} className="text-text-secondary line-clamp-1">{t.text}</span>
+                            <span lang={t.lang} className="line-clamp-1">{t.text}</span>
                           )}
                           {!t.isTranslated && toLangTag(article.language) !== 'ko' && (
                             <span className="flex-none text-caption text-text-muted">(미번역)</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-text-secondary">{article.source.sourceName}</td>
-                      <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{countryLabel(article.country)}</td>
-                      <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">
+                      <td className={cn(TD, 'whitespace-nowrap')}>{article.source.sourceName}</td>
+                      <td className={cn(TD, 'hidden sm:table-cell')}>{countryLabel(article.country)}</td>
+                      <td className={cn(TD, 'hidden sm:table-cell')}>
                         {article.categoryPrimary ? categoryLabel(article.categoryPrimary) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-text tabular-nums">{article.viewCount}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => toggleActive(article.id, article.isActive)}
-                          aria-label={`기사 ${article.id} ${article.isActive ? '비활성으로 전환' : '활성으로 전환'}`}
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${article.isActive ? 'bg-accent-green/15 text-accent-green' : 'bg-accent-red/15 text-accent-red'}`}
-                        >
-                          {article.isActive ? '활성' : '비활성'}
-                        </button>
+                      <td className={TD_NUM}>{formatCount(article.viewCount)}</td>
+                      <td className={TD}>
+                        <ActiveToggle
+                          on={article.isActive}
+                          label={`기사 ${article.id} ${article.isActive ? '비활성으로 전환' : '활성으로 전환'}`}
+                          onToggle={() => toggleActive(article.id, article.isActive)}
+                        />
                       </td>
                     </tr>
                   );
                 })}
                 {articles.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-text-muted">조건에 맞는 기사가 없습니다</td>
+                    <td colSpan={7} className="h-24 px-4 text-center text-text-muted">조건에 맞는 기사가 없습니다</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-center gap-2 mt-6">
-            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated disabled:opacity-50">이전</button>
-            <span className="px-4 py-2 text-sm text-text-secondary tabular-nums">{page} / {Math.max(1, totalPages)}</span>
-            <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated disabled:opacity-50">다음</button>
-          </div>
+          <AdminPager page={page} totalPages={totalPages} onPage={setPage} />
         </>
       )}
     </div>

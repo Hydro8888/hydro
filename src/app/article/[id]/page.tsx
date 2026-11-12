@@ -5,15 +5,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { CONTAINER, TAG } from '@/lib/ui';
 import {
   categoryLabel,
   cn,
   countryLabel,
   formatDate,
   getArticleImageSources,
-  getCategoryStyle,
   getDisplayTitle,
-  timeAgo,
   toIsoDateTime,
   toLangTag,
 } from '@/lib/utils';
@@ -24,6 +23,7 @@ import ShareButtons from '@/components/ShareButtons';
 import BookmarkButton from '@/components/BookmarkButton';
 import AdSlot from '@/components/AdSlot';
 import ArticleHeroImage from '@/components/ArticleHeroImage';
+import { ChevronRightIcon, ExternalIcon } from '@/components/icons';
 
 /**
  * One lookup per request, shared by generateMetadata and the page.
@@ -74,7 +74,11 @@ async function getRelatedArticles(article: { id: number; categoryPrimary: string
   }
 }
 
-const BODY_TEXT = 'text-text leading-[1.9] text-base md:text-[17px] space-y-5';
+// Reading text: 16/28 on a phone, 18/32 from sm, 24px between paragraphs.
+const BODY_TEXT = 'space-y-6 text-base leading-7 text-text sm:text-lg sm:leading-8';
+// Editor's notes (translation pending, excerpt only): a neutral rule, never the accent.
+const NOTE = 'border-l-2 border-border pl-3 text-caption text-text-secondary';
+const QUIET_LINK = 'transition-colors hover:text-text';
 
 const BODY_PENDING_NOTICE = {
   'summary+original': '본문 번역 준비 중 · 한국어 요약과 원문을 먼저 제공합니다',
@@ -82,11 +86,11 @@ const BODY_PENDING_NOTICE = {
   summary: '본문 번역 준비 중 · 한국어 요약만 제공됩니다',
 } as const;
 
-function Chevron({ className }: { className: string }) {
+function Sep() {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
+    <span aria-hidden="true" className="text-text-muted">
+      ·
+    </span>
   );
 }
 
@@ -109,18 +113,42 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
   const catLinked = isKnownCategorySlug(catSlug);
   const catText = catSlug && categoryLabel(catSlug) !== catSlug ? categoryLabel(catSlug) : '';
   const catLabel = catLinked ? categoryLabel(catSlug) : catText;
-  const catStyle = getCategoryStyle(catSlug || 'general');
 
+  // A permanent record, so the full date (KST): 2026.11.12 06:31
   const dateLabel = formatDate(article.publishedAt);
   const dateTime = toIsoDateTime(article.publishedAt);
-  const relative = dateLabel ? timeAgo(article.publishedAt) : '';
+
+  // Dateline: source · time · author. Printed at the head and again at the foot of the article.
+  const dateline = (
+    <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-body-md text-text-secondary">
+      <span>{article.source.sourceName}</span>
+      {dateLabel && (
+        <>
+          <Sep />
+          <time dateTime={dateTime} className="dateline">
+            {dateLabel}
+          </time>
+        </>
+      )}
+      {article.author && (
+        <>
+          <Sep />
+          <span className="min-w-0 break-words text-text-muted">{article.author}</span>
+        </>
+      )}
+    </p>
+  );
 
   const originalHeading = view.originalLabel === '원문' ? '원문' : `원문 · ${view.originalLabel}`;
   const originalBlock = (collapsed: boolean) =>
     view.originalParagraphs.length > 0 ? (
-      <div data-original-body="" lang={view.originalLang} className={collapsed ? 'mt-2 bg-surface-elevated rounded-card p-4 border border-border' : ''}>
-        <p className="text-overline uppercase tracking-widest text-text-muted mb-3">{originalHeading}</p>
-        <div className={collapsed ? 'text-body-md text-text-secondary leading-relaxed space-y-2' : BODY_TEXT}>
+      <div
+        data-original-body=""
+        lang={view.originalLang}
+        className={collapsed ? 'mt-2 rounded-card border border-border bg-surface-card p-5' : undefined}
+      >
+        <p className="mb-2 text-overline text-text-muted">{originalHeading}</p>
+        <div className={collapsed ? 'space-y-3 text-body-md text-text-secondary' : BODY_TEXT}>
           {view.originalParagraphs.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
@@ -129,184 +157,174 @@ export default async function ArticleDetailPage({ params }: { params: { id: stri
     ) : null;
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      {/* Breadcrumb */}
-      <nav aria-label="현재 위치" className="text-body-md text-text-secondary mb-6 flex flex-wrap items-center gap-2">
-        <Link href="/" className="hover:text-accent transition-colors">홈</Link>
-        <Chevron className="w-3 h-3 text-text-muted" />
-        {article.country && (
-          <>
-            <Link href={`/${article.country === 'global' ? 'world' : article.country}`} className="hover:text-accent transition-colors">
-              {countryLabel(article.country)}
-            </Link>
-            {catLabel && <Chevron className="w-3 h-3 text-text-muted" />}
-          </>
-        )}
-        {catLabel &&
-          (catLinked ? (
-            <Link href={`/category/${catSlug}`} className="hover:text-accent transition-colors">{catLabel}</Link>
-          ) : (
-            <span>{catLabel}</span>
-          ))}
-      </nav>
-
-      <article>
-        {/* Hero Image — decorative (the headline follows); no photo → low band with source wordmark */}
-        <div className="mb-8 rounded-card overflow-hidden shadow-elevated bg-surface-elevated">
-          <ArticleHeroImage
-            sources={getArticleImageSources(article)}
-            categoryPrimary={article.categoryPrimary}
-            sourceName={article.source.sourceName}
-          />
-        </div>
-
-        {/* Category + Meta Row */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          {catLabel && (
-            <span className={cn(catStyle.bg, catStyle.text, 'border', catStyle.borderAll, 'text-caption font-bold px-3 py-1 rounded-badge')}>
-              {catLabel}
-            </span>
-          )}
-          <span className="text-body-md text-text-secondary">{article.source.sourceName}</span>
-          {dateLabel && (
+    <div className={cn(CONTAINER, 'py-8')}>
+      {/* One reading column inside the page container: 672px, about 37 Hangul per line at 18px. */}
+      <div className="mx-auto max-w-2xl">
+        {/* Breadcrumb */}
+        <nav aria-label="현재 위치" className="mb-4 flex flex-wrap items-center gap-2 text-body-md text-text-secondary">
+          <Link href="/" className={QUIET_LINK}>홈</Link>
+          {article.country && (
             <>
-              <time dateTime={dateTime} className="text-body-md text-text-muted tabular-nums">{dateLabel}</time>
-              <span className="text-body-md text-text-muted flex items-center gap-1">
-                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                {relative}
-              </span>
+              <span aria-hidden="true" className="text-text-muted">/</span>
+              <Link href={`/${article.country === 'global' ? 'world' : article.country}`} className={QUIET_LINK}>
+                {countryLabel(article.country)}
+              </Link>
             </>
           )}
-          {article.author && <span className="text-body-md text-text-secondary">{article.author}</span>}
-          <div className="ml-auto">
-            <BookmarkButton articleId={article.id} />
+          {catLabel && (
+            <>
+              <span aria-hidden="true" className="text-text-muted">/</span>
+              {catLinked ? (
+                <Link href={`/category/${catSlug}`} className={QUIET_LINK}>{catLabel}</Link>
+              ) : (
+                <span>{catLabel}</span>
+              )}
+            </>
+          )}
+        </nav>
+
+        <article>
+          {/* Hero Image — decorative (the headline follows); no photo → low band with source wordmark */}
+          <div className="mb-6 overflow-hidden rounded-card bg-surface-elevated">
+            <ArticleHeroImage sources={getArticleImageSources(article)} sourceName={article.source.sourceName} />
           </div>
-        </div>
 
-        {/* Title — source-language titles carry their own lang (CJK line breaking) */}
-        <h1 lang={view.title.lang} className="text-headline-xl leading-tight text-text mb-3">
-          {view.title.text}
-        </h1>
-
-        {view.titlePending ? (
-          <p data-translation-status="title-pending" className="text-caption text-text-muted mb-4">
-            제목 번역 준비 중 · 원문 제목을 표시합니다
-          </p>
-        ) : (
-          view.title.isTranslated && (
-            <p lang={toLangTag(article.language)} className="text-body-md text-text-muted mb-4 italic">
-              {article.titleOriginal}
-            </p>
-          )
-        )}
-
-        {/* Share Buttons */}
-        <div className="mb-6">
-          <ShareButtons url={article.originalUrl} title={view.title.text} />
-        </div>
-
-        <hr className="border-border mb-8" />
-
-        {/* Article Body — never hides what is missing: untranslated bodies get an editor's-note
-            rail, the Korean summary first, then the labelled original. */}
-        <div className="mb-8 space-y-8">
-          {view.bodyPending && view.bodyMode !== 'translated' && view.bodyMode !== 'empty' && (
-            <div data-translation-status="body-pending" className="border-l-2 border-accent/60 pl-3 text-caption text-text-secondary">
-              {BODY_PENDING_NOTICE[view.bodyMode]}
+          <div className="mb-3 flex items-start justify-between gap-3">
+            {dateline}
+            {/* -my-1: the 32px button does not make the row taller than its text line */}
+            <div className="-my-1 shrink-0">
+              <BookmarkButton articleId={article.id} />
             </div>
+          </div>
+
+          {/* Title — source-language titles carry their own lang (CJK line breaking) */}
+          <h1 lang={view.title.lang} className="mb-3 font-serif text-headline-xl text-text text-balance">
+            {view.title.text}
+          </h1>
+
+          {view.titlePending ? (
+            <p data-translation-status="title-pending" className="mb-6 text-caption text-text-muted">
+              제목 번역 준비 중 · 원문 제목을 표시합니다
+            </p>
+          ) : (
+            view.title.isTranslated && (
+              <p lang={toLangTag(article.language)} className="mb-6 text-body-md text-text-secondary">
+                {article.titleOriginal}
+              </p>
+            )
           )}
 
-          {view.bodyMode === 'translated' && (
-            <div className={BODY_TEXT}>
-              {view.bodyParagraphs.map((paragraph, i) => (
-                <p key={i}>{paragraph}</p>
+          {/* Share row (carries its own label) */}
+          <div className="mb-6">
+            <ShareButtons url={article.originalUrl} title={view.title.text} />
+          </div>
+
+          <hr className="mb-8 border-border" />
+
+          {/* Article Body — never hides what is missing: untranslated bodies get an editor's-note
+              rail, the Korean summary first, then the labelled original. */}
+          <div className="mb-8 space-y-8">
+            {view.bodyPending && view.bodyMode !== 'translated' && view.bodyMode !== 'empty' && (
+              <div data-translation-status="body-pending" className={NOTE}>
+                {BODY_PENDING_NOTICE[view.bodyMode]}
+              </div>
+            )}
+
+            {view.bodyMode === 'translated' && (
+              <div className={BODY_TEXT}>
+                {view.bodyParagraphs.map((paragraph, i) => (
+                  <p key={i}>{paragraph}</p>
+                ))}
+              </div>
+            )}
+
+            {(view.bodyMode === 'summary+original' || view.bodyMode === 'summary') && view.summary && (
+              <section aria-label="한국어 요약">
+                <p className="mb-2 text-overline text-text-muted">요약</p>
+                <div className={BODY_TEXT}>
+                  <p>{view.summary}</p>
+                </div>
+              </section>
+            )}
+
+            {(view.bodyMode === 'summary+original' || view.bodyMode === 'original') && originalBlock(false)}
+
+            {view.isExcerpt && view.bodyMode !== 'empty' && (
+              <p data-body-excerpt className={NOTE}>
+                원문 매체({article.source.sourceName})가 기사 앞부분만 제공해 요약 분량만 실려 있습니다 ·{' '}
+                <a
+                  href={article.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn('underline underline-offset-2', QUIET_LINK)}
+                >
+                  전체 기사 원문 보기
+                </a>
+              </p>
+            )}
+
+            {view.bodyMode === 'empty' && (
+              <p className="text-body-md text-text-secondary">
+                본문이 제공되지 않는 기사입니다 · 아래 &apos;원문 보기&apos;로 원문 사이트에서 확인하세요
+              </p>
+            )}
+          </div>
+
+          {/* Original text, collapsed, when the Korean translation is the body */}
+          {view.bodyMode === 'translated' && view.originalParagraphs.length > 0 && (
+            <details className="group mb-6">
+              <summary className={cn('inline-flex h-10 cursor-pointer items-center gap-2 text-body-md text-text-secondary', QUIET_LINK)}>
+                <span className="inline-flex transition-transform group-open:rotate-90">
+                  <ChevronRightIcon />
+                </span>
+                {view.originalLabel === '원문' ? '원문 보기' : `원문 보기 (${view.originalLabel})`}
+              </summary>
+              {originalBlock(true)}
+            </details>
+          )}
+
+          {/* Foot: the same dateline, then the way out to the source and back to the list */}
+          <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 text-body-md text-text-secondary">
+            {dateline}
+            <a
+              href={article.originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn('inline-flex items-center gap-2', QUIET_LINK)}
+            >
+              원문 보기
+              <ExternalIcon />
+            </a>
+            <Link href="/" className={QUIET_LINK}>목록으로</Link>
+          </div>
+
+          {/* Tags */}
+          {article.tags?.length > 0 && (
+            <div className="mb-8 flex flex-wrap gap-2">
+              {article.tags.map((tag) => (
+                <Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`} className={TAG}>
+                  #{tag}
+                </Link>
               ))}
             </div>
           )}
+        </article>
 
-          {(view.bodyMode === 'summary+original' || view.bodyMode === 'summary') && view.summary && (
-            <section aria-label="한국어 요약">
-              <p className="text-overline uppercase tracking-widest text-accent mb-3">요약</p>
-              <div className={BODY_TEXT}>
-                <p>{view.summary}</p>
-              </div>
-            </section>
-          )}
+        {/* Banner Ad */}
+        <AdSlot size="banner" className="my-8" />
 
-          {(view.bodyMode === 'summary+original' || view.bodyMode === 'original') && originalBlock(false)}
-
-          {view.isExcerpt && view.bodyMode !== 'empty' && (
-            <p data-body-excerpt className="border-l-2 border-border pl-3 text-caption text-text-muted">
-              {article.source.sourceName}이(가) 기사 앞부분만 제공해 여기에는 요약 분량만 실려 있습니다 ·{' '}
-              <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                전체 기사 원문 보기
-              </a>
-            </p>
-          )}
-
-          {view.bodyMode === 'empty' && (
-            <p className="text-text-muted">
-              본문이 제공되지 않는 기사입니다 · 아래 &apos;원문 보기&apos;로 원문 사이트에서 확인하세요
-            </p>
-          )}
-        </div>
-
-        {/* Original text, collapsed, when the Korean translation is the body */}
-        {view.bodyMode === 'translated' && view.originalParagraphs.length > 0 && (
-          <details className="mb-6 group">
-            <summary className="cursor-pointer text-caption text-text-muted hover:text-text-secondary flex items-center gap-1.5 py-2 transition-colors">
-              <Chevron className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-              {view.originalLabel === '원문' ? '원문 보기' : `원문 보기 (${view.originalLabel})`}
-            </summary>
-            {originalBlock(true)}
-          </details>
+        {/* Related Articles */}
+        {related.length > 0 && (
+          <section className="border-t border-border pt-8">
+            <h2 className="mb-4 text-headline-md text-text">관련 기사</h2>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {related.map((a) => (
+                <NewsCard key={a.id} article={a} />
+              ))}
+            </div>
+          </section>
         )}
-
-        {/* Source Info + Actions */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-text-muted border-t border-border pt-4 mb-8">
-          <span>{article.source.sourceName}</span>
-          {dateLabel && <time dateTime={dateTime} className="tabular-nums">{dateLabel}</time>}
-          {article.author && <span>{article.author}</span>}
-          <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-text-secondary hover:text-accent transition-colors">
-            원문 보기
-            <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-          </a>
-          <Link href="/" className="text-text-secondary hover:text-accent transition-colors">목록으로</Link>
-        </div>
-
-        {/* Tags */}
-        {article.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-8">
-            {article.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/search?q=${encodeURIComponent(tag)}`}
-                className="text-caption bg-surface-elevated text-text-secondary px-2.5 py-1 rounded-pill border border-border hover:border-accent hover:text-accent transition-colors"
-              >
-                #{tag}
-              </Link>
-            ))}
-          </div>
-        )}
-      </article>
-
-      {/* Banner Ad */}
-      <AdSlot size="banner" className="my-6" />
-
-      {/* Related Articles */}
-      {related.length > 0 && (
-        <section className="border-t border-border pt-8">
-          <h2 className="text-headline-md text-text mb-5 flex items-center gap-2">
-            <span className="w-1 h-5 bg-accent rounded-full"></span>
-            관련 기사
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {related.map((a) => (
-              <NewsCard key={a.id} article={a} />
-            ))}
-          </div>
-        </section>
-      )}
+      </div>
     </div>
   );
 }

@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAdminJson, hasRowsWithId, isAbortError, type AdminFetchErrorKind } from '@/lib/admin-fetch';
 import { withBasePath } from '@/lib/site';
+import { BTN_GHOST_SM, BTN_PRIMARY, BTN_SECONDARY, FIELD, PANEL, TABLE_WRAP, TD, TD_MAIN, TD_NUM, TH, TH_NUM, TR, TR_SELECTED } from '@/lib/ui';
+import { cn, countryLabel, formatCount } from '@/lib/utils';
 import AdminLoadError, { AdminLoading } from '@/components/AdminLoadError';
+import { ActiveToggle } from '@/components/AdminParts';
+import PageHeading from '@/components/PageHeading';
 
 interface Source {
   id: number;
@@ -18,6 +22,19 @@ interface Source {
   createdAt: string;
   articleCount?: number;
 }
+
+// One wording for the stored codes, in the form and in the table.
+const SOURCE_TYPES = ['RSS', 'API', 'SITEMAP', 'HTML'] as const;
+const SOURCE_COUNTRIES = ['global', 'us', 'japan', 'china'] as const;
+const SOURCE_LANGUAGES = [
+  { code: 'en', label: '영어' },
+  { code: 'ja', label: '일본어' },
+  { code: 'zh', label: '중국어' },
+  { code: 'ko', label: '한국어' },
+] as const;
+const languageName = (code: string) => SOURCE_LANGUAGES.find((l) => l.code === code)?.label ?? code;
+
+const FIELD_LABEL = 'mb-2 block text-body-md text-text-secondary';
 
 const isSourcesPayload = (json: unknown): json is { sources: Source[] } => hasRowsWithId(json, 'sources');
 
@@ -88,7 +105,7 @@ export default function AdminSourcesPage() {
       });
       loadSources(true);
     } catch (err) {
-      alert(`소스 저장에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      alert(`소스를 저장하지 못했습니다\n${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally {
       setSaving(false);
     }
@@ -111,7 +128,7 @@ export default function AdminSourcesPage() {
       setSources((prev) =>
         prev.map((s) => (s.id === id ? { ...s, isEnabled } : s))
       );
-      alert('소스 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      alert('소스 상태를 바꾸지 못했습니다\n잠시 후 다시 시도하세요');
     }
   }
 
@@ -129,7 +146,7 @@ export default function AdminSourcesPage() {
   if (load.status !== 'ready') {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-text mb-6">소스 관리</h1>
+        <PageHeading title="소스 관리" />
         {load.status === 'loading' ? (
           <AdminLoading />
         ) : (
@@ -141,107 +158,110 @@ export default function AdminSourcesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-text">소스 관리 ({sources.length})</h1>
+      {/* While the form is open its submit button is the screen's one primary action. */}
+      <PageHeading title="소스 관리" count={sources.length} unit="개">
         <button
+          type="button"
           onClick={() => { setShowForm(!showForm); setEditSource(null); }}
-          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+          className={showForm ? BTN_SECONDARY : BTN_PRIMARY}
         >
-          {showForm ? '취소' : '새 소스 추가'}
+          {showForm ? '취소' : '소스 추가'}
         </button>
-      </div>
+      </PageHeading>
 
       {/* Add/Edit Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-surface-card rounded-lg shadow-card border border-border p-6 mb-6">
-          <h2 className="font-bold mb-4 text-text">{editSource ? '소스 수정' : '새 소스 추가'}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className={cn(PANEL, 'mb-6 p-5')}>
+          <h2 className="mb-4 text-headline-sm text-text">{editSource ? '소스 수정' : '소스 추가'}</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">소스명</label>
-              <input type="text" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} required className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none" />
+              <label htmlFor="src-name" className={FIELD_LABEL}>소스명</label>
+              <input id="src-name" type="text" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} required className={FIELD} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">타입</label>
-              <select value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })} className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none">
-                <option value="RSS">RSS</option>
-                <option value="API">API</option>
-                <option value="SITEMAP">SITEMAP</option>
-                <option value="HTML">HTML</option>
+              <label htmlFor="src-type" className={FIELD_LABEL}>타입</label>
+              <select id="src-type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })} className={FIELD}>
+                {SOURCE_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">국가</label>
-              <select value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none">
-                <option value="global">글로벌</option>
-                <option value="us">미국</option>
-                <option value="japan">일본</option>
-                <option value="china">중국</option>
+              <label htmlFor="src-country" className={FIELD_LABEL}>국가</label>
+              <select id="src-country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className={FIELD}>
+                {SOURCE_COUNTRIES.map((code) => (
+                  <option key={code} value={code}>{countryLabel(code)}</option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">언어</label>
-              <select value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none">
-                <option value="en">English</option>
-                <option value="ja">Japanese</option>
-                <option value="zh">Chinese</option>
-                <option value="ko">Korean</option>
+              <label htmlFor="src-language" className={FIELD_LABEL}>언어</label>
+              <select id="src-language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} className={FIELD}>
+                {SOURCE_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Base URL</label>
-              <input type="url" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} required className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none" />
+              <label htmlFor="src-base-url" className={FIELD_LABEL}>기본 URL</label>
+              <input id="src-base-url" type="url" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} required className={FIELD} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Feed URL</label>
-              <input type="url" value={form.feedUrl} onChange={(e) => setForm({ ...form, feedUrl: e.target.value })} className="w-full px-3 py-2 bg-surface border border-border text-text rounded focus:border-accent focus:outline-none" />
+              <label htmlFor="src-feed-url" className={FIELD_LABEL}>피드 URL</label>
+              <input id="src-feed-url" type="url" value={form.feedUrl} onChange={(e) => setForm({ ...form, feedUrl: e.target.value })} className={FIELD} />
             </div>
           </div>
           <div className="mt-4 flex gap-2">
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90 disabled:opacity-50">
-              {saving ? '저장 중...' : editSource ? '수정' : '추가'}
+            <button type="submit" disabled={saving} className={BTN_PRIMARY}>
+              {saving ? '저장 중' : editSource ? '수정' : '추가'}
             </button>
-            <button type="button" onClick={() => { setShowForm(false); setEditSource(null); }} className="px-4 py-2 border border-border text-text rounded hover:bg-surface-elevated">
+            <button type="button" onClick={() => { setShowForm(false); setEditSource(null); }} className={BTN_SECONDARY}>
               취소
             </button>
           </div>
         </form>
       )}
 
-      {/* Sources Table */}
-      <div className="bg-surface-card rounded-lg shadow-card border border-border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-elevated">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary">소스명</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">타입</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary">국가</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary hidden sm:table-cell">언어</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary">기사 수</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary">상태</th>
-              <th className="px-4 py-3 text-left font-medium text-text-secondary">작업</th>
+      {/* Sources Table. The row being edited is the selected one: a full surface step and an accent
+          rule on its first cell; hover and keyboard focus are half a step. */}
+      <div className={TABLE_WRAP}>
+        <table className="w-full text-body-md">
+          <thead>
+            <tr className="border-b border-border">
+              <th className={cn(TH, 'border-l-2 border-transparent')}>소스명</th>
+              <th className={cn(TH, 'hidden sm:table-cell')}>타입</th>
+              <th className={TH}>국가</th>
+              <th className={cn(TH, 'hidden sm:table-cell')}>언어</th>
+              <th className={TH_NUM}>기사 수</th>
+              <th className={TH}>상태</th>
+              <th className={TH}>작업</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-muted">
-            {sources.map((source) => (
-              <tr key={source.id} className="hover:bg-surface-elevated/50">
-                <td className="px-4 py-3 font-medium text-text">{source.sourceName}</td>
-                <td className="px-4 py-3 hidden sm:table-cell"><span className="px-2 py-0.5 bg-surface-elevated rounded text-xs text-text-secondary">{source.sourceType}</span></td>
-                <td className="px-4 py-3 text-text-secondary">{source.country}</td>
-                <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">{source.language}</td>
-                <td className="px-4 py-3 text-text">{(source.articleCount ?? 0).toLocaleString()}</td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => toggleSource(source.id, source.isEnabled)}
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${source.isEnabled ? 'bg-accent-green/15 text-accent-green' : 'bg-accent-red/15 text-accent-red'}`}
-                  >
-                    {source.isEnabled ? '활성' : '비활성'}
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => startEdit(source)} className="text-accent hover:underline text-xs">수정</button>
-                </td>
-              </tr>
-            ))}
+            {sources.map((source) => {
+              const selected = showForm && editSource?.id === source.id;
+              return (
+                <tr key={source.id} data-selected={selected ? '' : undefined} className={cn(TR, selected && TR_SELECTED)}>
+                  <td className={cn(TD_MAIN, 'whitespace-nowrap border-l-2', selected ? 'border-accent' : 'border-transparent')}>{source.sourceName}</td>
+                  <td className={cn(TD, 'hidden sm:table-cell')}>{source.sourceType}</td>
+                  <td className={TD}>{countryLabel(source.country)}</td>
+                  <td className={cn(TD, 'hidden sm:table-cell')}>{languageName(source.language)}</td>
+                  <td className={TD_NUM}>{formatCount(source.articleCount ?? 0)}</td>
+                  <td className={TD}>
+                    <ActiveToggle
+                      on={source.isEnabled}
+                      label={`${source.sourceName} ${source.isEnabled ? '비활성으로 전환' : '활성으로 전환'}`}
+                      onToggle={() => toggleSource(source.id, source.isEnabled)}
+                    />
+                  </td>
+                  <td className={TD}>
+                    <button type="button" onClick={() => startEdit(source)} className={BTN_GHOST_SM}>
+                      수정
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

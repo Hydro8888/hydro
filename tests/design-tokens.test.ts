@@ -316,7 +316,7 @@ describe('paging constants', () => {
 
 /** Class names the other slices will use; unused @layer classes are tree-shaken, so they are fed to Tailwind as raw content. */
 const CONTRACT_CLASSES =
-  'dateline img-standin nav-link nav-link-active font-serif font-mono text-meta text-overline rounded-tag rounded-control rounded-card rounded-panel ' +
+  'dateline img-standin font-serif font-mono text-meta text-overline rounded-tag rounded-control rounded-card rounded-panel ' +
   'shadow-float animate-fade-in bg-surface-deep text-accent-ink bg-live text-live text-positive text-negative transition-colors duration-200 duration-400 font-semibold';
 /** Class names that must NOT generate CSS any more. */
 const REMOVED_CLASSES =
@@ -457,8 +457,6 @@ describe('generated CSS (globals.css + tailwind.config.ts)', () => {
     assert.equal(t['transition-timing-function'], EASE);
     assert.equal(t['transition-duration'], '150ms');
     assert.equal(declsFor(root, '.duration-400')['transition-duration'], '400ms');
-    assert.match(declsFor(root, '.nav-link:hover').color, /^rgb\(239 233 222/);
-    assert.match(declsFor(root, '.nav-link-active').color, /^rgb\(240 136 62/);
     assert.match(declsFor(root, '.animate-fade-in').animation, /^fade-in 400ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/);
   });
 

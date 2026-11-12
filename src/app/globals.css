@@ -92,15 +92,6 @@
 }
 
 @layer components {
-  /* Hover stays neutral; the accent marks the current position only. */
-  .nav-link {
-    @apply px-3 py-2 text-sm font-medium text-text-secondary hover:text-text transition-colors;
-  }
-
-  .nav-link-active {
-    @apply text-accent border-b-2 border-accent;
-  }
-
   /* Wire time (formatWireTime): fixed-width figures, so times line up down a list.
      On surface-elevated add text-text-secondary. */
   .dateline {

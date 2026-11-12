@@ -531,17 +531,6 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
 
-/**
- * Estimates reading time in minutes based on character count.
- * Korean reading speed: ~500 characters per minute.
- * Returns at least 1.
- */
-export function estimateReadingTime(content: string | null | undefined): number {
-  if (!content) return 1;
-  const charCount = content.replace(/\s/g, '').length;
-  return Math.max(1, Math.round(charCount / 500));
-}
-
 // ---------------------------------------------------------------------------
 // Display title & language tags
 // ---------------------------------------------------------------------------

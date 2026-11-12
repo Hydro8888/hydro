@@ -261,7 +261,7 @@ describe('ArticleImage', () => {
 
 describe('ArticleHeroImage', () => {
   test('fixed frame, eager high-priority image, no category color, no uppercase wordmark', () => {
-    const out = html(h(ArticleHeroImage, { sources: getArticleImageSources(article), categoryPrimary: 'politics', sourceName: 'NHK' }));
+    const out = html(h(ArticleHeroImage, { sources: getArticleImageSources(article), sourceName: 'NHK' }));
     assert.match(out, /^<div class="relative w-full bg-surface-elevated aspect-\[16\/10\] sm:aspect-\[2\/1\]">/);
     assert.match(out, /fetchpriority="high"/);
     assert.match(out, /loading="eager"/);

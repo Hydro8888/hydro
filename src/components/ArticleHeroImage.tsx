@@ -13,8 +13,6 @@ interface ArticleHeroImageProps {
   fallback?: string;
   /** Defaults to '' (decorative — the headline follows right below). */
   alt?: string;
-  /** @deprecated Unused since the unslop pass: categories carry no color. Kept so existing callers compile. */
-  categoryPrimary?: string | null;
   /** Source name shown as a quiet wordmark when no photo is available. */
   sourceName?: string | null;
 }
@@ -38,7 +36,7 @@ export default function ArticleHeroImage({ sources, src, fallback, alt, sourceNa
         sources={list}
         alt={alt ?? ''}
         priority
-        sizes="(min-width: 920px) 896px, 100vw"
+        sizes="(min-width: 736px) 672px, 100vw"
         onSettled={setNoImage}
         className={cn('absolute inset-0 h-full w-full', noImage ? 'object-contain' : 'object-cover')}
       />

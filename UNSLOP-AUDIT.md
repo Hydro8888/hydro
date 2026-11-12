@@ -134,3 +134,17 @@ S5(백엔드)는 화면이 없어 이번 작업 대상이 아니다.
 - 제품 이름·기능·섹션 순서 변경, 새 기능·주장·데이터 추가
 - 제거한 장식을 다른 장식(글래스, 그레인, 네온, 벤토)으로 교체
 - 유료 이미지 생성(이미지 생성 도구가 연결돼 있지 않고, 앱 화면이라 필요하지 않음)
+
+## 6. 슬라이스 간 인터페이스 (계획을 병렬로 세우기 위한 고정 결정)
+
+- **빌드 유지 규칙.** 슬라이스 순서(S1→S2→S3→S4)의 매 단계에서 `npx tsc --noEmit`과 `next build`가 통과해야 한다. 앞 슬라이스가 지운 export·필드를 뒤 슬라이스 파일이 참조하면, 앞 슬라이스가 그 참조 **한 줄만** 최소 수정한다(디자인 변경은 뒤 슬라이스 몫).
+- **S1 → 모두.** 3절의 토큰·유틸. `CATEGORIES`에서 `icon`(이모지) 필드를 제거한다. `getCategoryStyle(slug)`는 `{ border, text, bg, borderAll }` 모양을 유지하고 모든 slug에 같은 중립 클래스를 돌려준다. `CATEGORY_COLORS`도 같은 중립값만 갖는다(색 클래스 문자열 0개).
+- **S2.** 글꼴 `<link>`(렌더 비차단)는 `layout.tsx`. 로고는 한 색 워드마크. 푸터 카테고리는 글자 링크만. AI 배지는 평범한 한 줄 문장.
+- **S3 컴포넌트 API** (S4가 사용):
+  - `NewsCardCompact`: `rank`를 주면 순위 숫자(랭킹 전용), 안 주면 왼쪽 칸에 통신 시각(`formatWireTime`, `.dateline`)을 보여 준다.
+  - `NewsCardLarge`: `lead?: boolean` — 홈 머리기사에만. 제목을 `font-serif` 큰 헤드라인으로. (`priority`는 이미지 로딩 우선순위 그대로)
+  - `NewsCard`·`NewsCardLarge`: "자세히 보기 →" 줄과 "N분 읽기" 제거(카드 전체가 링크). 메타 줄은 `매체명 · 통신 시각`. 카테고리는 색 없는 글자 라벨. 원문 사이트 링크는 조용한 아이콘 링크로 유지. 북마크 기능은 유지하되 블러·원형 배경 없이.
+  - `ArticleImage`: 카테고리 대체 사진을 보여 줄 때 `<img>`에 `img-standin` 클래스와 `data-standin` 속성을 붙인다(원본 사진·플레이스홀더에는 붙이지 않음).
+  - `Pagination`·`CountryTabs`·`BreakingTicker`: 현재 위치만 `accent`, 나머지는 중립. props 변경 없음.
+- **S4.** 홈 "최신 뉴스" 목록은 `rank`를 넘기지 않는다(시각 표시). 홈 머리기사에 `lead`. 섹션 제목 옆 색 막대 제거. 기사 상세 h1은 `font-serif`. 숫자는 `toLocaleString` 금지(서버·브라우저 차이) — S1의 `formatCount(n)`(`164,917`)를 쓴다.
+- **S1 추가 유틸.** `formatCount(n: number): string` — 천 단위 쉼표, 무효 입력은 `'0'`.
